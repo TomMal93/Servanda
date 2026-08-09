@@ -1,10 +1,11 @@
 # Servanda
 
-Prywatna, lokalna pamięć zewnętrzna dla ważnych spraw codzienności. Projekt jest obecnie przygotowywany dokumentacyjnie przed zbudowaniem nowej aplikacji od zera.
+Prywatna, lokalna pamięć zewnętrzna dla ważnych spraw codzienności. Projekt zakończył etap kompletowania specyfikacji D0 i rozpoczął etap P1, obejmujący budowę fundamentu hosta v1.
 
 ## Aktualny stan
 
-- Dokumentacja w `docs/` jest źródłem wymagań nowego projektu.
+- Dokumentacja w `docs/` jest źródłem wymagań nowego projektu, a etap D0 specyfikacji jest ukończony.
+- Aktywnym etapem jest P1: fundament bezpiecznego, bezstanowego hosta v1 i uruchomienia na Linuksie.
 - Docelowy stos to ASP.NET Core, Blazor Web App Interactive Server, EF Core i SQLite.
 - Linux jest podstawową platformą.
 - Pierwsze wydanie jest przeznaczone wyłącznie na komputery osobiste i laptopy; telefony i tablety są poza zakresem.

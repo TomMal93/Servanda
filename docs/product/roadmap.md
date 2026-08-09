@@ -5,7 +5,8 @@
 
 ## D0 — kompletna specyfikacja
 
-**Status:** aktywny  
+**Status:** ukończony
+
 **Rezultat:** na podstawie dokumentacji można rozpocząć implementację aplikacji od zera bez odtwarzania nieopisanych założeń.
 
 - ustalić zakres pierwszego wydania,
@@ -19,7 +20,8 @@
 
 ## P1 — fundament hosta v1
 
-**Status:** następny  
+**Status:** aktywny
+
 **Wersja:** v1  
 **Rezultat:** bezstanowa aplikacja uruchamia się bezpiecznie na Linuksie i pokazuje chronioną powłokę w lokalnej przeglądarce.
 
