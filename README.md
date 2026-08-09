@@ -6,7 +6,7 @@ Prywatna, lokalna pamięć zewnętrzna dla ważnych spraw codzienności. Projekt
 
 - Dokumentacja w `docs/` jest źródłem wymagań nowego projektu, a etap D0 specyfikacji jest ukończony.
 - Aktywnym etapem jest P1: fundament bezpiecznego, bezstanowego hosta v1 i uruchomienia na Linuksie.
-- Docelowy stos to ASP.NET Core, Blazor Web App Interactive Server, EF Core i SQLite.
+- Docelowy stos to .NET 10 LTS (`net10.0`), ASP.NET Core 10, Blazor Web App Interactive Server, EF Core i SQLite.
 - Linux jest podstawową platformą.
 - Pierwsze wydanie jest przeznaczone wyłącznie na komputery osobiste i laptopy; telefony i tablety są poza zakresem.
 - Wydanie użytkowe będzie uruchamiane z menu aplikacji przez launcher i skrót `.desktop`.

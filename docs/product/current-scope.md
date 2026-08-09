@@ -15,13 +15,13 @@ V1 jest fundamentowym wydaniem powłoki Servandy. Potwierdza bezpieczny sposób 
 
 - Linux jako podstawowy system użytkownika,
 - komputery osobiste i laptopy jako jedyna wspierana klasa urządzeń,
-- ASP.NET Core i Blazor Web App w trybie Interactive Server,
+- ASP.NET Core 10 i Blazor Web App na .NET 10 LTS w trybie Interactive Server,
 - lokalny proces nasłuchujący wyłącznie na loopbacku,
 - publikacja `self-contained` dla wybranej architektury Linuksa,
 - pojedyncza instancja procesu oraz launcher odnajdujący potwierdzony stan istniejącej instancji i otwierający ją w domyślnej przeglądarce,
 - sesja procesu inicjowana jednorazowym biletem launchera oraz ochrona `Host`, `Origin`, antiforgery i CSP zgodna z `security-model.md`,
 - skrót `.desktop` jako standardowa droga uruchomienia wydania użytkowego,
-- uruchomienie deweloperskie przez przypięte SDK .NET.
+- uruchomienie deweloperskie przez przypięte SDK .NET 10.
 
 ### Dane i bezpieczeństwo
 

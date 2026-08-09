@@ -7,7 +7,7 @@
 | ID | Decyzja | Konsekwencja |
 |---|---|---|
 | TD-001 | Servanda jest prywatną aplikacją `local-first` dla jednego użytkownika, a Linux jest platformą podstawową. | Brak kont, ról, synchronizacji i publicznego hostingu w pierwszym wydaniu. |
-| TD-002 | Aplikacja powstaje od zera w ASP.NET Core i Blazor Web App na przypiętym, wspieranym wydaniu LTS .NET. | Implementacja rozpoczyna się od rozwiązania zgodnego z bieżącą dokumentacją. |
+| TD-002 | Aplikacja powstaje od zera w ASP.NET Core 10 i Blazor Web App na .NET 10 LTS, z target framework `net10.0` i SDK przypiętym w `global.json`. | Implementacja rozpoczyna się od rozwiązania zgodnego z bieżącą dokumentacją; aktualizacje w obrębie .NET 10 stosują wspierane poprawki serwisowe bez zmiany target framework. |
 | TD-003 | Interaktywne widoki używają trybu Interactive Server. | Proces lokalny utrzymuje circuit; utrata połączenia musi mieć czytelny stan, a dane krytyczne nie mogą istnieć wyłącznie w pamięci circuitu. |
 | TD-004 | Od v2 kanonicznym magazynem jest jedna lokalna baza SQLite obsługiwana przez EF Core i wersjonowane migracje. | V1 nie tworzy bazy ani danych domenowych. Moduły v2 korzystają z transakcji, kluczy obcych i jednego kontraktu trwałości; pliki JSON służą do eksportu, nie do bieżącego zapisu. |
 | TD-005 | Dane, konfiguracja, stan i pliki runtime'u korzystają ze standardowych katalogów XDG. | Aktualizacja lub przeniesienie plików programu nie narusza danych użytkownika. |

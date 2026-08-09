@@ -26,7 +26,7 @@
 **Rezultat:** bezstanowa aplikacja uruchamia się bezpiecznie na Linuksie i pokazuje chronioną powłokę w lokalnej przeglądarce.
 
 - utworzyć rozwiązanie .NET zgodne z `code-conventions.md`,
-- przypiąć wspierane wydanie LTS SDK,
+- przypiąć SDK .NET 10 LTS i target framework `net10.0`,
 - utworzyć host Blazor Interactive Server nasłuchujący tylko na loopbacku,
 - wdrożyć sesję procesu inicjowaną przez launcher, filtrowanie `Host`, kontrolę `Origin`, antiforgery i wymuszaną CSP zgodnie z `security-model.md`,
 - wdrożyć prywatne katalogi XDG dla runtime i bezpiecznych logów; nie tworzyć pustego magazynu ustawień,

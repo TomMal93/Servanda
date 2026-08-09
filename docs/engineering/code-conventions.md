@@ -37,7 +37,7 @@ App -> Infrastructure -> Application/Domain
 
 ## Konfiguracja .NET
 
-- Przypnij wspierane SDK LTS w `global.json`.
+- Używaj .NET 10 LTS i target framework `net10.0`; przypnij SDK z linii 10.0 w `global.json`.
 - Włącz nullable reference types, implicit usings i analizatory .NET.
 - Traktuj ostrzeżenia projektu jako błędy; wyjątek wymaga lokalnego komentarza lub udokumentowanej decyzji.
 - Wspólne właściwości projektów należą do `Directory.Build.props`.
