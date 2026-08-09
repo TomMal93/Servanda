@@ -40,7 +40,7 @@ XDG_STATE_HOME="$PWD/.servanda-dev/state" \
 dotnet run --project src/Servanda.App
 ```
 
-Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Bieżący przyrost P1 tworzy prywatny runtime, blokadę instancji, sekret sterujący oraz atomowy deskryptor `starting`/`ready`. Launcher i wymiana biletu na sesję procesu są jeszcze w trakcie implementacji.
+Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Publikacja `self-contained`, wpis `.desktop` oraz chroniona akcja zamknięcia procesu pozostają w trakcie implementacji P1.
 
 Minimalna weryfikacja:
 

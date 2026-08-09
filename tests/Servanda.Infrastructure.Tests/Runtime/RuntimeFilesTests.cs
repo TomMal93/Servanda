@@ -26,19 +26,42 @@ public sealed class RuntimeFilesTests
         Assert.Equal("ready", descriptor.State);
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(descriptorPath));
         Assert.Empty(Directory.EnumerateFiles(temporaryDirectory.Path, "*.tmp"));
+
+        var readDescriptor = await new InstanceDescriptorReader(descriptorPath).TryReadReadyAsync();
+        Assert.Equal(descriptor, readDescriptor);
     }
 
     [Fact]
-    public async Task CreateAsyncWritesPrivate256BitSecret()
+    public async Task ReaderRejectsDescriptorThatIsNotReadyOrLoopback()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var descriptorPath = Path.Combine(temporaryDirectory.Path, "instance.json");
+        var store = new AtomicInstanceDescriptorStore(descriptorPath);
+        var reader = new InstanceDescriptorReader(descriptorPath);
+
+        await store.PublishAsync(InstanceDescriptor.Starting("instance-1", 123, "http://127.0.0.1:43210"));
+        Assert.Null(await reader.TryReadReadyAsync());
+
+        await store.PublishAsync(new InstanceDescriptor(1, "instance-1", 123, "http://192.168.1.20:43210", "ready"));
+        Assert.Null(await reader.TryReadReadyAsync());
+    }
+
+    [Fact]
+    public async Task CreateAndPublishAsyncWritesPrivate256BitSecret()
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var secretPath = Path.Combine(temporaryDirectory.Path, "control.secret");
 
-        await ControlSecretFile.CreateAsync(secretPath);
+        using var controlSecret = await ControlSecret.CreateAndPublishAsync(secretPath);
 
         var secret = await File.ReadAllBytesAsync(secretPath);
         Assert.Equal(32, secret.Length);
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(secretPath));
+        Assert.True(controlSecret.Authenticate(Convert.ToBase64String(secret)));
+        Assert.False(controlSecret.Authenticate(Convert.ToBase64String(new byte[32])));
+
+        var readSecret = await ControlSecretReader.TryReadAsync(secretPath);
+        Assert.Equal(secret, readSecret);
     }
 
     [Fact]
