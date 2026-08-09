@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- LibraryImport source generation for Linux ownership checks emits unsafe interop stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Servanda.Application\Servanda.Application.csproj" />
+  </ItemGroup>
+
+</Project>

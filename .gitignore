@@ -18,6 +18,7 @@
 mono_crash.*
 
 # Build results
+.servanda-dev/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/

@@ -27,16 +27,29 @@ Najważniejsze dokumenty:
 - [uruchomienie na Linuksie](./docs/engineering/linux-deployment.md),
 - [wymagania jakościowe](./docs/engineering/quality-requirements.md).
 
-## Przyszłe uruchomienie deweloperskie
+## Uruchomienie deweloperskie
 
-Po utworzeniu rozwiązania .NET podstawowy przepływ będzie miał postać:
+Rozwiązanie wymaga przypiętego w `global.json` SDK .NET 10. Tryb deweloperski używa jawnie odizolowanych katalogów XDG w repozytorium, aby nigdy nie dotknąć produkcyjnego runtime'u użytkownika:
 
 ```bash
 dotnet restore
+mkdir -p .servanda-dev/runtime .servanda-dev/state
+chmod 700 .servanda-dev/runtime .servanda-dev/state
+XDG_RUNTIME_DIR="$PWD/.servanda-dev/runtime" \
+XDG_STATE_HOME="$PWD/.servanda-dev/state" \
 dotnet run --project src/Servanda.App
 ```
 
-Polecenia są kontraktem planowanego bootstrapu. Do czasu powstania wskazanego projektu nie są jeszcze wykonywalne. README MUSI zostać zaktualizowane przy utworzeniu rozwiązania.
+Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Bieżący przyrost P1 tworzy prywatny runtime, blokadę instancji, sekret sterujący oraz atomowy deskryptor `starting`/`ready`. Launcher i wymiana biletu na sesję procesu są jeszcze w trakcie implementacji.
+
+Minimalna weryfikacja:
+
+```bash
+dotnet restore
+dotnet format --verify-no-changes
+dotnet build --no-restore
+dotnet test --no-build
+```
 
 ## Ochrona danych
 
