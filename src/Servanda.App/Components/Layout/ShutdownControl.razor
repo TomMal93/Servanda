@@ -1,0 +1,28 @@
+<section aria-labelledby="shutdown-heading">
+    <h2 id="shutdown-heading">Zamykanie aplikacji</h2>
+
+    <button type="button"
+            aria-expanded="@_isConfirmationVisible"
+            aria-controls="shutdown-confirmation"
+            @onclick="ToggleConfirmation">
+        @(_isConfirmationVisible ? "Anuluj zamykanie" : "Zamknij Servandę")
+    </button>
+
+    <form id="shutdown-confirmation"
+          method="post"
+          action="@ShutdownEndpoint.Path"
+          aria-describedby="shutdown-warning"
+          hidden="@(!_isConfirmationVisible)">
+        <AntiforgeryToken />
+        <p id="shutdown-warning" role="alert">
+            Zamknięcie Servandy rozłączy wszystkie otwarte karty aplikacji.
+        </p>
+        <button type="submit">Tak, zamknij Servandę</button>
+    </form>
+</section>
+
+@code {
+    private bool _isConfirmationVisible;
+
+    private void ToggleConfirmation() => _isConfirmationVisible = !_isConfirmationVisible;
+}

@@ -140,6 +140,7 @@ public class Program
             .WithMetadata(new RequestSizeLimitAttribute(1024));
 
         app.MapStaticAssets();
+        app.MapShutdown();
         app.MapRazorComponents<Servanda.App.Components.App>()
             .AddInteractiveServerRenderMode();
 

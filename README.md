@@ -40,7 +40,27 @@ XDG_STATE_HOME="$PWD/.servanda-dev/state" \
 dotnet run --project src/Servanda.App
 ```
 
-Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Publikacja `self-contained`, wpis `.desktop` oraz chroniona akcja zamknięcia procesu pozostają w trakcie implementacji P1.
+Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Chroniona akcja „Zamknij Servandę” wymaga potwierdzenia w interfejsie, sesji procesu, dokładnego originu i tokenu antiforgery. Publikacja `self-contained` oraz wpis `.desktop` pozostają w trakcie implementacji P1.
+
+### Otwieranie przeglądarki przy izolowanym runtime deweloperskim
+
+Aktualny launcher przekazuje przeglądarce zmienną `XDG_RUNTIME_DIR` ustawioną dla Servandy. Gdy wskazuje ona `.servanda-dev/runtime`, Firefox lub systemowy mechanizm otwierania adresów może utracić dostęp do sesyjnego D-Bus w `/run/user/<UID>` i zakończyć się komunikatem podobnym do `Failed to synchronize with dbus proxy`. Host może mimo tego pozostać gotowy; potwierdza to prywatny deskryptor `.servanda-dev/runtime/servanda/instance.json`.
+
+Do czasu poprawienia separacji środowiska launchera działającą instancję można bezpiecznie otworzyć w Firefoksie następująco:
+
+```bash
+runtime="$PWD/.servanda-dev/runtime/servanda"
+origin=$(jq -r .origin "$runtime/instance.json")
+control=$(base64 -w0 "$runtime/control.secret")
+ticket=$(curl -fsS -X POST \
+  -H "X-Servanda-Control: $control" \
+  "$origin/launcher/ticket" | jq -r .ticket)
+
+XDG_RUNTIME_DIR="/run/user/$(id -u)" \
+firefox --new-tab "$origin/bootstrap#ticket=$ticket"
+```
+
+Nie należy otwierać samego originu z deskryptora. Bez jednorazowego biletu przeglądarka nie otrzyma wymaganej sesji procesu. Polecenie zachowuje izolowany runtime hosta, a systemowy `XDG_RUNTIME_DIR` przywraca wyłącznie procesowi przeglądarki.
 
 Minimalna weryfikacja:
 

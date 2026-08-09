@@ -88,6 +88,64 @@ public sealed class ProcessSessionMiddlewareTests
         Assert.True(nextCalled);
     }
 
+    [Fact]
+    public async Task ShutdownPostWithoutCanonicalOriginIsRejected()
+    {
+        var nextCalled = false;
+        var middleware = new ProcessSessionMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var sessions = new ProcessSessionStore();
+        var session = sessions.Create();
+        var context = CreateContext("POST", ShutdownEndpoint.Path);
+        context.Request.Headers.Cookie = $"{ProcessSessionStore.CookieName}={session}";
+
+        await middleware.InvokeAsync(context, CreateRuntimeState(), sessions);
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShutdownPostWithoutSessionIsRejected()
+    {
+        var nextCalled = false;
+        var middleware = new ProcessSessionMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var context = CreateContext("POST", ShutdownEndpoint.Path);
+        context.Request.Headers.Origin = Origin.GetLeftPart(UriPartial.Authority);
+
+        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AuthenticatedShutdownPostWithCanonicalOriginContinuesToAntiforgery()
+    {
+        var nextCalled = false;
+        var middleware = new ProcessSessionMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var sessions = new ProcessSessionStore();
+        var session = sessions.Create();
+        var context = CreateContext("POST", ShutdownEndpoint.Path);
+        context.Request.Headers.Origin = Origin.GetLeftPart(UriPartial.Authority);
+        context.Request.Headers.Cookie = $"{ProcessSessionStore.CookieName}={session}";
+
+        await middleware.InvokeAsync(context, CreateRuntimeState(), sessions);
+
+        Assert.True(nextCalled);
+    }
+
     private static DefaultHttpContext CreateContext(string method, string path)
     {
         var context = new DefaultHttpContext();

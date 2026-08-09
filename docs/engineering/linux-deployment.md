@@ -12,6 +12,8 @@ Standardowy przepływ nie wymaga terminala:
 4. przez prywatny sekret sterujący pobiera jednorazowy bilet i otwiera bootstrap potwierdzonego adresu loopback w domyślnej przeglądarce,
 5. host w stanie `ready` pokazuje ekran główny.
 
+Środowisko procesu przeglądarki MUSI zachować dostęp do sesji graficznej użytkownika i jej D-Bus. Jeżeli tryb deweloperski ustawia izolowany `XDG_RUNTIME_DIR` dla plików Servandy, launcher nie może przekazać tej wartości bezpośrednio do systemowego mechanizmu otwierania adresu. Przeglądarka otrzymuje właściwy runtime sesji użytkownika, natomiast host i pliki Servandy pozostają w katalogu deweloperskim. Sekret sterujący ani bilet nie mogą przy tym trafić do zmiennych środowiskowych przeglądarki.
+
 Ponowne kliknięcie skrótu nie uruchamia drugiego hosta. Otwiera istniejącą instancję. Interfejs zawiera akcję „Zamknij Servandę”, która po potwierdzeniu kończy lokalny proces. Samo zamknięcie karty nie musi kończyć aplikacji. Od v2 launcher akceptuje również potwierdzony stan `recovery` i otwiera wtedy wyłącznie ekran odzyskiwania.
 
 „Launcher” oznacza odpowiedzialność bootstrapu, nie wymusza osobnego projektu ani długowiecznego procesu. Może być krótkotrwałym trybem tego samego pliku wykonywalnego co host. Po pierwszym uruchomieniu blokadę instancji utrzymuje część hostująca; przy kolejnych uruchomieniach proces bootstrapu otwiera istniejący adres i kończy się. Od v2 host utrzymuje także osobną blokadę kanonicznej bazy.
@@ -86,6 +88,8 @@ dotnet run --project src/Servanda.App
 ```
 
 Rzeczywiste nazwy projektu i polecenia MUSZĄ zostać zsynchronizowane z README w chwili bootstrapu. Tryb deweloperski może używać katalogu danych repozytorium lub katalogu tymczasowego wyłącznie po jawnym ustawieniu środowiska deweloperskiego; nie może przypadkowo otworzyć produkcyjnej bazy użytkownika.
+
+Izolacja deweloperskiego `XDG_RUNTIME_DIR` nie może psuć integracji pulpitu. Do czasu wdrożenia rozdzielenia środowiska hosta i przeglądarki obowiązujące obejście diagnostyczne, które pobiera nowy jednorazowy bilet i przywraca systemowy runtime wyłącznie procesowi Firefoksa, opisuje główny `README.md`.
 
 ## Aktualizacja i odinstalowanie
 
