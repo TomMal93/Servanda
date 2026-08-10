@@ -20,7 +20,7 @@
 
 ## P1 — fundament hosta v1
 
-**Status:** aktywny
+**Status:** ukończony
 
 **Wersja:** v1  
 **Rezultat:** bezstanowa aplikacja uruchamia się bezpiecznie na Linuksie i pokazuje chronioną powłokę w lokalnej przeglądarce.
@@ -38,7 +38,7 @@
 
 ## P2 — pulpit v1
 
-**Status:** później  
+**Status:** aktywny
 **Wersja:** v1  
 **Rezultat:** użytkownik widzi docelową powłokę i statyczny pulpit planowanych obszarów bez pozorowania gotowych modułów.
 

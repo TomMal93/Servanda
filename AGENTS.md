@@ -2,9 +2,9 @@
 
 ## Stan projektu
 
-Repozytorium jest w fazie dokumentacyjnej przed budową aplikacji od zera. Dokumentacja w `docs/` definiuje nowy produkt. W repozytorium nie ma wcześniejszej implementacji ani danych do migracji.
+Repozytorium zawiera ukończony fundament hosta P1 budowanej od zera aplikacji. Dokumentacja w `docs/` definiuje nowy produkt. Nie ma wcześniejszej implementacji ani danych do migracji.
 
-Nowe rozwiązanie .NET powstaje dopiero zgodnie z etapami `docs/product/roadmap.md`.
+Aktywnym etapem jest P2 — statyczny pulpit v1. Rozwiązanie .NET rozwijaj zgodnie z kolejnością w `docs/product/roadmap.md`.
 
 ## Czytaj tylko potrzebny kontekst
 
@@ -25,9 +25,9 @@ Nowe rozwiązanie .NET powstaje dopiero zgodnie z etapami `docs/product/roadmap.
 
 Nie wczytuj całego `docs/`, gdy zadanie dotyczy jednego obszaru.
 
-## Docelowa mapa rozwiązania
+## Mapa rozwiązania
 
-Do utworzenia podczas P1; odpowiedzialności danych pozostają puste do etapów v2:
+Utworzona podczas P1; odpowiedzialności danych pozostają puste do etapów v2:
 
 | Odpowiedzialność | Docelowa ścieżka |
 |---|---|
@@ -40,7 +40,7 @@ Do utworzenia podczas P1; odpowiedzialności danych pozostają puste do etapów 
 | testy infrastruktury | `tests/Servanda.Infrastructure.Tests/` |
 | testy przepływów użytkownika | `tests/Servanda.E2E/` |
 
-Po bootstrapie zaktualizuj tabelę, jeżeli rzeczywiste ścieżki są inne. Kod, migracje i testy staną się źródłem szczegółów wdrożenia, ale nie mogą po cichu zmieniać kontraktów dokumentacji.
+Zaktualizuj tabelę, jeżeli rzeczywiste ścieżki się zmienią. Kod, migracje i testy są źródłem szczegółów wdrożenia, ale nie mogą po cichu zmieniać kontraktów dokumentacji.
 
 ## Reguły pracy
 

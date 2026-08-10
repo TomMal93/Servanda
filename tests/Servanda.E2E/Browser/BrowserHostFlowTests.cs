@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Playwright;
-using Servanda.App.Launching;
 using Servanda.App.Security;
 using Servanda.Infrastructure.Runtime;
 
@@ -32,21 +31,63 @@ public sealed class BrowserHostFlowTests
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var runtimeBase = Path.Combine(temporaryPath, "runtime");
         var stateBase = Path.Combine(temporaryPath, "state");
+        var dataBase = Path.Combine(temporaryPath, "data");
+        var homeDirectory = Path.Combine(temporaryPath, "home");
+        var shimDirectory = Path.Combine(temporaryPath, "bin");
+        var openedAddressesPath = Path.Combine(temporaryPath, "opened-addresses.txt");
+        Directory.CreateDirectory(homeDirectory);
+        Directory.CreateDirectory(shimDirectory);
+        await CreateXdgOpenShimAsync(shimDirectory);
         var paths = new ServandaPaths(Path.Combine(runtimeBase, "servanda"), Path.Combine(stateBase, "servanda"));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        using var host = StartHost(executablePath, runtimeBase, stateBase);
+        Process? host = null;
 
         try
         {
+            var installResult = await RunDesktopInstallerAsync(
+                artifactDirectory,
+                dataBase,
+                homeDirectory,
+                timeout.Token);
+            Assert.Equal(0, installResult);
+            var installedExecutablePath = await ReadDesktopExecutableAsync(dataBase, timeout.Token);
+            Assert.Equal(executablePath, installedExecutablePath);
+
+            var firstLauncherResult = await RunLauncherAsync(
+                installedExecutablePath,
+                runtimeBase,
+                stateBase,
+                homeDirectory,
+                shimDirectory,
+                openedAddressesPath,
+                timeout.Token);
+            Assert.Equal(0, firstLauncherResult);
             var descriptor = await WaitForReadyDescriptorAsync(paths.DescriptorPath, timeout.Token);
-            var platform = new RecordingLauncherPlatform();
+            host = Process.GetProcessById(descriptor.ProcessId);
+            var firstOpenedAddresses = await WaitForOpenedAddressesAsync(openedAddressesPath, 1, timeout.Token);
+            Assert.StartsWith(
+                $"{descriptor.Origin}/bootstrap#ticket=",
+                firstOpenedAddresses[0],
+                StringComparison.Ordinal);
 
-            var launcherResult = await new Launcher(paths, platform).RunAsync(timeout.Token);
+            var secondLauncherResult = await RunLauncherAsync(
+                installedExecutablePath,
+                runtimeBase,
+                stateBase,
+                homeDirectory,
+                shimDirectory,
+                openedAddressesPath,
+                timeout.Token);
+            Assert.Equal(0, secondLauncherResult);
+            var descriptorAfterSecondLaunch = await WaitForReadyDescriptorAsync(paths.DescriptorPath, timeout.Token);
+            var openedAddresses = await WaitForOpenedAddressesAsync(openedAddressesPath, 2, timeout.Token);
 
-            Assert.Equal(0, launcherResult);
-            Assert.Equal(0, platform.HostStartCount);
-            var bootstrapAddress = Assert.IsType<string>(platform.OpenedAddress);
+            Assert.Equal(descriptor.InstanceId, descriptorAfterSecondLaunch.InstanceId);
+            Assert.Equal(descriptor.ProcessId, descriptorAfterSecondLaunch.ProcessId);
+            Assert.False(host.HasExited);
+            var bootstrapAddress = openedAddresses[1];
             Assert.StartsWith($"{descriptor.Origin}/bootstrap#ticket=", bootstrapAddress, StringComparison.Ordinal);
+            Assert.NotEqual(openedAddresses[0], bootstrapAddress);
 
             using var playwright = await Playwright.CreateAsync();
             await using var browser = await LaunchBrowserAsync(playwright, browserName);
@@ -145,11 +186,18 @@ public sealed class BrowserHostFlowTests
                 await shutdownResponse.TextAsync(),
                 StringComparison.Ordinal);
             await host.WaitForExitAsync(timeout.Token);
-            Assert.Equal(0, host.ExitCode);
+            Assert.True(host.HasExited);
+            Assert.False(File.Exists(paths.DescriptorPath));
+            Assert.False(File.Exists(paths.ControlSecretPath));
         }
         finally
         {
-            await StopProcessAsync(host);
+            if (host is not null)
+            {
+                await StopProcessAsync(host);
+                host.Dispose();
+            }
+
             Directory.Delete(temporaryPath, recursive: true);
         }
     }
@@ -162,22 +210,97 @@ public sealed class BrowserHostFlowTests
             _ => throw new ArgumentOutOfRangeException(nameof(browserName), browserName, "Nieobsługiwana przeglądarka testowa."),
         };
 
-    private static Process StartHost(string executablePath, string runtimeBase, string stateBase)
+    private static async Task CreateXdgOpenShimAsync(string shimDirectory)
+    {
+        var shimPath = Path.Combine(shimDirectory, "xdg-open");
+        await File.WriteAllTextAsync(
+            shimPath,
+            "#!/bin/sh\nset -eu\nprintf '%s\\n' \"$1\" >> \"$SERVANDA_XDG_OPEN_CAPTURE\"\n");
+        File.SetUnixFileMode(
+            shimPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
+    private static async Task<int> RunDesktopInstallerAsync(
+        string artifactDirectory,
+        string dataHome,
+        string homeDirectory,
+        CancellationToken cancellationToken)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/sh",
+            UseShellExecute = false,
+            ArgumentList = { Path.Combine(artifactDirectory, "install-desktop.sh") },
+        };
+        startInfo.Environment["HOME"] = homeDirectory;
+        startInfo.Environment["XDG_DATA_HOME"] = dataHome;
+
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Nie udało się uruchomić instalatora wpisu desktop.");
+        await process.WaitForExitAsync(cancellationToken);
+        return process.ExitCode;
+    }
+
+    private static async Task<string> ReadDesktopExecutableAsync(
+        string dataHome,
+        CancellationToken cancellationToken)
+    {
+        var desktopPath = Path.Combine(dataHome, "applications", "servanda.desktop");
+        var lines = await File.ReadAllLinesAsync(desktopPath, cancellationToken);
+        var execLine = Assert.Single(lines, line => line.StartsWith("Exec=", StringComparison.Ordinal));
+        Assert.StartsWith("Exec=\"", execLine, StringComparison.Ordinal);
+        Assert.EndsWith("\"", execLine, StringComparison.Ordinal);
+        return execLine[6..^1];
+    }
+
+    private static async Task<int> RunLauncherAsync(
+        string executablePath,
+        string runtimeBase,
+        string stateBase,
+        string homeDirectory,
+        string shimDirectory,
+        string openedAddressesPath,
+        CancellationToken cancellationToken)
     {
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
             WorkingDirectory = Path.GetDirectoryName(executablePath)!,
             UseShellExecute = false,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true,
-            ArgumentList = { "--host" },
         };
+        startInfo.Environment["HOME"] = homeDirectory;
+        startInfo.Environment["PATH"] = $"{shimDirectory}:{Environment.GetEnvironmentVariable("PATH")}";
         startInfo.Environment["XDG_RUNTIME_DIR"] = runtimeBase;
         startInfo.Environment["XDG_STATE_HOME"] = stateBase;
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Production";
+        startInfo.Environment["SERVANDA_XDG_OPEN_CAPTURE"] = openedAddressesPath;
 
-        return Process.Start(startInfo) ?? throw new InvalidOperationException("Nie udało się uruchomić hosta z artefaktu.");
+        using var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("Nie udało się uruchomić launchera z artefaktu.");
+        await process.WaitForExitAsync(cancellationToken);
+        return process.ExitCode;
+    }
+
+    private static async Task<string[]> WaitForOpenedAddressesAsync(
+        string path,
+        int expectedCount,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(path))
+            {
+                var addresses = await File.ReadAllLinesAsync(path, cancellationToken);
+                if (addresses.Length >= expectedCount)
+                {
+                    return addresses;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+        }
     }
 
     private static async Task<InstanceDescriptor> WaitForReadyDescriptorAsync(
@@ -222,24 +345,4 @@ public sealed class BrowserHostFlowTests
         }
     }
 
-    private sealed class RecordingLauncherPlatform : ILauncherPlatform
-    {
-        internal int HostStartCount { get; private set; }
-
-        internal string? OpenedAddress { get; private set; }
-
-        public bool StartHost()
-        {
-            HostStartCount++;
-            return false;
-        }
-
-        public bool OpenBrowser(string address)
-        {
-            OpenedAddress = address;
-            return true;
-        }
-
-        public bool ShowError() => false;
-    }
 }
