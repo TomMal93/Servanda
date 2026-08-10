@@ -19,21 +19,36 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var launcherPlatform = new LinuxLauncherPlatform();
-        ServandaPaths paths;
+        return await RunWithErrorBoundaryAsync(
+            args,
+            launcherPlatform,
+            () => RunAsync(args, launcherPlatform));
+    }
+
+    internal static async Task<int> RunWithErrorBoundaryAsync(
+        string[] args,
+        ILauncherPlatform launcherPlatform,
+        Func<Task<int>> run)
+    {
         try
         {
-            paths = new ServandaPathProvider().CreateAndVerify();
+            return await run();
         }
-        catch (Exception exception) when (IsPathInitializationFailure(exception))
+        catch (Exception)
         {
-            Console.Error.WriteLine("Nie udało się przygotować bezpiecznych katalogów Servandy.");
+            Console.Error.WriteLine("Servanda nie mogła się bezpiecznie uruchomić.");
             if (args.Length == 0)
             {
-                launcherPlatform.ShowError();
+                TryShowError(launcherPlatform);
             }
 
             return 1;
         }
+    }
+
+    private static async Task<int> RunAsync(string[] args, ILauncherPlatform launcherPlatform)
+    {
+        var paths = new ServandaPathProvider().CreateAndVerify();
 
         if (args.Length == 0)
         {
@@ -49,14 +64,17 @@ public class Program
         return await RunHostAsync(paths);
     }
 
-    private static bool IsPathInitializationFailure(Exception exception) =>
-        exception is IOException
-            or UnauthorizedAccessException
-            or InvalidOperationException
-            or PlatformNotSupportedException
-            or EntryPointNotFoundException
-            or DllNotFoundException
-            or BadImageFormatException;
+    private static void TryShowError(ILauncherPlatform launcherPlatform)
+    {
+        try
+        {
+            launcherPlatform.ShowError();
+        }
+        catch (Exception)
+        {
+            // The static error page is the final fallback and must not replace the original failure.
+        }
+    }
 
     private static async Task<int> RunHostAsync(ServandaPaths paths)
     {

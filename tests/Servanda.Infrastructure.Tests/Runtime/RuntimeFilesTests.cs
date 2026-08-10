@@ -65,6 +65,20 @@ public sealed class RuntimeFilesTests
     }
 
     [Fact]
+    public async Task SecretReaderRejectsFileWithNonPrivateMode()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var secretPath = Path.Combine(temporaryDirectory.Path, "control.secret");
+        await File.WriteAllBytesAsync(secretPath, new byte[32]);
+        File.SetUnixFileMode(
+            secretPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => ControlSecretReader.TryReadAsync(secretPath));
+    }
+
+    [Fact]
     public void TryAcquireAllowsOnlyOneActiveLock()
     {
         using var temporaryDirectory = new TemporaryDirectory();

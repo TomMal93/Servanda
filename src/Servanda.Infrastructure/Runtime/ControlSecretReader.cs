@@ -8,6 +8,7 @@ public static class ControlSecretReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var secret = new byte[SecretSize];
+        var succeeded = false;
         try
         {
             if (!File.Exists(path))
@@ -29,12 +30,19 @@ public static class ControlSecretReader
                 bufferSize: SecretSize,
                 useAsync: true);
             await stream.ReadExactlyAsync(secret, cancellationToken);
+            succeeded = true;
             return secret;
         }
         catch (IOException)
         {
-            System.Security.Cryptography.CryptographicOperations.ZeroMemory(secret);
             return null;
+        }
+        finally
+        {
+            if (!succeeded)
+            {
+                System.Security.Cryptography.CryptographicOperations.ZeroMemory(secret);
+            }
         }
     }
 }

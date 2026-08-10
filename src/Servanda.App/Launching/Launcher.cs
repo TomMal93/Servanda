@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Servanda.Infrastructure.Runtime;
 
 namespace Servanda.App.Launching;
@@ -21,6 +22,22 @@ public sealed class Launcher
     }
 
     public async Task<int> RunAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await RunCoreAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return Fail("Nie udało się bezpiecznie uruchomić Servandy.");
+        }
+    }
+
+    private async Task<int> RunCoreAsync(CancellationToken cancellationToken)
     {
         var descriptor = await WaitForConfirmedInstanceAsync(ExistingInstanceWait, cancellationToken);
         if (descriptor is null)
@@ -90,6 +107,14 @@ public sealed class Launcher
         {
             return false;
         }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return false;
@@ -124,6 +149,18 @@ public sealed class Launcher
         {
             return null;
         }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
         finally
         {
             CryptographicOperations.ZeroMemory(secret);
@@ -149,7 +186,15 @@ public sealed class Launcher
     private int Fail(string message)
     {
         Console.Error.WriteLine(message);
-        _platform.ShowError();
+        try
+        {
+            _platform.ShowError();
+        }
+        catch (Exception)
+        {
+            // Reporting a startup failure must not surface another unhandled exception.
+        }
+
         return 1;
     }
 
