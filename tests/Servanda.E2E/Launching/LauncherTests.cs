@@ -112,6 +112,93 @@ public sealed class LauncherTests
         }
     }
 
+    [Fact]
+    public async Task UnconfirmedDescriptorIsNotOpenedAndFallsBackToStartingHost()
+    {
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"servanda-launcher-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(
+            temporaryPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var paths = new ServandaPaths(temporaryPath, temporaryPath);
+        var expectedInstanceId = Guid.NewGuid().ToString("N");
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        await using var app = builder.Build();
+        app.MapGet("/instance", () => Results.Ok(new
+        {
+            formatVersion = InstanceDescriptor.CurrentFormatVersion,
+            instanceId = Guid.NewGuid().ToString("N"),
+            state = "ready",
+        }));
+
+        try
+        {
+            await app.StartAsync();
+            var descriptor = InstanceDescriptor
+                .Starting(expectedInstanceId, Environment.ProcessId, app.Urls.Single())
+                .Ready();
+            await new AtomicInstanceDescriptorStore(paths.DescriptorPath).PublishAsync(descriptor);
+            var platform = new RecordingLauncherPlatform
+            {
+                HostStartResult = false,
+            };
+
+            var result = await new Launcher(paths, platform).RunAsync();
+
+            Assert.Equal(1, result);
+            Assert.Equal(1, platform.HostStartCount);
+            Assert.Equal(1, platform.ErrorCount);
+            Assert.Null(platform.OpenedAddress);
+        }
+        finally
+        {
+            await app.StopAsync();
+            Directory.Delete(temporaryPath, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ConfirmedInstanceWithoutControlSecretShowsErrorWithoutOpeningBrowser()
+    {
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"servanda-launcher-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(
+            temporaryPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var paths = new ServandaPaths(temporaryPath, temporaryPath);
+        var instanceId = Guid.NewGuid().ToString("N");
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        await using var app = builder.Build();
+        app.MapGet("/instance", () => Results.Ok(new
+        {
+            formatVersion = InstanceDescriptor.CurrentFormatVersion,
+            instanceId,
+            state = "ready",
+        }));
+
+        try
+        {
+            await app.StartAsync();
+            var descriptor = InstanceDescriptor
+                .Starting(instanceId, Environment.ProcessId, app.Urls.Single())
+                .Ready();
+            await new AtomicInstanceDescriptorStore(paths.DescriptorPath).PublishAsync(descriptor);
+            var platform = new RecordingLauncherPlatform();
+
+            var result = await new Launcher(paths, platform).RunAsync();
+
+            Assert.Equal(1, result);
+            Assert.Equal(0, platform.HostStartCount);
+            Assert.Equal(1, platform.ErrorCount);
+            Assert.Null(platform.OpenedAddress);
+        }
+        finally
+        {
+            await app.StopAsync();
+            Directory.Delete(temporaryPath, recursive: true);
+        }
+    }
+
     private sealed class RecordingLauncherPlatform : ILauncherPlatform
     {
         internal bool HostStartResult { get; init; } = true;

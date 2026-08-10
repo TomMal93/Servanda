@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Servanda.App.Security;
 using Servanda.Infrastructure.Runtime;
 
 namespace Servanda.E2E.Security;
@@ -48,6 +51,25 @@ public sealed class HostSecurityProcessTests
                 Assert.False(anonymousResponse.Headers.Contains("Access-Control-Allow-Origin"));
             }
 
+            using (var wrongSecretRequest = new HttpRequestMessage(HttpMethod.Post, "/launcher/ticket"))
+            {
+                wrongSecretRequest.Headers.Add(
+                    "X-Servanda-Control",
+                    Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+                using var wrongSecretResponse = await client.SendAsync(wrongSecretRequest, timeout.Token);
+                Assert.Equal(HttpStatusCode.Unauthorized, wrongSecretResponse.StatusCode);
+            }
+
+            using (var ticketWithBodyRequest = new HttpRequestMessage(HttpMethod.Post, "/launcher/ticket"))
+            {
+                ticketWithBodyRequest.Headers.Add(
+                    "X-Servanda-Control",
+                    await ReadControlSecretHeaderAsync(controlSecretPath, timeout.Token));
+                ticketWithBodyRequest.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+                using var ticketWithBodyResponse = await client.SendAsync(ticketWithBodyRequest, timeout.Token);
+                Assert.Equal(HttpStatusCode.Unauthorized, ticketWithBodyResponse.StatusCode);
+            }
+
             var firstTicket = await IssueTicketAsync(client, controlSecretPath, timeout.Token);
             using (var foreignOriginResponse = await BootstrapAsync(
                        client,
@@ -81,6 +103,17 @@ public sealed class HostSecurityProcessTests
                 Assert.Equal(HttpStatusCode.Unauthorized, replayResponse.StatusCode);
             }
 
+            using (var oversizedBootstrapRequest = new HttpRequestMessage(HttpMethod.Post, "/session/bootstrap"))
+            {
+                oversizedBootstrapRequest.Headers.Add("Origin", origin.GetLeftPart(UriPartial.Authority));
+                oversizedBootstrapRequest.Content = new StringContent(
+                    JsonSerializer.Serialize(new { ticket = new string('a', 2048) }),
+                    Encoding.UTF8,
+                    "application/json");
+                using var oversizedBootstrapResponse = await client.SendAsync(oversizedBootstrapRequest, timeout.Token);
+                Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversizedBootstrapResponse.StatusCode);
+            }
+
             string antiforgeryToken;
             using (var applicationResponse = await client.GetAsync("/", timeout.Token))
             {
@@ -101,6 +134,27 @@ public sealed class HostSecurityProcessTests
                 using var foreignBlazorResponse = await client.SendAsync(foreignBlazorRequest, timeout.Token);
                 Assert.Equal(HttpStatusCode.Forbidden, foreignBlazorResponse.StatusCode);
             }
+
+            var session = cookieContainer.GetCookies(origin)[ProcessSessionStore.CookieName]?.Value;
+            Assert.False(string.IsNullOrWhiteSpace(session));
+            var webSocketStatusLine = await SendForeignOriginWebSocketUpgradeAsync(
+                origin,
+                session,
+                timeout.Token);
+            Assert.Contains(" 403 ", webSocketStatusLine, StringComparison.Ordinal);
+
+            var wasRateLimited = false;
+            for (var attempt = 0; attempt < 12 && !wasRateLimited; attempt++)
+            {
+                using var rateLimitedRequest = new HttpRequestMessage(HttpMethod.Post, "/launcher/ticket");
+                rateLimitedRequest.Headers.Add(
+                    "X-Servanda-Control",
+                    await ReadControlSecretHeaderAsync(controlSecretPath, timeout.Token));
+                using var rateLimitedResponse = await client.SendAsync(rateLimitedRequest, timeout.Token);
+                wasRateLimited = rateLimitedResponse.StatusCode == HttpStatusCode.TooManyRequests;
+            }
+
+            Assert.True(wasRateLimited, "Endpoint launchera nie wymusił limitu żądań.");
 
             using (var shutdownWithoutAntiforgery = new HttpRequestMessage(HttpMethod.Post, "/shutdown"))
             {
@@ -193,6 +247,50 @@ public sealed class HostSecurityProcessTests
         {
             CryptographicOperations.ZeroMemory(secret);
         }
+    }
+
+    private static async Task<string> ReadControlSecretHeaderAsync(
+        string controlSecretPath,
+        CancellationToken cancellationToken)
+    {
+        var secret = await ControlSecretReader.TryReadAsync(controlSecretPath, cancellationToken);
+        Assert.NotNull(secret);
+
+        try
+        {
+            return Convert.ToBase64String(secret);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(secret);
+        }
+    }
+
+    private static async Task<string> SendForeignOriginWebSocketUpgradeAsync(
+        Uri origin,
+        string session,
+        CancellationToken cancellationToken)
+    {
+        using var socket = new TcpClient();
+        await socket.ConnectAsync(origin.Host, origin.Port, cancellationToken);
+        await using var stream = socket.GetStream();
+        var request = string.Join(
+            "\r\n",
+            "GET /_blazor?id=invalid HTTP/1.1",
+            $"Host: {origin.Authority}",
+            "Connection: Upgrade",
+            "Upgrade: websocket",
+            "Sec-WebSocket-Version: 13",
+            $"Sec-WebSocket-Key: {Convert.ToBase64String(RandomNumberGenerator.GetBytes(16))}",
+            "Origin: https://example.com",
+            $"Cookie: {ProcessSessionStore.CookieName}={session}",
+            string.Empty,
+            string.Empty);
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(request), cancellationToken);
+
+        using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
+        return await reader.ReadLineAsync(cancellationToken)
+            ?? throw new InvalidOperationException("Host nie zwrócił odpowiedzi na próbę WebSocket.");
     }
 
     private static Task<HttpResponseMessage> BootstrapAsync(
