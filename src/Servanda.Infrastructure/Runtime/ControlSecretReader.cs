@@ -2,12 +2,10 @@ namespace Servanda.Infrastructure.Runtime;
 
 public static class ControlSecretReader
 {
-    private const int SecretSize = 32;
-
     public static async Task<byte[]?> TryReadAsync(string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var secret = new byte[SecretSize];
+        var secret = new byte[ControlSecretFormat.SizeInBytes];
         var succeeded = false;
         try
         {
@@ -17,7 +15,7 @@ public static class ControlSecretReader
             }
 
             PrivateFileSystem.VerifyPrivateFile(path, LinuxIdentity.geteuid());
-            if (new FileInfo(path).Length != SecretSize)
+            if (new FileInfo(path).Length != ControlSecretFormat.SizeInBytes)
             {
                 return null;
             }
@@ -27,7 +25,7 @@ public static class ControlSecretReader
                 FileMode.Open,
                 FileAccess.Read,
                 FileShare.Read,
-                bufferSize: SecretSize,
+                bufferSize: ControlSecretFormat.SizeInBytes,
                 useAsync: true);
             await stream.ReadExactlyAsync(secret, cancellationToken);
             succeeded = true;

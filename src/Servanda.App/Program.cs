@@ -16,6 +16,8 @@ namespace Servanda.App;
 [SupportedOSPlatform("linux")]
 public class Program
 {
+    private const int MaximumContentRootTraversalDepth = 8;
+
     public static async Task<int> Main(string[] args)
     {
         var launcherPlatform = new LinuxLauncherPlatform();
@@ -220,17 +222,52 @@ public class Program
         }
     }
 
-    private static string ResolveContentRoot()
+    private static string ResolveContentRoot() =>
+        ResolveContentRoot(AppContext.BaseDirectory, Environment.CurrentDirectory);
+
+    internal static string ResolveContentRoot(
+        string applicationBaseDirectory,
+        string workingDirectory)
     {
-        var publishedRoot = AppContext.BaseDirectory;
-        if (Directory.Exists(Path.Combine(publishedRoot, "wwwroot")))
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationBaseDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(workingDirectory);
+
+        var applicationRoot = Path.GetFullPath(applicationBaseDirectory);
+        if (Directory.Exists(Path.Combine(applicationRoot, "wwwroot")))
         {
-            return publishedRoot;
+            return applicationRoot;
         }
 
-        var projectRoot = Path.GetFullPath(Path.Combine(publishedRoot, "..", "..", ".."));
-        return File.Exists(Path.Combine(projectRoot, "Servanda.App.csproj"))
-            ? projectRoot
-            : publishedRoot;
+        var projectRoot = FindProjectRoot(applicationRoot)
+            ?? FindProjectRoot(Path.GetFullPath(workingDirectory));
+        return projectRoot
+            ?? throw new InvalidOperationException(
+                "Nie można odnaleźć katalogu zawartości Servandy z plikiem projektu i wwwroot.");
     }
+
+    private static string? FindProjectRoot(string startDirectory)
+    {
+        var candidate = new DirectoryInfo(startDirectory);
+        for (var depth = 0;
+             candidate is not null && depth <= MaximumContentRootTraversalDepth;
+             depth++, candidate = candidate.Parent)
+        {
+            if (IsProjectRoot(candidate.FullName))
+            {
+                return candidate.FullName;
+            }
+
+            var repositoryProjectRoot = Path.Combine(candidate.FullName, "src", "Servanda.App");
+            if (IsProjectRoot(repositoryProjectRoot))
+            {
+                return repositoryProjectRoot;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsProjectRoot(string path) =>
+        File.Exists(Path.Combine(path, "Servanda.App.csproj"))
+        && Directory.Exists(Path.Combine(path, "wwwroot"));
 }

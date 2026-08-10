@@ -9,8 +9,7 @@ internal static class PrivateFileSystem
     {
         if (!OperatingSystem.IsLinux())
         {
-            LinuxIdentity.EnsureLinux();
-            return;
+            throw new PlatformNotSupportedException("Servanda v1 obsługuje wyłącznie system Linux.");
         }
 
         if (!Directory.Exists(path))

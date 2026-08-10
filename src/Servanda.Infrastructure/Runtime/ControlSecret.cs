@@ -4,8 +4,6 @@ namespace Servanda.Infrastructure.Runtime;
 
 public sealed class ControlSecret : IDisposable
 {
-    private const int SecretSize = 32;
-
     private readonly byte[] _value;
     private bool _disposed;
 
@@ -24,7 +22,7 @@ public sealed class ControlSecret : IDisposable
             throw new PlatformNotSupportedException("Servanda v1 obsługuje wyłącznie system Linux.");
         }
 
-        var value = RandomNumberGenerator.GetBytes(SecretSize);
+        var value = RandomNumberGenerator.GetBytes(ControlSecretFormat.SizeInBytes);
         ControlSecret? result = null;
         try
         {
@@ -60,10 +58,10 @@ public sealed class ControlSecret : IDisposable
             return false;
         }
 
-        Span<byte> candidate = stackalloc byte[SecretSize];
+        Span<byte> candidate = stackalloc byte[ControlSecretFormat.SizeInBytes];
         var decoded = Convert.TryFromBase64String(encodedCandidate, candidate, out var bytesWritten);
         var authenticated = decoded
-            && bytesWritten == SecretSize
+            && bytesWritten == ControlSecretFormat.SizeInBytes
             && CryptographicOperations.FixedTimeEquals(candidate, _value);
         CryptographicOperations.ZeroMemory(candidate);
         return authenticated;
