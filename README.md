@@ -51,6 +51,7 @@ Profil wydaniowy tworzy przenośny, samowystarczalny katalog bez zależności od
 ```bash
 dotnet restore src/Servanda.App/Servanda.App.csproj -r linux-x64
 dotnet publish src/Servanda.App/Servanda.App.csproj -p:PublishProfile=linux-x64 --no-restore
+./packaging/linux/verify-artifact.sh artifacts/publish/Servanda-linux-x64
 ```
 
 Artefakt powstaje w `artifacts/publish/Servanda-linux-x64/`. Można uruchomić go bezpośrednio albo zainstalować skrót w menu bieżącego użytkownika:

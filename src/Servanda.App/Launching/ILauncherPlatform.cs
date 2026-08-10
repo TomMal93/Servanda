@@ -5,4 +5,6 @@ public interface ILauncherPlatform
     bool StartHost();
 
     bool OpenBrowser(string address);
+
+    bool ShowError();
 }

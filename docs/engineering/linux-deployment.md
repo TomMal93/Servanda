@@ -16,6 +16,8 @@ Standardowy przepływ nie wymaga terminala:
 
 Ponowne kliknięcie skrótu nie uruchamia drugiego hosta. Otwiera istniejącą instancję. Interfejs zawiera akcję „Zamknij Servandę”, która po potwierdzeniu kończy lokalny proces. Samo zamknięcie karty nie musi kończyć aplikacji. Od v2 launcher akceptuje również potwierdzony stan `recovery` i otwiera wtedy wyłącznie ekran odzyskiwania.
 
+Jeżeli host nie potwierdzi gotowości albo launcher nie utworzy bezpiecznej sesji, launcher otwiera przez `xdg-open` wyłącznie lokalną, statyczną stronę błędu dołączoną do pakietu. Nie używa wtedy adresu z niepotwierdzonego deskryptora. Szczegół błędu pozostaje dodatkowo dostępny na standardowym wyjściu błędów przy uruchomieniu diagnostycznym z terminala.
+
 „Launcher” oznacza odpowiedzialność bootstrapu, nie wymusza osobnego projektu ani długowiecznego procesu. Może być krótkotrwałym trybem tego samego pliku wykonywalnego co host. Po pierwszym uruchomieniu blokadę instancji utrzymuje część hostująca; przy kolejnych uruchomieniach proces bootstrapu otwiera istniejący adres i kończy się. Od v2 host utrzymuje także osobną blokadę kanonicznej bazy.
 
 ## Artefakt wydania
@@ -24,7 +26,7 @@ Ponowne kliknięcie skrótu nie uruchamia drugiego hosta. Otwiera istniejącą i
 - Paczka zawiera pliki wykonywalne, zależności, statyczne zasoby UI, launcher, wersję aplikacji i plik `.desktop` albo odwracalny instalator użytkownika tworzący ten wpis.
 - Instalacja nie wymaga Node, npm, SDK .NET ani uprawnień administratora.
 - Pliki programu są tylko do odczytu podczas normalnej pracy. Aktualizacja programu nie przenosi ani nie zastępuje danych użytkownika.
-- Pierwsza wspierana architektura pozostaje decyzją OPEN-001; nazwa artefaktu MUSI zawierać RID.
+- Pierwszą wspieraną architekturą jest `linux-x64` zgodnie z ADR 0007; nazwa artefaktu MUSI zawierać RID.
 
 ## Katalogi XDG
 

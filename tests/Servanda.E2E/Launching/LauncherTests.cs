@@ -84,21 +84,59 @@ public sealed class LauncherTests
         }
     }
 
+    [Fact]
+    public async Task HostStartFailureShowsSafeErrorWithoutOpeningApplicationAddress()
+    {
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"servanda-launcher-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(
+            temporaryPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+        try
+        {
+            var platform = new RecordingLauncherPlatform
+            {
+                HostStartResult = false,
+            };
+
+            var result = await new Launcher(new ServandaPaths(temporaryPath, temporaryPath), platform).RunAsync();
+
+            Assert.Equal(1, result);
+            Assert.Equal(1, platform.HostStartCount);
+            Assert.Equal(1, platform.ErrorCount);
+            Assert.Null(platform.OpenedAddress);
+        }
+        finally
+        {
+            Directory.Delete(temporaryPath, recursive: true);
+        }
+    }
+
     private sealed class RecordingLauncherPlatform : ILauncherPlatform
     {
+        internal bool HostStartResult { get; init; } = true;
+
         internal int HostStartCount { get; private set; }
 
         internal string? OpenedAddress { get; private set; }
 
+        internal int ErrorCount { get; private set; }
+
         public bool StartHost()
         {
             HostStartCount++;
-            return true;
+            return HostStartResult;
         }
 
         public bool OpenBrowser(string address)
         {
             OpenedAddress = address;
+            return true;
+        }
+
+        public bool ShowError()
+        {
+            ErrorCount++;
             return true;
         }
     }

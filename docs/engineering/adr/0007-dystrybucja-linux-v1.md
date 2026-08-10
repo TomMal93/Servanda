@@ -41,5 +41,6 @@ Ułatwiałby zachowanie stałej ścieżki, ale musiałby definiować atomową ak
 
 - `dotnet publish` z profilem `linux-x64` tworzy artefakt zawierający natywny plik `Servanda`, zasoby aplikacji i oba skrypty,
 - uruchomienie pliku `Servanda` w środowisku bez SDK .NET uruchamia launcher,
+- repozytoryjny test artefaktu uruchamia natywny host w oczyszczonym środowisku bez polecenia `dotnet`, potwierdza origin loopback i stan `ready`, a następnie sprawdza łagodne usunięcie deskryptora,
 - instalacja skrótu nie wymaga roota, a jego usunięcie nie usuwa katalogu programu ani katalogów XDG Servandy,
 - nazwa katalogu artefaktu zawiera `linux-x64`.

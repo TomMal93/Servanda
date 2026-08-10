@@ -146,9 +146,10 @@ public sealed class Launcher
         };
     }
 
-    private static int Fail(string message)
+    private int Fail(string message)
     {
         Console.Error.WriteLine(message);
+        _platform.ShowError();
         return 1;
     }
 

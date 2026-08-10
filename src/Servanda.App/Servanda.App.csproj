@@ -12,6 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="launcher-error.html"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
     <Content Include="..\..\packaging\linux\install-desktop.sh"
              Link="install-desktop.sh"
              CopyToPublishDirectory="PreserveNewest" />

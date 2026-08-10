@@ -33,12 +33,33 @@ public sealed class LinuxLauncherPlatform : ILauncherPlatform
 
     public bool OpenBrowser(string address)
     {
-        var startInfo = CreateBrowserStartInfo(
+        var startInfo = CreateDesktopOpenStartInfo(address);
+
+        return TryStart(startInfo);
+    }
+
+    public bool ShowError()
+    {
+        var errorPagePath = Path.Combine(AppContext.BaseDirectory, "launcher-error.html");
+        if (!File.Exists(errorPagePath))
+        {
+            return false;
+        }
+
+        var startInfo = CreateDesktopOpenStartInfo(new Uri(errorPagePath).AbsoluteUri);
+
+        return TryStart(startInfo);
+    }
+
+    private static ProcessStartInfo CreateDesktopOpenStartInfo(string address) =>
+        CreateBrowserStartInfo(
             address,
             Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR"),
             GetEffectiveUserId(),
             Directory.Exists);
 
+    private static bool TryStart(ProcessStartInfo startInfo)
+    {
         try
         {
             using var process = Process.Start(startInfo);
