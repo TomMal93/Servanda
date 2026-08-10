@@ -4,16 +4,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["Servanda.App.styles.css"]" />
+    <link rel="stylesheet" href="@Assets["Servanda.styles.css"]" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
+    <script src="@Assets["shutdown.js"]" type="module"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

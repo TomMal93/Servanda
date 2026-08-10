@@ -72,6 +72,12 @@ dotnet build --no-restore
 dotnet test --no-build
 ```
 
+Testy przepływu opublikowanego artefaktu w przypiętych Chromium i Firefox uruchamia osobne polecenie. Przeglądarki i Playwright są zależnościami wyłącznie testowymi i nie trafiają do pakietu użytkowego:
+
+```bash
+./tests/Servanda.E2E/run-browser-tests.sh
+```
+
 ## Ochrona danych
 
 Przyszłe bazy, kopie i eksporty są danymi użytkownika. Ich usunięcie wymaga osobnego, jawnego zadania i mechanizmu ochronnego zgodnego z dokumentacją.

@@ -27,7 +27,10 @@ public sealed class ProcessSessionMiddleware
         ProcessSessionStore sessionStore)
     {
         var isLauncherTicketRequest = context.Request.Path == "/launcher/ticket";
+        var isBlazorInitializerRequest = HttpMethods.IsGet(context.Request.Method)
+            && context.Request.Path == "/_blazor/initializers";
         var requiresOrigin = !isLauncherTicketRequest
+            && !isBlazorInitializerRequest
             && (!HttpMethods.IsGet(context.Request.Method)
                 && !HttpMethods.IsHead(context.Request.Method)
                 && !HttpMethods.IsOptions(context.Request.Method)

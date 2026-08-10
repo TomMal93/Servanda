@@ -146,6 +146,42 @@ public sealed class ProcessSessionMiddlewareTests
         Assert.True(nextCalled);
     }
 
+    [Fact]
+    public async Task AuthenticatedBlazorInitializerGetDoesNotRequireOrigin()
+    {
+        var nextCalled = false;
+        var middleware = new ProcessSessionMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var sessions = new ProcessSessionStore();
+        var session = sessions.Create();
+        var context = CreateContext("GET", "/_blazor/initializers");
+        context.Request.Headers.Cookie = $"{ProcessSessionStore.CookieName}={session}";
+
+        await middleware.InvokeAsync(context, CreateRuntimeState(), sessions);
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
+    public async Task AnonymousBlazorInitializerGetIsRejected()
+    {
+        var nextCalled = false;
+        var middleware = new ProcessSessionMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        });
+        var context = CreateContext("GET", "/_blazor/initializers");
+
+        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+
+        Assert.False(nextCalled);
+        Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
+    }
+
     private static DefaultHttpContext CreateContext(string method, string path)
     {
         var context = new DefaultHttpContext();

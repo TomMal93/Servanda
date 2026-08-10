@@ -37,7 +37,7 @@ public sealed class LocalHostSecurityMiddleware
 
         headers.ContentSecurityPolicy =
             $"default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; " +
-            $"connect-src '{origin.GetLeftPart(UriPartial.Authority)}' '{webSocketOrigin}'; " +
+            $"connect-src {origin.GetLeftPart(UriPartial.Authority)} {webSocketOrigin}; " +
             "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
         headers.Append("Referrer-Policy", "no-referrer");
         headers.XContentTypeOptions = "nosniff";

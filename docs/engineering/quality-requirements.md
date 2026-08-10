@@ -128,6 +128,8 @@ dotnet test --no-build
 
 Publikacja wydania dodatkowo uruchamia test artefaktu `self-contained` na wspieranym Linuksie oraz E2E na zbudowanej wersji, nie wyłącznie na serwerze deweloperskim.
 
+Repozytoryjny skrypt `tests/Servanda.E2E/run-browser-tests.sh` publikuje `Servanda-linux-x64` i uruchamia przepływ hosta w przypiętych silnikach Chromium i Firefox. Playwright oraz pobierane przeglądarki należą wyłącznie do narzędzi testowych i nie są częścią artefaktu użytkowego.
+
 ## Definition of Done
 
 Zmiana kodu jest ukończona, gdy:

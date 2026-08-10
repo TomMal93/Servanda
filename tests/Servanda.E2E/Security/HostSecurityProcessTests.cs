@@ -217,7 +217,7 @@ public sealed class HostSecurityProcessTests
         Assert.Contains("object-src 'none'", contentSecurityPolicy, StringComparison.Ordinal);
         Assert.Contains("base-uri 'none'", contentSecurityPolicy, StringComparison.Ordinal);
         Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy, StringComparison.Ordinal);
-        Assert.Contains($"connect-src '{origin.GetLeftPart(UriPartial.Authority)}' 'ws://{origin.Authority}'", contentSecurityPolicy, StringComparison.Ordinal);
+        Assert.Contains($"connect-src {origin.GetLeftPart(UriPartial.Authority)} ws://{origin.Authority}", contentSecurityPolicy, StringComparison.Ordinal);
         Assert.Equal("no-referrer", Assert.Single(response.Headers.GetValues("Referrer-Policy")));
         Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
         Assert.Contains("camera=()", Assert.Single(response.Headers.GetValues("Permissions-Policy")), StringComparison.Ordinal);
