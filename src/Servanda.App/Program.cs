@@ -18,10 +18,26 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var paths = new ServandaPathProvider().CreateAndVerify();
+        var launcherPlatform = new LinuxLauncherPlatform();
+        ServandaPaths paths;
+        try
+        {
+            paths = new ServandaPathProvider().CreateAndVerify();
+        }
+        catch (Exception exception) when (IsPathInitializationFailure(exception))
+        {
+            Console.Error.WriteLine("Nie udało się przygotować bezpiecznych katalogów Servandy.");
+            if (args.Length == 0)
+            {
+                launcherPlatform.ShowError();
+            }
+
+            return 1;
+        }
+
         if (args.Length == 0)
         {
-            return await new Launcher(paths).RunAsync();
+            return await new Launcher(paths, launcherPlatform).RunAsync();
         }
 
         if (args is not ["--host"])
@@ -32,6 +48,15 @@ public class Program
 
         return await RunHostAsync(paths);
     }
+
+    private static bool IsPathInitializationFailure(Exception exception) =>
+        exception is IOException
+            or UnauthorizedAccessException
+            or InvalidOperationException
+            or PlatformNotSupportedException
+            or EntryPointNotFoundException
+            or DllNotFoundException
+            or BadImageFormatException;
 
     private static async Task<int> RunHostAsync(ServandaPaths paths)
     {

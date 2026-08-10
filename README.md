@@ -48,6 +48,8 @@ Host zapisuje w prywatnym katalogu `XDG_STATE_HOME` ograniczony log cyklu życia
 
 Profil wydaniowy tworzy przenośny, samowystarczalny katalog bez zależności od SDK lub systemowego runtime'u .NET:
 
+Artefakt wymaga systemu Linux x86-64 z glibc 2.27 lub nowszą. Nie jest przeznaczony dla dystrybucji używających musl ani dla architektury Arm64.
+
 ```bash
 dotnet restore src/Servanda.App/Servanda.App.csproj -r linux-x64
 dotnet publish src/Servanda.App/Servanda.App.csproj -p:PublishProfile=linux-x64 --no-restore

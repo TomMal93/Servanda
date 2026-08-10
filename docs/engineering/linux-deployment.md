@@ -27,6 +27,7 @@ Jeżeli host nie potwierdzi gotowości albo launcher nie utworzy bezpiecznej ses
 - Instalacja nie wymaga Node, npm, SDK .NET ani uprawnień administratora.
 - Pliki programu są tylko do odczytu podczas normalnej pracy. Aktualizacja programu nie przenosi ani nie zastępuje danych użytkownika.
 - Pierwszą wspieraną architekturą jest `linux-x64` zgodnie z ADR 0007; nazwa artefaktu MUSI zawierać RID.
+- Minimalnym ABI biblioteki C dla tego artefaktu jest glibc 2.27. Wywołania natywne MUSZĄ zachować zgodność z tym poziomem; artefakt nie obsługuje musl.
 
 ## Katalogi XDG
 

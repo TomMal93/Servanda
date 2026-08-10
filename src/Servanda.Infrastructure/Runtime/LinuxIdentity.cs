@@ -4,6 +4,10 @@ namespace Servanda.Infrastructure.Runtime;
 
 internal static partial class LinuxIdentity
 {
+    // glibc uses version 1 of struct stat on Linux x86-64. The managed layout below
+    // is intentionally restricted to that ABI and must not be reused for another RID.
+    private const int LinuxX64StatVersion = 1;
+
     internal static uint GetEffectiveUserId()
     {
         EnsureLinux();
@@ -16,16 +20,41 @@ internal static partial class LinuxIdentity
     [LibraryImport("libc", EntryPoint = "stat", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
     private static partial int Stat(string path, out LinuxStat buffer);
 
+    [LibraryImport("libc", EntryPoint = "__xstat", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
+    private static partial int LegacyStat(int version, string path, out LinuxStat buffer);
+
     internal static (uint Owner, uint Mode) GetOwnershipAndMode(string path)
     {
         EnsureLinux();
+        EnsureSupportedArchitecture(RuntimeInformation.ProcessArchitecture);
 
-        if (Stat(path, out var buffer) != 0)
+        if (CompatibleStat(path, out var buffer) != 0)
         {
             throw new IOException($"Nie można zweryfikować prywatnej ścieżki runtime (errno {Marshal.GetLastPInvokeError()}).");
         }
 
         return (buffer.UserId, buffer.Mode & 0x0FFFu);
+    }
+
+    private static int CompatibleStat(string path, out LinuxStat buffer)
+    {
+        try
+        {
+            return Stat(path, out buffer);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // Before glibc 2.33, x86-64 exposed __xstat instead of stat.
+            return LegacyStat(LinuxX64StatVersion, path, out buffer);
+        }
+    }
+
+    internal static void EnsureSupportedArchitecture(Architecture architecture)
+    {
+        if (architecture != Architecture.X64)
+        {
+            throw new PlatformNotSupportedException("Servanda v1 obsługuje wyłącznie Linux x86-64.");
+        }
     }
 
     internal static void EnsureLinux()
