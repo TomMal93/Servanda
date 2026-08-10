@@ -8,8 +8,16 @@ public static class ShutdownEndpoint
 
     public static IEndpointConventionBuilder MapShutdown(this IEndpointRouteBuilder endpoints)
     {
-        return endpoints.MapPost(Path, (HttpContext context, IHostApplicationLifetime lifetime) =>
+        return endpoints.MapPost(Path, (
+            HttpContext context,
+            IHostApplicationLifetime lifetime) =>
         {
+            var antiforgeryValidation = context.Features.Get<IAntiforgeryValidationFeature>();
+            if (antiforgeryValidation is not { IsValid: true })
+            {
+                return Results.BadRequest();
+            }
+
             context.Response.OnCompleted(() =>
             {
                 lifetime.StopApplication();
