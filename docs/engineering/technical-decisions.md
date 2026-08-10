@@ -25,15 +25,13 @@
 | TD-017 | Style pierwszego wydania powstają w zwykłym CSS oraz izolowanych plikach `.razor.css`, bez SASS/SCSS i frontendowego kroku npm. | Jeden normatywny zestaw tokenów definiuje system wizualny, a build i publikacja nie otrzymują dodatkowego toolchainu Node. |
 | TD-018 | V1 jest bezstanową powłoką bez SQLite, modułów dziedzinowych, migracji, kopii, recovery, importu i eksportu. | Wszystkie kafle v1 mają status „Planowane”. Pierwszy kanoniczny magazyn i operacje danych powstają razem w v2, bez prowizorycznej bazy wymagającej późniejszej konwersji. |
 
-Uzasadnienie głównych wyborów zawierają [ADR 0001](adr/0001-architektura-lokalnej-aplikacji-linux.md), [ADR 0002](adr/0002-import-zastepujacy-kolekcje.md), [ADR 0003](adr/0003-wyszukiwanie-fts5.md), [ADR 0004](adr/0004-agregaty-rewizje-i-kolejnosc.md), [ADR 0005](adr/0005-lokalna-sesja-launchera.md) i [ADR 0006](adr/0006-bezstanowy-zakres-v1.md).
+Uzasadnienie głównych wyborów zawierają [ADR 0001](adr/0001-architektura-lokalnej-aplikacji-linux.md), [ADR 0002](adr/0002-import-zastepujacy-kolekcje.md), [ADR 0003](adr/0003-wyszukiwanie-fts5.md), [ADR 0004](adr/0004-agregaty-rewizje-i-kolejnosc.md), [ADR 0005](adr/0005-lokalna-sesja-launchera.md), [ADR 0006](adr/0006-bezstanowy-zakres-v1.md) i [ADR 0007](adr/0007-dystrybucja-linux-v1.md).
 
 ## Decyzje otwarte
 
 | ID | Pytanie | Kiedy rozstrzygnąć | Domyślny kierunek |
 |---|---|---|---|
-| OPEN-001 | Pierwsza wspierana architektura Linuksa i RID publikacji | przed artefaktem P1 | architektura komputera użytkownika; osobny artefakt dla każdego RID |
 | OPEN-002 | Dokładna polityka automatycznej retencji kopii | przed ukończeniem P3 w v2 | zachować kopie ochronne ostatnich operacji oraz rotacyjne kopie dzienne; nigdy nie usuwać jedynej poprawnej kopii |
-| OPEN-003 | Czy pierwsze wydanie ma instalator, czy przenośny katalog z poleceniem instalującym skrót | przed ukończeniem P1 | odwracalny skrypt użytkownika instalujący pliki w jego katalogach, bez roota |
 | OPEN-004 | Czy szyfrowanie aplikacyjne jest konieczne dla przyszłych danych rodzinnych, zdrowotnych i finansowych | przed aktywacją pierwszego z tych modułów | polegać na szyfrowaniu systemowym w v2; nie tworzyć własnego zarządzania kluczem bez modelu odzyskiwania |
 
 Otwarte decyzje nie pozwalają rozszerzać zakresu. Gdy rozstrzygnięcie zmienia magazyn, bezpieczeństwo, dystrybucję albo wymaga kosztownej migracji, powstaje ADR.

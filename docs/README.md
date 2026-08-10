@@ -34,7 +34,8 @@ docs/
         ├── 0003-wyszukiwanie-fts5.md
         ├── 0004-agregaty-rewizje-i-kolejnosc.md
         ├── 0005-lokalna-sesja-launchera.md
-        └── 0006-bezstanowy-zakres-v1.md
+        ├── 0006-bezstanowy-zakres-v1.md
+        └── 0007-dystrybucja-linux-v1.md
 ```
 
 ## Routing zadań

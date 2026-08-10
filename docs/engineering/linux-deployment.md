@@ -89,7 +89,7 @@ dotnet run --project src/Servanda.App
 
 Rzeczywiste nazwy projektu i polecenia MUSZĄ zostać zsynchronizowane z README w chwili bootstrapu. Tryb deweloperski może używać katalogu danych repozytorium lub katalogu tymczasowego wyłącznie po jawnym ustawieniu środowiska deweloperskiego; nie może przypadkowo otworzyć produkcyjnej bazy użytkownika.
 
-Izolacja deweloperskiego `XDG_RUNTIME_DIR` nie może psuć integracji pulpitu. Do czasu wdrożenia rozdzielenia środowiska hosta i przeglądarki obowiązujące obejście diagnostyczne, które pobiera nowy jednorazowy bilet i przywraca systemowy runtime wyłącznie procesowi Firefoksa, opisuje główny `README.md`.
+Izolacja deweloperskiego `XDG_RUNTIME_DIR` nie może psuć integracji pulpitu. Launcher otwiera adres przez `xdg-open` i, gdy runtime hosta jest odizolowany, przekazuje mechanizmowi pulpitu systemowy katalog `/run/user/<UID>`. Jeżeli nie może potwierdzić tego katalogu, nie przekazuje przeglądarce izolowanej wartości hosta.
 
 ## Aktualizacja i odinstalowanie
 

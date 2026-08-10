@@ -40,27 +40,25 @@ XDG_STATE_HOME="$PWD/.servanda-dev/state" \
 dotnet run --project src/Servanda.App
 ```
 
-Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Chroniona akcja „Zamknij Servandę” wymaga potwierdzenia w interfejsie, sesji procesu, dokładnego originu i tokenu antiforgery. Publikacja `self-contained` oraz wpis `.desktop` pozostają w trakcie implementacji P1.
+Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Chroniona akcja „Zamknij Servandę” wymaga potwierdzenia w interfejsie, sesji procesu, dokładnego originu i tokenu antiforgery.
 
-### Otwieranie przeglądarki przy izolowanym runtime deweloperskim
+### Artefakt użytkowy Linux x64
 
-Aktualny launcher przekazuje przeglądarce zmienną `XDG_RUNTIME_DIR` ustawioną dla Servandy. Gdy wskazuje ona `.servanda-dev/runtime`, Firefox lub systemowy mechanizm otwierania adresów może utracić dostęp do sesyjnego D-Bus w `/run/user/<UID>` i zakończyć się komunikatem podobnym do `Failed to synchronize with dbus proxy`. Host może mimo tego pozostać gotowy; potwierdza to prywatny deskryptor `.servanda-dev/runtime/servanda/instance.json`.
-
-Do czasu poprawienia separacji środowiska launchera działającą instancję można bezpiecznie otworzyć w Firefoksie następująco:
+Profil wydaniowy tworzy przenośny, samowystarczalny katalog bez zależności od SDK lub systemowego runtime'u .NET:
 
 ```bash
-runtime="$PWD/.servanda-dev/runtime/servanda"
-origin=$(jq -r .origin "$runtime/instance.json")
-control=$(base64 -w0 "$runtime/control.secret")
-ticket=$(curl -fsS -X POST \
-  -H "X-Servanda-Control: $control" \
-  "$origin/launcher/ticket" | jq -r .ticket)
-
-XDG_RUNTIME_DIR="/run/user/$(id -u)" \
-firefox --new-tab "$origin/bootstrap#ticket=$ticket"
+dotnet restore src/Servanda.App/Servanda.App.csproj -r linux-x64
+dotnet publish src/Servanda.App/Servanda.App.csproj -p:PublishProfile=linux-x64 --no-restore
 ```
 
-Nie należy otwierać samego originu z deskryptora. Bez jednorazowego biletu przeglądarka nie otrzyma wymaganej sesji procesu. Polecenie zachowuje izolowany runtime hosta, a systemowy `XDG_RUNTIME_DIR` przywraca wyłącznie procesowi przeglądarki.
+Artefakt powstaje w `artifacts/publish/Servanda-linux-x64/`. Można uruchomić go bezpośrednio albo zainstalować skrót w menu bieżącego użytkownika:
+
+```bash
+./artifacts/publish/Servanda-linux-x64/Servanda
+./artifacts/publish/Servanda-linux-x64/install-desktop.sh
+```
+
+`uninstall-desktop.sh` usuwa wyłącznie wpis menu. Nie usuwa katalogu programu ani katalogów XDG Servandy. Po instalacji skrótu katalog artefaktu musi pozostać w tej samej lokalizacji.
 
 Minimalna weryfikacja:
 

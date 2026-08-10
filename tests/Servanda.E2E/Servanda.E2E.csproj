@@ -23,4 +23,16 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\packaging\linux\install-desktop.sh"
+          Link="packaging\install-desktop.sh"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\packaging\linux\uninstall-desktop.sh"
+          Link="packaging\uninstall-desktop.sh"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\packaging\linux\servanda.desktop.in"
+          Link="packaging\servanda.desktop.in"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -12,6 +12,33 @@ namespace Servanda.E2E.Launching;
 public sealed class LauncherTests
 {
     [Fact]
+    public void BrowserUsesDesktopRuntimeInsteadOfIsolatedHostRuntime()
+    {
+        var startInfo = LinuxLauncherPlatform.CreateBrowserStartInfo(
+            "http://127.0.0.1:43210/bootstrap#ticket=test-ticket",
+            "/tmp/servanda-development-runtime",
+            1234,
+            path => path == "/run/user/1234");
+
+        Assert.Equal("xdg-open", startInfo.FileName);
+        Assert.False(startInfo.UseShellExecute);
+        Assert.Equal("http://127.0.0.1:43210/bootstrap#ticket=test-ticket", Assert.Single(startInfo.ArgumentList));
+        Assert.Equal("/run/user/1234", startInfo.Environment["XDG_RUNTIME_DIR"]);
+    }
+
+    [Fact]
+    public void BrowserDoesNotInheritIsolatedRuntimeWhenDesktopRuntimeIsUnavailable()
+    {
+        var startInfo = LinuxLauncherPlatform.CreateBrowserStartInfo(
+            "http://127.0.0.1:43210/bootstrap#ticket=test-ticket",
+            "/tmp/servanda-development-runtime",
+            1234,
+            _ => false);
+
+        Assert.False(startInfo.Environment.ContainsKey("XDG_RUNTIME_DIR"));
+    }
+
+    [Fact]
     public async Task ExistingConfirmedInstanceIsOpenedWithoutStartingAnotherHost()
     {
         var temporaryPath = Path.Combine(Path.GetTempPath(), $"servanda-launcher-tests-{Guid.NewGuid():N}");
