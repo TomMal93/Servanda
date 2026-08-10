@@ -1,23 +1,29 @@
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using System.Runtime.Versioning;
+using Servanda.Infrastructure.Diagnostics;
 using Servanda.Infrastructure.Runtime;
 
 namespace Servanda.App.Hosting;
 
+[SupportedOSPlatform("linux")]
 public sealed class InstanceLifecyclePublisher : IHostedLifecycleService
 {
     private readonly IServer _server;
     private readonly InstanceRuntimeState _runtimeState;
     private readonly AtomicInstanceDescriptorStore _descriptorStore;
+    private readonly TechnicalLogWriter _technicalLog;
 
     public InstanceLifecyclePublisher(
         IServer server,
         InstanceRuntimeState runtimeState,
-        AtomicInstanceDescriptorStore descriptorStore)
+        AtomicInstanceDescriptorStore descriptorStore,
+        TechnicalLogWriter technicalLog)
     {
         _server = server;
         _runtimeState = runtimeState;
         _descriptorStore = descriptorStore;
+        _technicalLog = technicalLog;
     }
 
     public Task StartingAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -41,6 +47,7 @@ public sealed class InstanceLifecyclePublisher : IHostedLifecycleService
             origin.GetLeftPart(UriPartial.Authority));
 
         await _descriptorStore.PublishAsync(starting, cancellationToken);
+        await _technicalLog.WriteAsync(TechnicalEvent.HostReady, cancellationToken);
         _runtimeState.MarkReady(origin);
         await _descriptorStore.PublishAsync(starting.Ready(), cancellationToken);
     }

@@ -24,7 +24,7 @@ public sealed class InstanceDescriptorReader
                 return null;
             }
 
-            PrivateFileSystem.VerifyPrivateFile(_path, LinuxIdentity.geteuid());
+            PrivateFileSystem.VerifyPrivateFile(_path, LinuxIdentity.GetEffectiveUserId());
             if (new FileInfo(_path).Length is <= 0 or > MaximumDescriptorSize)
             {
                 return null;

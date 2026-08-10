@@ -7,4 +7,6 @@ public sealed record ServandaPaths(string RuntimeDirectory, string StateDirector
     public string ControlSecretPath => Path.Combine(RuntimeDirectory, "control.secret");
 
     public string InstanceLockPath => Path.Combine(RuntimeDirectory, "instance.lock");
+
+    public string TechnicalLogPath => Path.Combine(StateDirectory, "servanda.log");
 }

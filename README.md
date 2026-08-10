@@ -42,6 +42,8 @@ dotnet run --project src/Servanda.App
 
 Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Chroniona akcja „Zamknij Servandę” wymaga potwierdzenia w interfejsie, sesji procesu, dokładnego originu i tokenu antiforgery.
 
+Host zapisuje w prywatnym katalogu `XDG_STATE_HOME` ograniczony log cyklu życia bez adresów, nagłówków, sekretów i danych żądań. Log jest rotowany przy 256 KiB i zachowuje najwyżej trzy poprzednie pliki.
+
 ### Artefakt użytkowy Linux x64
 
 Profil wydaniowy tworzy przenośny, samowystarczalny katalog bez zależności od SDK lub systemowego runtime'u .NET:

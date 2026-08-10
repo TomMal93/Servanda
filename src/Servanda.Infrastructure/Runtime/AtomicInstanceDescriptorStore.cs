@@ -68,7 +68,6 @@ public sealed class AtomicInstanceDescriptorStore
 
     private static uint GetEffectiveUserId()
     {
-        LinuxIdentity.EnsureLinux();
-        return LinuxIdentity.geteuid();
+        return LinuxIdentity.GetEffectiveUserId();
     }
 }

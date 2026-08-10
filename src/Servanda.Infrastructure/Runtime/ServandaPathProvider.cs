@@ -7,12 +7,12 @@ public sealed class ServandaPathProvider
     private readonly uint _effectiveUserId;
 
     public ServandaPathProvider()
-        : this(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), GetEffectiveUserId())
+        : this(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), LinuxIdentity.GetEffectiveUserId())
     {
     }
 
     public ServandaPathProvider(Func<string, string?> getEnvironmentVariable, string homeDirectory)
-        : this(getEnvironmentVariable, homeDirectory, GetEffectiveUserId())
+        : this(getEnvironmentVariable, homeDirectory, LinuxIdentity.GetEffectiveUserId())
     {
     }
 
@@ -61,9 +61,4 @@ public sealed class ServandaPathProvider
         return Path.GetFullPath(path);
     }
 
-    private static uint GetEffectiveUserId()
-    {
-        LinuxIdentity.EnsureLinux();
-        return LinuxIdentity.geteuid();
-    }
 }

@@ -38,6 +38,8 @@ Ponowne kliknięcie skrótu nie uruchamia drugiego hosta. Otwiera istniejącą i
 
 Brak `XDG_RUNTIME_DIR` wymaga prywatnego katalogu zastępczego należącego do bieżącego UID. Aplikacja nie może użyć wspólnej, zapisywalnej przez innych lokalizacji bez sprawdzenia właściciela i uprawnień.
 
+Log techniczny v1 znajduje się w `<XDG_STATE_HOME>/servanda/servanda.log`. Plik i jego rotacje mają tryb `0600`, a katalog `0700`. Log zawiera wyłącznie znacznik czasu UTC i identyfikator zdarzenia z zamkniętego zbioru cyklu życia hosta; nie zapisuje dowolnych parametrów, treści wyjątku, adresu, nagłówka ani danych żądania. Bieżący plik jest rotowany przed przekroczeniem 256 KiB, a retencja zachowuje najwyżej trzy poprzednie pliki `.1`–`.3`. Rotacja nigdy nie usuwa pliku, którego właściciela i prywatnego trybu nie udało się potwierdzić.
+
 ## Host lokalny
 
 - Kestrel wiąże dynamiczny port wyłącznie na loopbacku.
@@ -100,5 +102,6 @@ Izolacja deweloperskiego `XDG_RUNTIME_DIR` nie może psuć integracji pulpitu. L
 ## Diagnostyka
 
 - Logi nie zawierają treści promptów, notatek, danych rodzinnych, zdrowotnych ani finansowych.
+- Zdarzenia v1 mają stabilne identyfikatory `HOST_STARTING`, `HOST_READY`, `HOST_START_FAILED` i `HOST_STOPPED`; brak `HOST_STOPPED` po `HOST_READY` może wskazywać nagłe zakończenie procesu.
 - Komunikat startowy wskazuje kategorię problemu i bezpieczną drogę naprawy.
 - Tryb diagnostyczny jest jawny i czasowy; nie zmienia zakresu nasłuchu.

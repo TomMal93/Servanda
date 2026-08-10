@@ -4,6 +4,12 @@ namespace Servanda.Infrastructure.Runtime;
 
 internal static partial class LinuxIdentity
 {
+    internal static uint GetEffectiveUserId()
+    {
+        EnsureLinux();
+        return geteuid();
+    }
+
     [LibraryImport("libc")]
     internal static partial uint geteuid();
 
