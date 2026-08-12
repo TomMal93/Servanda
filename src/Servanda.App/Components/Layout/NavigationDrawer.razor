@@ -53,6 +53,7 @@
         {
             try
             {
+                await _module.InvokeVoidAsync("dispose", _dialog);
                 await _module.DisposeAsync();
             }
             catch (JSDisconnectedException)

@@ -343,8 +343,18 @@ public sealed class BrowserHostFlowTests
             await drawer.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
             Assert.True(await openDrawer.EvaluateAsync<bool>("element => element === document.activeElement"));
 
+            await page.SetViewportSizeAsync(320, 768);
+            await openDrawer.ClickAsync();
+            await drawer.WaitForAsync(new() { State = WaitForSelectorState.Visible });
             await page.SetViewportSizeAsync(1024, 768);
             await page.Locator("aside.sidebar").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+            await drawer.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+            await page.WaitForFunctionAsync(
+                "document.querySelector('dialog.navigation-drawer__dialog')?.open === false");
+            Assert.Null(await page.Locator("dialog.navigation-drawer__dialog").GetAttributeAsync("open"));
+            var desktopBrand = page.Locator("aside.sidebar .sidebar-content__brand");
+            await desktopBrand.FocusAsync();
+            Assert.True(await desktopBrand.EvaluateAsync<bool>("element => element === document.activeElement"));
             Assert.DoesNotContain("ticket=", page.Url, StringComparison.Ordinal);
 
             var sessionCookie = Assert.Single(

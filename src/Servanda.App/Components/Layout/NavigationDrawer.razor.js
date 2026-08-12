@@ -1,8 +1,13 @@
+const desktopMediaQuery = window.matchMedia("(min-width: 64rem)");
+const breakpointListeners = new WeakMap();
+
 export function open(dialog) {
     if (dialog.dataset.focusTrapInitialized !== "true") {
         dialog.addEventListener("keydown", event => trapFocus(dialog, event));
         dialog.dataset.focusTrapInitialized = "true";
     }
+
+    initializeBreakpointListener(dialog);
 
     if (!dialog.open) {
         dialog.showModal();
@@ -15,6 +20,28 @@ export function close(dialog, trigger) {
     }
 
     trigger.focus();
+}
+
+export function dispose(dialog) {
+    const listener = breakpointListeners.get(dialog);
+    if (listener !== undefined) {
+        desktopMediaQuery.removeEventListener("change", listener);
+        breakpointListeners.delete(dialog);
+    }
+}
+
+function initializeBreakpointListener(dialog) {
+    if (breakpointListeners.has(dialog)) {
+        return;
+    }
+
+    const listener = event => {
+        if (event.matches && dialog.open) {
+            dialog.close();
+        }
+    };
+    desktopMediaQuery.addEventListener("change", listener);
+    breakpointListeners.set(dialog, listener);
 }
 
 function trapFocus(dialog, event) {
