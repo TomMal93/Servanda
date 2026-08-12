@@ -33,4 +33,51 @@ public sealed class AreaTests
         Assert.Equal("Dom", area.Name);
         Assert.Equal(1, area.Revision);
     }
+
+    [Fact]
+    public void CreatePlannedBuildsNormalizedCustomArea()
+    {
+        var timestamp = DateTimeOffset.UtcNow;
+
+        var area = Area.CreatePlanned(
+            "01J00000000000000000000008",
+            "  Projekty  ",
+            "  Rzeczy do zrobienia  ",
+            "generic",
+            "accent-2",
+            7,
+            timestamp,
+            out var errors);
+
+        Assert.Empty(errors);
+        Assert.NotNull(area);
+        Assert.Equal("Projekty", area.Name);
+        Assert.Equal("Rzeczy do zrobienia", area.Description);
+        Assert.Equal("custom", area.ModuleKey);
+        Assert.Equal("planned", area.Availability);
+        Assert.Equal(7, area.SortOrder);
+        Assert.Equal(1, area.Revision);
+    }
+
+    [Theory]
+    [InlineData("unknown", "accent-0", nameof(Area.IconKey))]
+    [InlineData("generic", "unknown", nameof(Area.AccentKey))]
+    public void CreatePlannedRejectsUnsupportedPresentation(
+        string iconKey,
+        string accentKey,
+        string expectedError)
+    {
+        var area = Area.CreatePlanned(
+            "01J00000000000000000000008",
+            "Projekty",
+            string.Empty,
+            iconKey,
+            accentKey,
+            7,
+            DateTimeOffset.UtcNow,
+            out var errors);
+
+        Assert.Null(area);
+        Assert.Contains(expectedError, errors.Keys);
+    }
 }

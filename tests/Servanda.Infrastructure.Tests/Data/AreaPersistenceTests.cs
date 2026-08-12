@@ -67,6 +67,44 @@ public sealed class AreaPersistenceTests
     }
 
     [Fact]
+    public async Task CreateAppendsAreaAndRejectsStaleOrderingRevision()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var areaService = services.GetRequiredService<IAreaService>();
+        var initial = await areaService.ListAsync();
+        var listState = initial[0];
+
+        var created = await areaService.CreateAsync(new CreateAreaCommand(
+            "Projekty",
+            "Rzeczy do zrobienia",
+            "generic",
+            "accent-2",
+            listState.OrderingRevision,
+            listState.ContentEpoch));
+        var stale = await areaService.CreateAsync(new CreateAreaCommand(
+            "Nie powinien powstać",
+            string.Empty,
+            "generic",
+            "accent-0",
+            listState.OrderingRevision,
+            listState.ContentEpoch));
+        var persisted = await areaService.ListAsync();
+
+        Assert.Equal(CreateAreaStatus.Success, created.Status);
+        Assert.NotNull(created.Area);
+        Assert.Equal(7, created.Area.SortOrder);
+        Assert.Equal(2, created.Area.OrderingRevision);
+        Assert.Equal(26, created.Area.Id.Length);
+        Assert.Equal(CreateAreaStatus.Conflict, stale.Status);
+        Assert.Equal(8, persisted.Count);
+        Assert.Equal("Projekty", persisted[^1].Name);
+        Assert.Equal(2, persisted[^1].OrderingRevision);
+    }
+
+    [Fact]
     public async Task InitialMigrationCreatesRequiredTables()
     {
         using var temporaryDirectory = new TemporaryDirectory();

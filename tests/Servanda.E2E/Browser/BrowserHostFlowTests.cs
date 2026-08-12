@@ -362,6 +362,32 @@ public sealed class BrowserHostFlowTests
             await page.GetByRole(AriaRole.Heading, new() { Name = "Zarządzaj obszarami", Level = 1 }).WaitForAsync();
             await page.ReloadAsync();
             await page.GetByRole(AriaRole.Heading, new() { Name = "Zarządzaj obszarami", Level = 1 }).WaitForAsync();
+            foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
+            {
+                await page.SetViewportSizeAsync(viewportWidth, 768);
+                Assert.True(
+                    await page.Locator("html").EvaluateAsync<bool>(
+                        "element => element.scrollWidth <= element.clientWidth"),
+                    $"Zarządzanie obszarami przewija się poziomo przy szerokości {viewportWidth}px.");
+            }
+
+            await page.SetViewportSizeAsync(320, 768);
+            var addAreaButton = page.GetByRole(AriaRole.Button, new() { Name = "Dodaj obszar", Exact = true });
+            await addAreaButton.FocusAsync();
+            await page.Keyboard.PressAsync("Enter");
+            var creator = page.GetByRole(AriaRole.Heading, new() { Name = "Nowy obszar", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::section");
+            Assert.True(
+                await page.Locator("html").EvaluateAsync<bool>(
+                    "element => element.scrollWidth <= element.clientWidth"),
+                "Formularz tworzenia przewija się poziomo przy reflow 400%. ");
+            await page.SetViewportSizeAsync(1024, 768);
+            await creator.GetByRole(AriaRole.Textbox, new() { Name = "Nazwa", Exact = true }).FillAsync("Projekty");
+            await creator.GetByRole(AriaRole.Textbox, new() { Name = "Opis", Exact = true }).FillAsync("Własne projekty i kolejne kroki.");
+            await creator.GetByLabel("Ikona").SelectOptionAsync("notes");
+            await creator.GetByLabel("Akcent").SelectOptionAsync("accent-2");
+            await creator.GetByRole(AriaRole.Button, new() { Name = "Dodaj obszar", Exact = true }).ClickAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 2 }).WaitForAsync();
             var homeEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Dom", Exact = true, Level = 2 })
                 .Locator("xpath=ancestor::article");
             await homeEditor.GetByRole(AriaRole.Button, new() { Name = "Edytuj obszar" }).ClickAsync();
@@ -378,10 +404,17 @@ public sealed class BrowserHostFlowTests
             var savedTile = page.GetByRole(AriaRole.Heading, new() { Name = "Mój dom", Exact = true, Level = 3 })
                 .Locator("xpath=ancestor::article");
             Assert.Equal("Własny opis zapisany w lokalnej bazie.", await savedTile.Locator("p").TextContentAsync());
+            var projectTile = page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 3 })
+                .Locator("xpath=ancestor::article");
+            Assert.Equal("Własne projekty i kolejne kroki.", await projectTile.Locator("p").TextContentAsync());
+            Assert.Equal(8, await page.Locator(".area-tile").CountAsync());
             await page.ReloadAsync();
             Assert.Equal(
                 1,
                 await page.GetByRole(AriaRole.Heading, new() { Name = "Mój dom", Exact = true, Level = 3 }).CountAsync());
+            Assert.Equal(
+                1,
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 3 }).CountAsync());
             await AssertNoAxeViolationsAsync(page, "edycja obszaru");
 
             var sessionCookie = Assert.Single(

@@ -2,6 +2,14 @@ namespace Servanda.Domain.Areas;
 
 public sealed class Area
 {
+    public static IReadOnlySet<string> SupportedIconKeys { get; } = new HashSet<string>(
+        ["generic", "prompts", "tools", "home", "family", "vitality", "notes", "budget"],
+        StringComparer.Ordinal);
+
+    public static IReadOnlySet<string> SupportedAccentKeys { get; } = new HashSet<string>(
+        ["accent-0", "accent-1", "accent-2", "accent-3", "accent-4", "accent-5"],
+        StringComparer.Ordinal);
+
     private Area()
     {
     }
@@ -66,6 +74,30 @@ public sealed class Area
         DateTimeOffset timestamp) =>
         new(id, name, description, iconKey, accentKey, moduleKey, sortOrder, timestamp);
 
+    public static Area? CreatePlanned(
+        string id,
+        string name,
+        string description,
+        string iconKey,
+        string accentKey,
+        int sortOrder,
+        DateTimeOffset timestamp,
+        out IReadOnlyDictionary<string, string[]> errors)
+    {
+        errors = Validate(name, description, iconKey, accentKey);
+        return errors.Count == 0
+            ? new Area(
+                id,
+                name.Trim(),
+                description.Trim(),
+                iconKey,
+                accentKey,
+                "custom",
+                sortOrder,
+                timestamp)
+            : null;
+    }
+
     public IReadOnlyDictionary<string, string[]> UpdateContent(
         string name,
         string description,
@@ -98,6 +130,26 @@ public sealed class Area
         if (normalizedDescription.Length > 300)
         {
             errors[nameof(Description)] = ["Opis może mieć najwyżej 300 znaków."];
+        }
+
+        return errors;
+    }
+
+    private static Dictionary<string, string[]> Validate(
+        string name,
+        string description,
+        string iconKey,
+        string accentKey)
+    {
+        var errors = new Dictionary<string, string[]>(ValidateContent(name, description));
+        if (!SupportedIconKeys.Contains(iconKey))
+        {
+            errors[nameof(IconKey)] = ["Wybierz ikonę z dostępnego zestawu."];
+        }
+
+        if (!SupportedAccentKeys.Contains(accentKey))
+        {
+            errors[nameof(AccentKey)] = ["Wybierz akcent z dostępnego zestawu."];
         }
 
         return errors;

@@ -9,6 +9,15 @@ public sealed record AreaListItem(
     string Availability,
     int SortOrder,
     long Revision,
+    string ContentEpoch,
+    long OrderingRevision);
+
+public sealed record CreateAreaCommand(
+    string Name,
+    string Description,
+    string IconKey,
+    string AccentKey,
+    long ExpectedOrderingRevision,
     string ContentEpoch);
 
 public sealed record UpdateAreaCommand(
@@ -31,9 +40,25 @@ public sealed record UpdateAreaResult(
     AreaListItem? Area = null,
     IReadOnlyDictionary<string, string[]>? Errors = null);
 
+public enum CreateAreaStatus
+{
+    Success,
+    ValidationFailed,
+    Conflict,
+}
+
+public sealed record CreateAreaResult(
+    CreateAreaStatus Status,
+    AreaListItem? Area = null,
+    IReadOnlyDictionary<string, string[]>? Errors = null);
+
 public interface IAreaService
 {
     Task<IReadOnlyList<AreaListItem>> ListAsync(CancellationToken cancellationToken = default);
+
+    Task<CreateAreaResult> CreateAsync(
+        CreateAreaCommand command,
+        CancellationToken cancellationToken = default);
 
     Task<UpdateAreaResult> UpdateAsync(
         UpdateAreaCommand command,

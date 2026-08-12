@@ -5,7 +5,9 @@ namespace Servanda.App.Components;
 
 internal static class AreaPresentation
 {
-    public static string AccentClass(AreaListItem area) => area.AccentKey switch
+    public static string AccentClass(AreaListItem area) => AccentClass(area.AccentKey);
+
+    public static string AccentClass(string accentKey) => accentKey switch
     {
         "accent-0" => "area-tile--accent-0",
         "accent-1" => "area-tile--accent-1",
