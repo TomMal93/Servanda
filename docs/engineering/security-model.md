@@ -56,6 +56,8 @@ Przepływ otwarcia interfejsu:
 6. Przeglądarka otrzymuje nieutrwalane ciasteczko sesyjne `HttpOnly`, `SameSite=Strict`, `Path=/`, bez atrybutu `Domain`. Ciasteczko nie zawiera biletu ani sekretu launchera.
 7. Zwykłe trasy aplikacji wymagają ważnej sesji; od v2 dotyczy to również recovery. Wejście bez sesji pokazuje jedynie komunikat „Otwórz Servandę przez launcher” bez danych użytkownika.
 
+Sesja wygasa po 7 dniach bez poprawnego żądania HTTP lub ponownego zestawienia transportu i przy każdym takim użyciu otrzymuje nowy termin. Host przechowuje najwyżej 64 sesje procesu; utworzenie kolejnej usuwa najstarszą. Otwarty circuit może działać do rozłączenia, ale po wygaśnięciu sesji nie zestawi ponownie transportu bez ponownego otwarcia aplikacji przez launcher.
+
 Host działa na HTTP loopback, dlatego dokumentacja nie obiecuje szyfrowania transportu. Atrybut `Secure` może być wymagany dopiero po potwierdzeniu zachowania obu wspieranych przeglądarek dla wybranego adresu loopback; brak tego atrybutu nie pozwala wysłać ciasteczka poza dokładny host i ścieżkę wynikające z powyższego kontraktu.
 
 Publicznie dostępne bez sesji mogą być wyłącznie statyczne zasoby bootstrapu oraz minimalny endpoint potwierdzający identyfikator i stan instancji. Nie ujawniają ścieżek, a od v2 także wersji danych, błędu migracji ani informacji o kolekcji. Endpoint wydający bilet wymaga sekretu sterującego, przyjmuje wyłącznie małe żądanie i nie zezwala na CORS.
@@ -76,7 +78,7 @@ Publicznie dostępne bez sesji mogą być wyłącznie statyczne zasoby bootstrap
 - WebSocket i wszystkie transporty SignalR mają osobną kontrolę dokładnego originu. Brak lub niezgodność `Origin` na przeglądarkowym transporcie interaktywnym powoduje odrzucenie.
 - Jeżeli przeglądarka wysyła `Sec-Fetch-Site`, wartość `cross-site` jest dodatkowym powodem odrzucenia operacji zmieniającej stan. Nagłówki fetch metadata są ochroną warstwową, nie substytutem sesji ani antiforgery.
 - Endpoint shutdown nie obsługuje GET, nie przyjmuje żądania bez aktywnej sesji i kończy proces dopiero po odesłaniu odpowiedzi potwierdzającej przyjęcie operacji.
-- Nieudane uwierzytelnienie, błędny origin i limit żądań zwracają ogólny rezultat bez informacji pozwalającej odróżnić poprawny sekret, bilet lub identyfikator kolekcji.
+- Nieudane uwierzytelnienie, błędny origin i limit żądań zwracają ogólny rezultat bez informacji pozwalającej odróżnić poprawny sekret, bilet lub identyfikator kolekcji. Niepoprawny sekret lub bilet nie zużywa kwoty poprawnie uwierzytelnionych żądań i nie może zablokować launchera przed uzyskaniem sesji.
 
 ## Zasoby, CSP i nagłówki
 
@@ -105,7 +107,7 @@ Trwałe drafty w przeglądarce wymagają osobnej przyszłej decyzji obejmującej
 
 ## Limity i logowanie
 
-- Nieuwierzytelnione endpointy bootstrapu mają małe, jawne limity ciała żądania i ograniczenie tempa per proces oraz adres loopback.
+- Nieuwierzytelnione endpointy bootstrapu mają małe, jawne limity ciała żądania. Oddzielne ograniczenia tempa wydania biletu i utworzenia sesji są stosowane dopiero po uwierzytelnieniu odpowiednio sekretem sterującym lub jednorazowym biletem, aby obcy proces nie wyczerpał kwoty poprawnych otwarć aplikacji.
 - Od v2 import, eksport i upload dokumentu mają limit wynikający z kontraktu formatu i przetwarzanie odporne na niekontrolowaną alokację; dokładny limit importu musi zostać ustalony przed ukończeniem P4.
 - Logi nie zawierają ciasteczek, nagłówków autoryzacyjnych, sekretu sterującego, biletów, fragmentów URL, treści formularzy ani wartości antiforgery.
 - Diagnostyka może rejestrować kategorię odrzucenia, identyfikator zdarzenia i zagregowany licznik, lecz nie surowy sekret, bilet ani prywatne dane.

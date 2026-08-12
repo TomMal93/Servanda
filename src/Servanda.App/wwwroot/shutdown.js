@@ -20,19 +20,18 @@ document.addEventListener("submit", async event => {
             throw new Error("shutdown rejected");
         }
 
-        const message = await response.text();
-        const main = document.createElement("main");
-        const heading = document.createElement("h1");
-        heading.textContent = "Servanda została zamknięta";
-        const description = document.createElement("p");
-        description.textContent = message;
-        main.append(heading, description);
-        document.body.replaceChildren(main);
-        document.title = "Servanda została zamknięta";
-        history.replaceState(null, "", "/shutdown");
+        const confirmationPage = await response.blob();
+        location.replace(URL.createObjectURL(confirmationPage));
     } catch {
         submitButton.disabled = false;
-        const warning = document.getElementById("shutdown-warning");
-        warning.textContent = "Nie udało się zamknąć Servandy. Spróbuj ponownie.";
+        let error = document.getElementById("shutdown-error");
+        if (error === null) {
+            error = document.createElement("p");
+            error.id = "shutdown-error";
+            error.setAttribute("role", "alert");
+            form.append(error);
+        }
+
+        error.textContent = "Nie udało się zamknąć Servandy. Spróbuj ponownie.";
     }
 });

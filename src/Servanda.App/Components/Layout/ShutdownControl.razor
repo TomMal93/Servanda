@@ -11,13 +11,16 @@
     <form id="shutdown-confirmation"
           method="post"
           action="@ShutdownEndpoint.Path"
-          aria-describedby="shutdown-warning"
+          aria-describedby="@(_isConfirmationVisible ? "shutdown-warning" : null)"
           hidden="@(!_isConfirmationVisible)">
         <AntiforgeryToken />
-        <p id="shutdown-warning" role="alert">
-            Zamknięcie Servandy rozłączy wszystkie otwarte karty aplikacji.
-        </p>
-        <button type="submit">Tak, zamknij Servandę</button>
+        @if (_isConfirmationVisible)
+        {
+            <p id="shutdown-warning" role="alert">
+                Zamknięcie Servandy rozłączy wszystkie otwarte karty aplikacji.
+            </p>
+            <button type="submit">Tak, zamknij Servandę</button>
+        }
     </form>
 </section>
 

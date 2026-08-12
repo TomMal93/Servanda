@@ -51,8 +51,9 @@ public sealed class HostSecurityProcessTests
                 Assert.False(anonymousResponse.Headers.Contains("Access-Control-Allow-Origin"));
             }
 
-            using (var wrongSecretRequest = new HttpRequestMessage(HttpMethod.Post, "/launcher/ticket"))
+            for (var attempt = 0; attempt < BootstrapRateLimiter.PermitLimit + 2; attempt++)
             {
+                using var wrongSecretRequest = new HttpRequestMessage(HttpMethod.Post, "/launcher/ticket");
                 wrongSecretRequest.Headers.Add(
                     "X-Servanda-Control",
                     Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));

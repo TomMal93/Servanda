@@ -19,7 +19,7 @@ public sealed class ProcessSessionMiddlewareTests
         });
         var context = CreateContext("GET", "/");
 
-        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+        await middleware.InvokeAsync(context, CreateRuntimeState(), CreateSessionStore());
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -36,7 +36,7 @@ public sealed class ProcessSessionMiddlewareTests
         });
         var context = CreateContext("GET", "/bootstrap");
 
-        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+        await middleware.InvokeAsync(context, CreateRuntimeState(), CreateSessionStore());
 
         Assert.True(nextCalled);
     }
@@ -52,7 +52,7 @@ public sealed class ProcessSessionMiddlewareTests
         });
         var context = CreateContext("POST", "/launcher/ticket");
 
-        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+        await middleware.InvokeAsync(context, CreateRuntimeState(), CreateSessionStore());
 
         Assert.True(nextCalled);
     }
@@ -64,7 +64,7 @@ public sealed class ProcessSessionMiddlewareTests
         var context = CreateContext("POST", "/session/bootstrap");
         context.Request.Headers.Origin = "https://example.com";
 
-        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+        await middleware.InvokeAsync(context, CreateRuntimeState(), CreateSessionStore());
 
         Assert.Equal(StatusCodes.Status403Forbidden, context.Response.StatusCode);
     }
@@ -78,7 +78,7 @@ public sealed class ProcessSessionMiddlewareTests
             nextCalled = true;
             return Task.CompletedTask;
         });
-        var sessions = new ProcessSessionStore();
+        var sessions = CreateSessionStore();
         var session = sessions.Create();
         var context = CreateContext("GET", "/");
         context.Request.Headers.Cookie = $"{ProcessSessionStore.CookieName}={session}";
@@ -97,7 +97,7 @@ public sealed class ProcessSessionMiddlewareTests
             nextCalled = true;
             return Task.CompletedTask;
         });
-        var sessions = new ProcessSessionStore();
+        var sessions = CreateSessionStore();
         var session = sessions.Create();
         var context = CreateContext("POST", ShutdownEndpoint.Path);
         context.Request.Headers.Cookie = $"{ProcessSessionStore.CookieName}={session}";
@@ -120,7 +120,7 @@ public sealed class ProcessSessionMiddlewareTests
         var context = CreateContext("POST", ShutdownEndpoint.Path);
         context.Request.Headers.Origin = Origin.GetLeftPart(UriPartial.Authority);
 
-        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+        await middleware.InvokeAsync(context, CreateRuntimeState(), CreateSessionStore());
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -135,7 +135,7 @@ public sealed class ProcessSessionMiddlewareTests
             nextCalled = true;
             return Task.CompletedTask;
         });
-        var sessions = new ProcessSessionStore();
+        var sessions = CreateSessionStore();
         var session = sessions.Create();
         var context = CreateContext("POST", ShutdownEndpoint.Path);
         context.Request.Headers.Origin = Origin.GetLeftPart(UriPartial.Authority);
@@ -155,7 +155,7 @@ public sealed class ProcessSessionMiddlewareTests
             nextCalled = true;
             return Task.CompletedTask;
         });
-        var sessions = new ProcessSessionStore();
+        var sessions = CreateSessionStore();
         var session = sessions.Create();
         var context = CreateContext("GET", "/_blazor/initializers");
         context.Request.Headers.Cookie = $"{ProcessSessionStore.CookieName}={session}";
@@ -176,7 +176,7 @@ public sealed class ProcessSessionMiddlewareTests
         });
         var context = CreateContext("GET", "/_blazor/initializers");
 
-        await middleware.InvokeAsync(context, CreateRuntimeState(), new ProcessSessionStore());
+        await middleware.InvokeAsync(context, CreateRuntimeState(), CreateSessionStore());
 
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status401Unauthorized, context.Response.StatusCode);
@@ -198,4 +198,6 @@ public sealed class ProcessSessionMiddlewareTests
         state.MarkReady(Origin);
         return state;
     }
+
+    private static ProcessSessionStore CreateSessionStore() => new(TimeProvider.System);
 }

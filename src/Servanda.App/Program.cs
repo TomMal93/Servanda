@@ -1,9 +1,7 @@
 using System.Net;
 using System.Runtime.Versioning;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
 using Servanda.App.Hosting;
 using Servanda.App.Components;
 using Servanda.App.Launching;
@@ -107,17 +105,7 @@ public class Program
             builder.Services.AddSingleton(technicalLog);
             builder.Services.AddSingleton<BootstrapTicketStore>();
             builder.Services.AddSingleton<ProcessSessionStore>();
-            builder.Services.AddRateLimiter(options =>
-            {
-                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-                options.AddFixedWindowLimiter("launcher", limiter =>
-                {
-                    limiter.PermitLimit = 10;
-                    limiter.Window = TimeSpan.FromMinutes(1);
-                    limiter.QueueLimit = 0;
-                    limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-                });
-            });
+            builder.Services.AddSingleton<BootstrapRateLimiter>();
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
             builder.Services.AddSingleton(paths);
@@ -134,7 +122,6 @@ public class Program
 
             app.UseMiddleware<LocalHostSecurityMiddleware>();
             app.UseRouting();
-            app.UseRateLimiter();
             app.UseMiddleware<ProcessSessionMiddleware>();
             app.UseAntiforgery();
 
@@ -145,7 +132,11 @@ public class Program
                 state = "ready",
             }));
 
-            app.MapPost("/launcher/ticket", (HttpRequest request, ControlSecret secret, BootstrapTicketStore tickets) =>
+            app.MapPost("/launcher/ticket", (
+                HttpRequest request,
+                ControlSecret secret,
+                BootstrapTicketStore tickets,
+                BootstrapRateLimiter rateLimiter) =>
             {
                 if (request.HttpContext.Connection.RemoteIpAddress is not { } remoteAddress
                     || !IPAddress.IsLoopback(remoteAddress)
@@ -156,6 +147,12 @@ public class Program
                     return Results.Unauthorized();
                 }
 
+                using var lease = rateLimiter.AttemptTicketIssue();
+                if (!lease.IsAcquired)
+                {
+                    return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+                }
+
                 return Results.Ok(new
                 {
                     ticket = tickets.Issue(),
@@ -163,7 +160,6 @@ public class Program
                 });
             })
                 .DisableAntiforgery()
-                .RequireRateLimiting("launcher")
                 .WithMetadata(new RequestSizeLimitAttribute(1024));
 
             app.MapGet("/bootstrap", () => Results.Content(BootstrapPage.Html, "text/html; charset=utf-8"));
@@ -172,11 +168,18 @@ public class Program
                 BootstrapRequest request,
                 HttpResponse response,
                 BootstrapTicketStore tickets,
-                ProcessSessionStore sessions) =>
+                ProcessSessionStore sessions,
+                BootstrapRateLimiter rateLimiter) =>
             {
                 if (!tickets.TryConsume(request.Ticket))
                 {
                     return Results.Unauthorized();
+                }
+
+                using var lease = rateLimiter.AttemptSessionBootstrap();
+                if (!lease.IsAcquired)
+                {
+                    return Results.StatusCode(StatusCodes.Status429TooManyRequests);
                 }
 
                 response.Cookies.Append(ProcessSessionStore.CookieName, sessions.Create(), new CookieOptions
@@ -190,7 +193,6 @@ public class Program
                 return Results.NoContent();
             })
                 .DisableAntiforgery()
-                .RequireRateLimiting("launcher")
                 .WithMetadata(new RequestSizeLimitAttribute(1024));
 
             app.MapStaticAssets();

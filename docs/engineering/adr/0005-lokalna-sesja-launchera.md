@@ -16,7 +16,7 @@ Token w query stringu trafiałby do historii, logów i potencjalnie nagłówka `
 
 Każdy proces hosta generuje prywatny sekret sterujący dla launchera. Uwierzytelniony launcher pobiera krótko żyjący, jednorazowy bilet i przekazuje go przeglądarce wyłącznie we fragmencie URL. Bootstrap wymienia bilet na losową, pamięciową sesję procesu reprezentowaną ciasteczkiem `HttpOnly`, `SameSite=Strict`, bez `Domain`.
 
-Zwykłe trasy aplikacji, SignalR i operacje zmieniające stan wymagają sesji od v1; od v2 dotyczy to również recovery i operacji danych. Bilet, sekret launchera i ciasteczko nie są zapisywane w Web Storage. Host kończy wszystkie sesje przy zakończeniu procesu.
+Zwykłe trasy aplikacji, SignalR i operacje zmieniające stan wymagają sesji od v1; od v2 dotyczy to również recovery i operacji danych. Bilet, sekret launchera i ciasteczko nie są zapisywane w Web Storage. Pamięciowa sesja ma przesuwne wygaśnięcie po 7 dniach bez użycia, a host utrzymuje najwyżej 64 sesje i usuwa najstarszą przy przekroczeniu limitu. Host kończy wszystkie sesje przy zakończeniu procesu.
 
 Origin pozostaje warstwą ochrony przed przeglądarkowym cross-site, nie mechanizmem uwierzytelnienia. WebSocket ma osobną allowlistę originów, ponieważ reguły CORS nie chronią handshake'u WebSocket. Klasyczne POST-y dodatkowo używają tokenów antiforgery.
 
@@ -37,6 +37,7 @@ Pełny protokół, threat model i wymagania nagłówków definiuje `security-mod
 - ciasteczko jest `HttpOnly`, sesyjne, `SameSite=Strict`, bez `Domain`,
 - obcy origin nie może wymienić biletu, otworzyć circuitu ani wykonać shutdownu,
 - restart hosta unieważnia poprzedni sekret, bilety i sesje,
+- niepoprawne sekrety i bilety nie wyczerpują limitu poprawnych otwarć, a wygasłe i wyparte sesje są odrzucane,
 - pliki runtime mają prywatnego właściciela i uprawnienia.
 
 ## Źródła techniczne

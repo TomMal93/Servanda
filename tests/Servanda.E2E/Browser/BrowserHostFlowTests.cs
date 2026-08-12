@@ -163,7 +163,6 @@ public sealed class BrowserHostFlowTests
             var shutdownConfirmation = page.GetByRole(AriaRole.Button, new() { Name = "Tak, zamknij Servandę" });
             await shutdownConfirmation.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Visible });
 
-            Assert.Contains(requestedAddresses, address => new Uri(address).AbsolutePath.Contains("shutdown", StringComparison.Ordinal));
             Assert.Empty(failedResponses);
             Assert.Empty(browserErrors);
             Assert.All(requestedAddresses, address => AssertAllowedAddress(address, descriptor.Origin));
@@ -181,10 +180,18 @@ public sealed class BrowserHostFlowTests
                 $"Sec-Fetch-Site={GetHeader(shutdownRequestHeaders, "sec-fetch-site")}, " +
                 $"Sec-Fetch-Mode={GetHeader(shutdownRequestHeaders, "sec-fetch-mode")}, " +
                 $"Content-Type={GetHeader(shutdownRequestHeaders, "content-type")}.");
-            Assert.Contains(
+            Assert.Equal("text/html; charset=utf-8", shutdownResponse.Headers["content-type"]);
+            var closedHeading = page.GetByRole(AriaRole.Heading, new()
+            {
+                Name = "Servanda została zamknięta",
+                Exact = true,
+                Level = 1,
+            });
+            await closedHeading.WaitForAsync();
+            Assert.Equal(
                 "Servanda została zamknięta",
-                await shutdownResponse.TextAsync(),
-                StringComparison.Ordinal);
+                await closedHeading.TextContentAsync());
+            Assert.StartsWith("blob:", page.Url, StringComparison.Ordinal);
             await host.WaitForExitAsync(timeout.Token);
             Assert.True(host.HasExited);
             Assert.False(File.Exists(paths.DescriptorPath));
