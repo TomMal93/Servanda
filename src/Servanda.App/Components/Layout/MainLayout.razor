@@ -3,34 +3,10 @@
 <a class="skip-link" href="#main-content">Przejdź do treści</a>
 
 <div class="app-shell">
+    <NavigationDrawer />
+
     <aside class="sidebar" aria-label="Panel boczny">
-        <a class="sidebar__brand" href="/" aria-label="Servanda — pulpit">
-            <span class="sidebar__brand-mark" aria-hidden="true">S</span>
-            <span>Servanda</span>
-        </a>
-
-        <nav class="sidebar__navigation" aria-label="Główna nawigacja">
-            <NavLink class="sidebar__home" href="/" Match="NavLinkMatch.All">
-                Pulpit
-            </NavLink>
-        </nav>
-
-        <section class="sidebar__areas" aria-labelledby="sidebar-areas-heading">
-            <h2 id="sidebar-areas-heading">Obszary</h2>
-            <ul class="sidebar__area-list">
-                @foreach (var area in AreaCatalog.Items)
-                {
-                    <li class="sidebar__area">
-                        <span class="sidebar__area-name">@area.Name</span>
-                        <span class="sidebar__status">Planowane</span>
-                    </li>
-                }
-            </ul>
-        </section>
-
-        <div class="sidebar__footer">
-            <ShutdownControl />
-        </div>
+        <SidebarContent Instance="desktop" />
     </aside>
 
     <main id="main-content" tabindex="-1">

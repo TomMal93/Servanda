@@ -1,0 +1,36 @@
+<div class="sidebar-content">
+    <a class="sidebar-content__brand" href="/" aria-label="Servanda — pulpit">
+        <span class="sidebar-content__brand-mark" aria-hidden="true">S</span>
+        <span>Servanda</span>
+    </a>
+
+    <nav class="sidebar-content__navigation" aria-label="Główna nawigacja">
+        <NavLink class="sidebar-content__home" href="/" Match="NavLinkMatch.All">
+            Pulpit
+        </NavLink>
+    </nav>
+
+    <section class="sidebar-content__areas" aria-labelledby="@AreasHeadingId">
+        <h2 id="@AreasHeadingId">Obszary</h2>
+        <ul class="sidebar-content__area-list">
+            @foreach (var area in AreaCatalog.Items)
+            {
+                <li class="sidebar-content__area">
+                    <span class="sidebar-content__area-name">@area.Name</span>
+                    <span class="sidebar-content__status">Planowane</span>
+                </li>
+            }
+        </ul>
+    </section>
+
+    <div class="sidebar-content__footer">
+        <ShutdownControl Instance="@Instance" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Instance { get; set; }
+
+    private string AreasHeadingId => $"sidebar-areas-heading-{Instance}";
+}

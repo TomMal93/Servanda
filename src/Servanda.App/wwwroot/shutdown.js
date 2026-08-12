@@ -1,6 +1,6 @@
 document.addEventListener("submit", async event => {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || form.id !== "shutdown-confirmation") {
+    if (!(form instanceof HTMLFormElement) || !form.id.startsWith("shutdown-confirmation-")) {
         return;
     }
 
@@ -24,10 +24,11 @@ document.addEventListener("submit", async event => {
         location.replace(URL.createObjectURL(confirmationPage));
     } catch {
         submitButton.disabled = false;
-        let error = document.getElementById("shutdown-error");
+        const errorId = `${form.id}-error`;
+        let error = document.getElementById(errorId);
         if (error === null) {
             error = document.createElement("p");
-            error.id = "shutdown-error";
+            error.id = errorId;
             error.setAttribute("role", "alert");
             form.append(error);
         }

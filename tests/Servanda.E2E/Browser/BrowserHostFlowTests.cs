@@ -146,7 +146,11 @@ public sealed class BrowserHostFlowTests
                 "page",
                 await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true })
                     .GetAttributeAsync("aria-current"));
-            Assert.Equal(7, await page.Locator(".sidebar__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(
+                7,
+                await page.Locator("aside.sidebar .sidebar-content__status")
+                    .GetByText("Planowane", new() { Exact = true })
+                    .CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile").CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile svg[viewBox='0 0 24 24']").CountAsync());
@@ -163,7 +167,8 @@ public sealed class BrowserHostFlowTests
                 (Id: "budget", Name: "Budżet domowy", Description: "Planowanie miesięcznego budżetu gospodarstwa domowego."),
             })
             {
-                var sidebarArea = page.Locator(".sidebar__area-name").GetByText(area.Name, new() { Exact = true });
+                var sidebarArea = page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText(area.Name, new() { Exact = true });
                 Assert.Equal(1, await sidebarArea.CountAsync());
                 Assert.False(
                     await sidebarArea.EvaluateAsync<bool>(
@@ -183,6 +188,12 @@ public sealed class BrowserHostFlowTests
             Assert.Equal(
                 "rgb(243, 245, 247)",
                 await page.Locator("body").EvaluateAsync<string>("element => getComputedStyle(element).color"));
+            await page.EmulateMediaAsync(new() { ReducedMotion = ReducedMotion.Reduce });
+            Assert.Equal(
+                "none",
+                await page.Locator(".components-rejoining-animation div").First.EvaluateAsync<string>(
+                    "element => getComputedStyle(element).animationName"));
+            await page.EmulateMediaAsync(new() { ReducedMotion = ReducedMotion.NoPreference });
 
             foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
             {
@@ -213,7 +224,7 @@ public sealed class BrowserHostFlowTests
                     $"Pulpit nie jest wyśrodkowany przy szerokości {viewportWidth}px.");
             }
 
-            await page.Locator(".sidebar__brand").FocusAsync();
+            await page.Locator("aside.sidebar .sidebar-content__brand").FocusAsync();
             await page.Keyboard.PressAsync("Shift+Tab");
             var activeElement = await page.EvaluateAsync<string>(
                 "() => `${document.activeElement?.tagName}.${document.activeElement?.className}`");
@@ -221,6 +232,52 @@ public sealed class BrowserHostFlowTests
                 await page.Locator(".skip-link").EvaluateAsync<bool>(
                     "element => element === document.activeElement"),
                 $"Fokus klawiatury trafił na {activeElement} zamiast linku pomijającego.");
+
+            foreach (var reflowViewport in new[]
+            {
+                (Width: 512, Description: "200% przy widoku 1024px"),
+                (Width: 320, Description: "400% przy widoku 1280px"),
+            })
+            {
+                await page.SetViewportSizeAsync(reflowViewport.Width, 768);
+                var drawerTrigger = page.GetByRole(
+                    AriaRole.Button,
+                    new() { Name = "Otwórz panel boczny", Exact = true });
+                await drawerTrigger.WaitForAsync(new() { State = WaitForSelectorState.Visible });
+                Assert.False(await page.Locator("aside.sidebar").IsVisibleAsync());
+                Assert.True(
+                    await page.Locator("html").EvaluateAsync<bool>(
+                        "element => element.scrollWidth <= element.clientWidth"),
+                    $"Strona przewija się poziomo dla {reflowViewport.Description}.");
+                foreach (var tile in await page.Locator(".area-tile").AllAsync())
+                {
+                    Assert.True(await tile.IsVisibleAsync());
+                }
+            }
+
+            var openDrawer = page.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Otwórz panel boczny", Exact = true });
+            await openDrawer.FocusAsync();
+            await page.Keyboard.PressAsync("Enter");
+            var drawer = page.GetByRole(AriaRole.Dialog, new() { Name = "Panel boczny" });
+            await drawer.WaitForAsync(new() { State = WaitForSelectorState.Visible });
+            var closeDrawer = drawer.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Zamknij panel boczny", Exact = true });
+            Assert.True(await closeDrawer.EvaluateAsync<bool>("element => element === document.activeElement"));
+            await page.Keyboard.PressAsync("Shift+Tab");
+            Assert.True(
+                await drawer.EvaluateAsync<bool>("element => element.contains(document.activeElement)"),
+                "Fokus opuścił modalną szufladę.");
+            await page.Keyboard.PressAsync("Tab");
+            Assert.True(await closeDrawer.EvaluateAsync<bool>("element => element === document.activeElement"));
+            await page.Keyboard.PressAsync("Escape");
+            await drawer.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+            Assert.True(await openDrawer.EvaluateAsync<bool>("element => element === document.activeElement"));
+
+            await page.SetViewportSizeAsync(1024, 768);
+            await page.Locator("aside.sidebar").WaitForAsync(new() { State = WaitForSelectorState.Visible });
             Assert.DoesNotContain("ticket=", page.Url, StringComparison.Ordinal);
 
             var sessionCookie = Assert.Single(

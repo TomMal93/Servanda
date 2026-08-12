@@ -1,23 +1,23 @@
-<section class="shutdown-control" aria-labelledby="shutdown-heading">
-    <h2 id="shutdown-heading">Zamykanie aplikacji</h2>
+<section class="shutdown-control" aria-labelledby="@HeadingId">
+    <h2 id="@HeadingId">Zamykanie aplikacji</h2>
 
     <button type="button"
             class="shutdown-control__toggle"
             aria-expanded="@_isConfirmationVisible"
-            aria-controls="shutdown-confirmation"
+            aria-controls="@ConfirmationId"
             @onclick="ToggleConfirmation">
         @(_isConfirmationVisible ? "Anuluj zamykanie" : "Zamknij Servandę")
     </button>
 
-    <form id="shutdown-confirmation"
+    <form id="@ConfirmationId"
           method="post"
           action="@ShutdownEndpoint.Path"
-          aria-describedby="@(_isConfirmationVisible ? "shutdown-warning" : null)"
+          aria-describedby="@(_isConfirmationVisible ? WarningId : null)"
           hidden="@(!_isConfirmationVisible)">
         <AntiforgeryToken />
         @if (_isConfirmationVisible)
         {
-            <p id="shutdown-warning" role="alert">
+            <p id="@WarningId" role="alert">
                 Zamknięcie Servandy rozłączy wszystkie otwarte karty aplikacji.
             </p>
             <button type="submit" class="shutdown-control__confirm">Tak, zamknij Servandę</button>
@@ -26,7 +26,13 @@
 </section>
 
 @code {
+    [Parameter, EditorRequired]
+    public required string Instance { get; set; }
+
     private bool _isConfirmationVisible;
+    private string HeadingId => $"shutdown-heading-{Instance}";
+    private string ConfirmationId => $"shutdown-confirmation-{Instance}";
+    private string WarningId => $"shutdown-warning-{Instance}";
 
     private void ToggleConfirmation() => _isConfirmationVisible = !_isConfirmationVisible;
 }
