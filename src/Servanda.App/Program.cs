@@ -6,6 +6,7 @@ using Servanda.App.Hosting;
 using Servanda.App.Components;
 using Servanda.App.Launching;
 using Servanda.App.Security;
+using Servanda.Infrastructure.Data;
 using Servanda.Infrastructure.Diagnostics;
 using Servanda.Infrastructure.Runtime;
 
@@ -85,6 +86,13 @@ public class Program
             return 2;
         }
 
+        using var databaseLock = DatabaseLock.TryAcquire(paths.DatabaseLockPath);
+        if (databaseLock is null)
+        {
+            Console.Error.WriteLine("Magazyn danych Servandy jest używany przez inną instancję.");
+            return 3;
+        }
+
         using var technicalLog = new TechnicalLogWriter(paths);
         await technicalLog.WriteAsync(TechnicalEvent.HostStarting);
 
@@ -109,11 +117,14 @@ public class Program
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
             builder.Services.AddSingleton(paths);
+            builder.Services.AddServandaDatabase(paths);
             builder.Services.AddSingleton<InstanceRuntimeState>();
             builder.Services.AddSingleton(new AtomicInstanceDescriptorStore(paths.DescriptorPath));
             builder.Services.AddHostedService<InstanceLifecyclePublisher>();
 
             var app = builder.Build();
+
+            await ServandaDatabase.InitializeAsync(app.Services, paths, TimeProvider.System);
 
             if (!app.Environment.IsDevelopment())
             {

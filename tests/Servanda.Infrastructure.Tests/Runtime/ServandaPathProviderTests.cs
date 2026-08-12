@@ -7,7 +7,7 @@ namespace Servanda.Infrastructure.Tests.Runtime;
 public sealed class ServandaPathProviderTests
 {
     [Fact]
-    public void CreateAndVerifyUsesPrivateXdgDirectoriesWithoutCreatingDataOrConfig()
+    public void CreateAndVerifyUsesPrivateXdgDirectoriesIncludingDataWithoutCreatingConfig()
     {
         using var temporaryDirectory = new TemporaryDirectory();
         var environment = new Dictionary<string, string?>
@@ -27,13 +27,16 @@ public sealed class ServandaPathProviderTests
 
         Assert.Equal(Path.Combine(environment["XDG_RUNTIME_DIR"]!, "servanda"), paths.RuntimeDirectory);
         Assert.Equal(Path.Combine(environment["XDG_STATE_HOME"]!, "servanda"), paths.StateDirectory);
+        Assert.Equal(Path.Combine(environment["XDG_DATA_HOME"]!, "servanda"), paths.DataDirectory);
         Assert.Equal(
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
             File.GetUnixFileMode(paths.RuntimeDirectory));
         Assert.Equal(
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
             File.GetUnixFileMode(paths.StateDirectory));
-        Assert.False(Directory.Exists(environment["XDG_DATA_HOME"]));
+        Assert.Equal(
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+            File.GetUnixFileMode(paths.DataDirectory));
         Assert.False(Directory.Exists(environment["XDG_CONFIG_HOME"]));
     }
 

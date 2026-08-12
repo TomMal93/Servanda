@@ -1,0 +1,156 @@
+.area-management {
+    width: 100%;
+    max-width: calc(var(--sidebar-width) * 3);
+    margin-inline: auto;
+}
+
+.area-management__header {
+    max-width: calc(var(--sidebar-width) * 2);
+    margin-block-end: var(--space-8);
+}
+
+.area-management__header p:last-child {
+    color: var(--muted-light);
+}
+
+.area-management__eyebrow {
+    margin-block-end: var(--space-2);
+    color: var(--acid);
+    font-size: var(--font-size-sm);
+    font-weight: var(--weight-bold);
+    line-height: var(--line-height-sm);
+    text-transform: uppercase;
+}
+
+.area-management__list {
+    display: grid;
+    gap: var(--space-5);
+}
+
+.area-editor {
+    display: grid;
+    gap: var(--space-5);
+    padding: var(--space-5);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--panel-soft);
+}
+
+.area-editor__summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.area-editor__summary h2 {
+    margin-block-end: var(--space-1);
+}
+
+.area-editor__icon {
+    --area-accent: var(--accent-0);
+
+    display: inline-grid;
+    flex: 0 0 var(--control-lg);
+    width: var(--control-lg);
+    height: var(--control-lg);
+    place-items: center;
+    border: var(--border-width) solid var(--area-accent);
+    border-radius: var(--radius-md);
+    color: var(--area-accent);
+}
+
+.area-editor__icon.area-tile--accent-1 { --area-accent: var(--accent-1); }
+.area-editor__icon.area-tile--accent-2 { --area-accent: var(--accent-2); }
+.area-editor__icon.area-tile--accent-3 { --area-accent: var(--accent-3); }
+.area-editor__icon.area-tile--accent-4 { --area-accent: var(--accent-4); }
+.area-editor__icon.area-tile--accent-5 { --area-accent: var(--accent-5); }
+
+.area-editor__icon ::deep svg {
+    width: var(--space-5);
+    height: var(--space-5);
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: var(--focus-width);
+}
+
+.area-editor__status {
+    color: var(--muted-light);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+}
+
+.area-editor__description {
+    margin: var(--space-0);
+    color: var(--muted-light);
+}
+
+.area-editor form,
+.field {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.area-editor form {
+    gap: var(--space-5);
+}
+
+.field label {
+    font-weight: var(--weight-semibold);
+}
+
+.field input,
+.field textarea {
+    width: 100%;
+    min-height: var(--control-md);
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-width) solid var(--border-interactive);
+    border-radius: var(--radius-md);
+    background: var(--panel);
+    color: var(--text);
+}
+
+.field textarea {
+    resize: vertical;
+}
+
+.field__hint,
+.field__error {
+    margin: var(--space-0);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-sm);
+}
+
+.field__hint {
+    color: var(--muted-light);
+}
+
+.field__error {
+    color: var(--danger);
+}
+
+.area-editor__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.area-editor__actions .button--primary {
+    border-color: var(--acid);
+    background: var(--acid);
+    color: var(--acid-on);
+}
+
+.area-management__message {
+    min-height: var(--control-md);
+    margin-block: var(--space-5) var(--space-0);
+    padding: var(--space-3);
+    border: var(--border-width) solid transparent;
+}
+
+.area-management__message--visible {
+    border-color: var(--border-interactive);
+    border-radius: var(--radius-md);
+    background: var(--panel-soft);
+}

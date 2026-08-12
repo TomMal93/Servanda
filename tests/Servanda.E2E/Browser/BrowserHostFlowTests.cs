@@ -161,7 +161,7 @@ public sealed class BrowserHostFlowTests
             Assert.Equal(7, await page.Locator(".area-tile").CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile svg[viewBox='0 0 24 24']").CountAsync());
-            Assert.Equal(0, await page.GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
+            Assert.Equal(1, await page.Locator("aside.sidebar").GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
             Assert.Equal(0, await page.Locator("input:visible, textarea:visible, select:visible").CountAsync());
             foreach (var unavailableAction in new[] { "Zapisz", "Szukaj", "Importuj", "Eksportuj" })
             {
@@ -170,13 +170,13 @@ public sealed class BrowserHostFlowTests
 
             foreach (var area in new[]
             {
-                (Id: "prompts", Name: "Skarbiec promptów", Description: "Przechowywanie, przygotowywanie i ponowne używanie promptów."),
-                (Id: "tools", Name: "Przechowalnia narzędzi", Description: "Katalog sprawdzonych stron i aplikacji przydatnych na co dzień."),
-                (Id: "home", Name: "Dom", Description: "Harmonogram prac porządkowych i innych obowiązków domowych."),
-                (Id: "family", Name: "Rodzina", Description: "Ważne informacje, potrzeby, daty i relacje dotyczące bliskich."),
-                (Id: "vitality", Name: "Witalność", Description: "Zdrowie, biohacking, dieta i trening w jednym uporządkowanym miejscu."),
-                (Id: "notes", Name: "Przechowalnia notatek", Description: "Pomysły, obserwacje i informacje zachowane do późniejszego użycia."),
-                (Id: "budget", Name: "Budżet domowy", Description: "Planowanie miesięcznego budżetu gospodarstwa domowego."),
+                (Name: "Skarbiec promptów", Description: "Przechowywanie, przygotowywanie i ponowne używanie promptów."),
+                (Name: "Przechowalnia narzędzi", Description: "Katalog sprawdzonych stron i aplikacji przydatnych na co dzień."),
+                (Name: "Dom", Description: "Harmonogram prac porządkowych i innych obowiązków domowych."),
+                (Name: "Rodzina", Description: "Ważne informacje, potrzeby, daty i relacje dotyczące bliskich."),
+                (Name: "Witalność", Description: "Zdrowie, biohacking, dieta i trening w jednym uporządkowanym miejscu."),
+                (Name: "Przechowalnia notatek", Description: "Pomysły, obserwacje i informacje zachowane do późniejszego użycia."),
+                (Name: "Budżet domowy", Description: "Planowanie miesięcznego budżetu gospodarstwa domowego."),
             })
             {
                 var sidebarArea = page.Locator("aside.sidebar .sidebar-content__area-name")
@@ -187,7 +187,8 @@ public sealed class BrowserHostFlowTests
                         "element => element.closest('a, button') !== null"),
                     $"Planowany obszar „{area.Name}” nie może być interaktywny w panelu v1.");
 
-                var tile = page.Locator($".area-tile[data-area='{area.Id}']");
+                var tile = page.GetByRole(AriaRole.Heading, new() { Name = area.Name, Exact = true, Level = 3 })
+                    .Locator("xpath=ancestor::article");
                 Assert.Equal(1, await tile.CountAsync());
                 Assert.Equal(area.Name, await tile.GetByRole(AriaRole.Heading, new() { Level = 3 }).TextContentAsync());
                 Assert.Equal(area.Description, await tile.Locator("p").TextContentAsync());
@@ -280,7 +281,7 @@ public sealed class BrowserHostFlowTests
 
             const string longLabel =
                 "BardzoDługiNieprzerwanyCiągSprawdzającyZawijanieTreściBezUcinaniaLubPoziomegoPrzewijaniaCałejStronyServandy";
-            var stressedHeading = page.Locator(".area-tile[data-area='prompts'] h3");
+            var stressedHeading = page.Locator(".area-tile h3").First;
             var originalHeading = await stressedHeading.TextContentAsync();
             await stressedHeading.EvaluateAsync("(element, value) => element.textContent = value", longLabel);
             Assert.True(
@@ -356,6 +357,32 @@ public sealed class BrowserHostFlowTests
             await desktopBrand.FocusAsync();
             Assert.True(await desktopBrand.EvaluateAsync<bool>("element => element === document.activeElement"));
             Assert.DoesNotContain("ticket=", page.Url, StringComparison.Ordinal);
+
+            await page.GetByRole(AriaRole.Link, new() { Name = "Zarządzaj obszarami", Exact = true }).ClickAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Zarządzaj obszarami", Level = 1 }).WaitForAsync();
+            await page.ReloadAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Zarządzaj obszarami", Level = 1 }).WaitForAsync();
+            var homeEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Dom", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::article");
+            await homeEditor.GetByRole(AriaRole.Button, new() { Name = "Edytuj obszar" }).ClickAsync();
+            await homeEditor.GetByRole(AriaRole.Textbox, new() { Name = "Nazwa", Exact = true }).FillAsync("Mój dom");
+            await homeEditor.GetByRole(AriaRole.Textbox, new() { Name = "Opis", Exact = true }).FillAsync("Własny opis zapisany w lokalnej bazie.");
+            await homeEditor.GetByRole(AriaRole.Button, new() { Name = "Zapisz zmiany" }).ClickAsync();
+            await page.WaitForTimeoutAsync(1_000);
+            Assert.True(
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Mój dom", Exact = true, Level = 2 }).CountAsync() == 1,
+                $"Edycja obszaru nie została zapisana. URL={page.Url}; " +
+                $"Komunikaty={string.Join(" | ", await page.Locator(".area-management__message").AllTextContentsAsync())}; " +
+                $"Konsola={string.Join(" | ", browserErrors)}");
+            await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true }).ClickAsync();
+            var savedTile = page.GetByRole(AriaRole.Heading, new() { Name = "Mój dom", Exact = true, Level = 3 })
+                .Locator("xpath=ancestor::article");
+            Assert.Equal("Własny opis zapisany w lokalnej bazie.", await savedTile.Locator("p").TextContentAsync());
+            await page.ReloadAsync();
+            Assert.Equal(
+                1,
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Mój dom", Exact = true, Level = 3 }).CountAsync());
+            await AssertNoAxeViolationsAsync(page, "edycja obszaru");
 
             var sessionCookie = Assert.Single(
                 await context.CookiesAsync(),
@@ -522,6 +549,7 @@ public sealed class BrowserHostFlowTests
         startInfo.Environment["PATH"] = $"{shimDirectory}:{Environment.GetEnvironmentVariable("PATH")}";
         startInfo.Environment["XDG_RUNTIME_DIR"] = runtimeBase;
         startInfo.Environment["XDG_STATE_HOME"] = stateBase;
+        startInfo.Environment["XDG_DATA_HOME"] = Path.Combine(homeDirectory, ".local", "share");
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Production";
         startInfo.Environment["SERVANDA_XDG_OPEN_CAPTURE"] = openedAddressesPath;
 

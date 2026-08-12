@@ -1,3 +1,5 @@
+@inject IAreaService AreaService
+
 <div class="sidebar-content">
     <a class="sidebar-content__brand" href="/" aria-label="Servanda — pulpit">
         <span class="sidebar-content__brand-mark" aria-hidden="true">S</span>
@@ -8,12 +10,15 @@
         <NavLink class="sidebar-content__home" href="/" Match="NavLinkMatch.All">
             Pulpit
         </NavLink>
+        <NavLink class="sidebar-content__home" href="/manage-areas">
+            Zarządzaj obszarami
+        </NavLink>
     </nav>
 
     <section class="sidebar-content__areas" aria-labelledby="@AreasHeadingId" tabindex="0">
         <h2 id="@AreasHeadingId">Obszary</h2>
         <ul class="sidebar-content__area-list">
-            @foreach (var area in AreaCatalog.Items)
+            @foreach (var area in _areas)
             {
                 <li class="sidebar-content__area">
                     <span class="sidebar-content__area-name">@area.Name</span>
@@ -33,4 +38,11 @@
     public required string Instance { get; set; }
 
     private string AreasHeadingId => $"sidebar-areas-heading-{Instance}";
+
+    private IReadOnlyList<AreaListItem> _areas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _areas = await AreaService.ListAsync();
+    }
 }

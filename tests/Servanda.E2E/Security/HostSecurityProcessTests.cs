@@ -24,11 +24,12 @@ public sealed class HostSecurityProcessTests
             UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var runtimeBase = Path.Combine(temporaryPath, "runtime");
         var stateBase = Path.Combine(temporaryPath, "state");
+        var dataBase = Path.Combine(temporaryPath, "data");
         var runtimeDirectory = Path.Combine(runtimeBase, "servanda");
         var descriptorPath = Path.Combine(runtimeDirectory, "instance.json");
         var controlSecretPath = Path.Combine(runtimeDirectory, "control.secret");
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        using var host = StartHost(runtimeBase, stateBase);
+        using var host = StartHost(runtimeBase, stateBase, dataBase);
 
         try
         {
@@ -192,7 +193,7 @@ public sealed class HostSecurityProcessTests
         }
     }
 
-    private static Process StartHost(string runtimeBase, string stateBase)
+    private static Process StartHost(string runtimeBase, string stateBase, string dataBase)
     {
         var executablePath = Path.Combine(AppContext.BaseDirectory, "Servanda");
         var startInfo = new ProcessStartInfo
@@ -206,6 +207,7 @@ public sealed class HostSecurityProcessTests
         };
         startInfo.Environment["XDG_RUNTIME_DIR"] = runtimeBase;
         startInfo.Environment["XDG_STATE_HOME"] = stateBase;
+        startInfo.Environment["XDG_DATA_HOME"] = dataBase;
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Production";
 
         return Process.Start(startInfo) ?? throw new InvalidOperationException("Nie udało się uruchomić testowego hosta.");

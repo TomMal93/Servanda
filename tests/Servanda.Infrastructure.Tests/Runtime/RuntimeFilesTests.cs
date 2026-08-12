@@ -90,4 +90,20 @@ public sealed class RuntimeFilesTests
         Assert.NotNull(firstLock);
         Assert.Null(secondLock);
     }
+
+    [Fact]
+    public void DatabaseLockAllowsOnlyOneActiveOwnerAndUsesPrivateMode()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var lockPath = Path.Combine(temporaryDirectory.Path, "servanda.lock");
+        using var firstLock = DatabaseLock.TryAcquire(lockPath);
+
+        using var secondLock = DatabaseLock.TryAcquire(lockPath);
+
+        Assert.NotNull(firstLock);
+        Assert.Null(secondLock);
+        Assert.Equal(
+            UnixFileMode.UserRead | UnixFileMode.UserWrite,
+            File.GetUnixFileMode(lockPath));
+    }
 }

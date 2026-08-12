@@ -1,0 +1,245 @@
+@page "/manage-areas"
+@inject IAreaService AreaService
+@inject IJSRuntime JavaScript
+@implements IAsyncDisposable
+
+<PageTitle>Zarządzaj obszarami — Servanda</PageTitle>
+
+<div class="area-management">
+    <header class="area-management__header">
+        <p class="area-management__eyebrow">Ustawienia pulpitu</p>
+        <h1>Zarządzaj obszarami</h1>
+        <p>
+            Na tym etapie możesz zmienić nazwę i opis obszaru. Kolejność, widoczność i archiwizacja pojawią się w kolejnych krokach P3.
+        </p>
+    </header>
+
+    <div class="area-management__list">
+        @foreach (var area in _areas)
+        {
+            <article class="area-editor" @key="area.Id">
+                <div class="area-editor__summary">
+                    <span class="area-editor__icon @AreaPresentation.AccentClass(area)" aria-hidden="true">
+                        @AreaPresentation.Icon(area.IconKey)
+                    </span>
+                    <div>
+                        <h2>@area.Name</h2>
+                        <span class="area-editor__status">Planowane</span>
+                    </div>
+                </div>
+
+                @if (_editingAreaId == area.Id)
+                {
+                    <EditForm EditContext="_editContext" OnSubmit="SaveAsync" FormName="@($"edit-area-{area.Id}")">
+                        <div class="field">
+                            <label for="@($"area-name-{area.Id}")">Nazwa <span aria-hidden="true">*</span></label>
+                            <InputText id="@($"area-name-{area.Id}")"
+                                       @bind-Value="_form.Name"
+                                       maxlength="80"
+                                       required
+                                       aria-describedby="@NameDescriptionId(area)" />
+                            <p id="@NameDescriptionId(area)" class="field__hint">Od 1 do 80 znaków.</p>
+                            @if (_errors.TryGetValue(nameof(EditAreaForm.Name), out var nameErrors))
+                            {
+                                @foreach (var error in nameErrors)
+                                {
+                                    <p class="field__error">@error</p>
+                                }
+                            }
+                        </div>
+
+                        <div class="field">
+                            <label for="@($"area-description-{area.Id}")">Opis</label>
+                            <InputTextArea id="@($"area-description-{area.Id}")"
+                                           @bind-Value="_form.Description"
+                                           maxlength="300"
+                                           rows="4"
+                                           aria-describedby="@DescriptionDescriptionId(area)" />
+                            <p id="@DescriptionDescriptionId(area)" class="field__hint">Maksymalnie 300 znaków.</p>
+                            @if (_errors.TryGetValue(nameof(EditAreaForm.Description), out var descriptionErrors))
+                            {
+                                @foreach (var error in descriptionErrors)
+                                {
+                                    <p class="field__error">@error</p>
+                                }
+                            }
+                        </div>
+
+                        <div class="area-editor__actions">
+                            <button class="button button--primary" type="submit" disabled="@_saving">
+                                @(_saving ? "Zapisywanie…" : "Zapisz zmiany")
+                            </button>
+                            <button type="button" @onclick="CancelEdit" disabled="@_saving">Anuluj</button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    <p class="area-editor__description">@area.Description</p>
+                    <button type="button" @onclick="() => BeginEdit(area)">Edytuj obszar</button>
+                }
+            </article>
+        }
+    </div>
+
+    <p class="area-management__message @MessageClass" aria-live="polite">@_message</p>
+</div>
+
+@code {
+    private IReadOnlyList<AreaListItem> _areas = [];
+    private string? _editingAreaId;
+    private AreaListItem? _editingArea;
+    private EditAreaForm _form = new();
+    private EditContext? _editContext;
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string _message = string.Empty;
+    private bool _saving;
+    private IJSObjectReference? _unsavedChangesModule;
+
+    private string MessageClass => string.IsNullOrEmpty(_message) ? string.Empty : "area-management__message--visible";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _areas = await AreaService.ListAsync();
+    }
+
+    private void BeginEdit(AreaListItem area)
+    {
+        _editingAreaId = area.Id;
+        _editingArea = area;
+        _form = new EditAreaForm { Name = area.Name, Description = area.Description };
+        _editContext = new EditContext(_form);
+        _editContext.OnFieldChanged += HandleFieldChanged;
+        _errors = new Dictionary<string, string[]>();
+        _message = "Masz niezapisane zmiany dopiero po zmodyfikowaniu formularza.";
+    }
+
+    private void CancelEdit()
+    {
+        ClearEditContext();
+        _ = DisableUnsavedChangesAsync();
+        _editingAreaId = null;
+        _editingArea = null;
+        _errors = new Dictionary<string, string[]>();
+        _message = "Anulowano edycję. Dane zapisane wcześniej nie zostały zmienione.";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editingArea is null)
+        {
+            return;
+        }
+
+        _saving = true;
+        _message = "Zapisywanie zmian…";
+        _errors = new Dictionary<string, string[]>();
+        try
+        {
+            var result = await AreaService.UpdateAsync(new UpdateAreaCommand(
+                _editingArea.Id,
+                _form.Name,
+                _form.Description,
+                _editingArea.Revision,
+                _editingArea.ContentEpoch));
+
+            switch (result.Status)
+            {
+                case UpdateAreaStatus.Success:
+                    await DisableUnsavedChangesAsync();
+                    var savedArea = result.Area!;
+                    _areas = _areas.Select(area => area.Id == savedArea.Id ? savedArea : area).ToList();
+                    ClearEditContext();
+                    _editingAreaId = null;
+                    _editingArea = null;
+                    _message = "Zapisano zmiany w lokalnej bazie.";
+                    break;
+                case UpdateAreaStatus.ValidationFailed:
+                    _errors = result.Errors ?? new Dictionary<string, string[]>();
+                    _message = "Popraw wskazane pola przed zapisem.";
+                    break;
+                case UpdateAreaStatus.Conflict:
+                    _message = "Obszar zmienił się w innej karcie. Odśwież stronę i spróbuj ponownie.";
+                    break;
+                case UpdateAreaStatus.NotFound:
+                    _message = "Nie znaleziono obszaru. Odśwież stronę.";
+                    break;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static string NameDescriptionId(AreaListItem area) => $"area-name-help-{area.Id}";
+
+    private static string DescriptionDescriptionId(AreaListItem area) => $"area-description-help-{area.Id}";
+
+    private async void HandleFieldChanged(object? sender, FieldChangedEventArgs args)
+    {
+        await EnableUnsavedChangesAsync();
+    }
+
+    private async Task EnableUnsavedChangesAsync()
+    {
+        try
+        {
+            _unsavedChangesModule ??= await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import",
+                "/unsaved-changes.js");
+            await _unsavedChangesModule.InvokeVoidAsync("enable");
+            _message = "Masz niezapisane zmiany.";
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task DisableUnsavedChangesAsync()
+    {
+        if (_unsavedChangesModule is not null)
+        {
+            try
+            {
+                await _unsavedChangesModule.InvokeVoidAsync("disable");
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
+
+    private void ClearEditContext()
+    {
+        if (_editContext is not null)
+        {
+            _editContext.OnFieldChanged -= HandleFieldChanged;
+            _editContext = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ClearEditContext();
+        await DisableUnsavedChangesAsync();
+        if (_unsavedChangesModule is not null)
+        {
+            try
+            {
+                await _unsavedChangesModule.DisposeAsync();
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
+
+    private sealed class EditAreaForm
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public string Description { get; set; } = string.Empty;
+    }
+}

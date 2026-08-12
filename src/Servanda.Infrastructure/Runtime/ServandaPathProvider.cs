@@ -45,10 +45,18 @@ public sealed class ServandaPathProvider
                 : RequireAbsolutePath(stateBase, "XDG_STATE_HOME"),
             "servanda");
 
+        var dataBase = _getEnvironmentVariable("XDG_DATA_HOME");
+        var dataDirectory = Path.Combine(
+            string.IsNullOrWhiteSpace(dataBase)
+                ? Path.Combine(_homeDirectory, ".local", "share")
+                : RequireAbsolutePath(dataBase, "XDG_DATA_HOME"),
+            "servanda");
+
         PrivateFileSystem.EnsureDirectory(runtimeDirectory, _effectiveUserId);
         PrivateFileSystem.EnsureDirectory(stateDirectory, _effectiveUserId);
+        PrivateFileSystem.EnsureDirectory(dataDirectory, _effectiveUserId);
 
-        return new ServandaPaths(runtimeDirectory, stateDirectory);
+        return new ServandaPaths(runtimeDirectory, stateDirectory, dataDirectory);
     }
 
     private static string RequireAbsolutePath(string path, string variableName)

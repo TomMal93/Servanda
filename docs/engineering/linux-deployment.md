@@ -89,10 +89,11 @@ Lokalne uruchomienie do developmentu i ręcznych testów wymaga przypiętego SDK
 
 ```bash
 dotnet restore
-mkdir -p .servanda-dev/runtime .servanda-dev/state
-chmod 700 .servanda-dev/runtime .servanda-dev/state
+mkdir -p .servanda-dev/runtime .servanda-dev/state .servanda-dev/data
+chmod 700 .servanda-dev/runtime .servanda-dev/state .servanda-dev/data
 XDG_RUNTIME_DIR="$PWD/.servanda-dev/runtime" \
 XDG_STATE_HOME="$PWD/.servanda-dev/state" \
+XDG_DATA_HOME="$PWD/.servanda-dev/data" \
 DOTNET_ENVIRONMENT=Development \
 dotnet run --project src/Servanda.App
 ```
