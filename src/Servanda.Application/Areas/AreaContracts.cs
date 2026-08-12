@@ -7,6 +7,7 @@ public sealed record AreaListItem(
     string IconKey,
     string AccentKey,
     string Availability,
+    bool IsHidden,
     int SortOrder,
     long Revision,
     string ContentEpoch,
@@ -31,6 +32,12 @@ public sealed record MoveAreaCommand(
     string Id,
     string? BeforeAreaId,
     long ExpectedOrderingRevision,
+    string ContentEpoch);
+
+public sealed record SetAreaVisibilityCommand(
+    string Id,
+    bool IsHidden,
+    long ExpectedRevision,
     string ContentEpoch);
 
 public enum UpdateAreaStatus
@@ -69,9 +76,22 @@ public sealed record MoveAreaResult(
     MoveAreaStatus Status,
     IReadOnlyList<AreaListItem>? Areas = null);
 
+public enum SetAreaVisibilityStatus
+{
+    Success,
+    Conflict,
+    NotFound,
+}
+
+public sealed record SetAreaVisibilityResult(
+    SetAreaVisibilityStatus Status,
+    AreaListItem? Area = null);
+
 public interface IAreaService
 {
     Task<IReadOnlyList<AreaListItem>> ListAsync(CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AreaListItem>> ListForManagementAsync(CancellationToken cancellationToken = default);
 
     Task<CreateAreaResult> CreateAsync(
         CreateAreaCommand command,
@@ -79,6 +99,10 @@ public interface IAreaService
 
     Task<MoveAreaResult> MoveAsync(
         MoveAreaCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<SetAreaVisibilityResult> SetVisibilityAsync(
+        SetAreaVisibilityCommand command,
         CancellationToken cancellationToken = default);
 
     Task<UpdateAreaResult> UpdateAsync(

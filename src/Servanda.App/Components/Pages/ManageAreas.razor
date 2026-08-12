@@ -11,7 +11,7 @@
         <p class="area-management__eyebrow">Ustawienia pulpitu</p>
         <h1>Zarządzaj obszarami</h1>
         <p>
-            Dodawaj własne planowane obszary oraz zmieniaj ich nazwy i opisy. Kolejność, widoczność i archiwizacja pojawią się w kolejnych krokach P3.
+            Dodawaj własne planowane obszary, edytuj je, ustawiaj kolejność oraz decyduj, które są widoczne na pulpicie i w panelu bocznym.
         </p>
         <button class="button button--primary"
                 type="button"
@@ -124,14 +124,14 @@
     <div class="area-management__list">
         @foreach (var area in _areas)
         {
-            <article class="area-editor" @key="area.Id">
+            <article class="area-editor @(area.IsHidden ? "area-editor--hidden" : string.Empty)" @key="area.Id">
                 <div class="area-editor__summary">
                     <span class="area-editor__icon @AreaPresentation.AccentClass(area)" aria-hidden="true">
                         @AreaPresentation.Icon(area.IconKey)
                     </span>
                     <div>
                         <h2>@area.Name</h2>
-                        <span class="area-editor__status">Planowane</span>
+                        <span class="area-editor__status">@(area.IsHidden ? "Ukryty · Planowane" : "Widoczny · Planowane")</span>
                     </div>
                 </div>
 
@@ -189,6 +189,12 @@
                                 disabled="@(_creating || _saving || _editingAreaId is not null)">
                             Edytuj obszar
                         </button>
+                        <button type="button"
+                                aria-label="@(area.IsHidden ? $"Pokaż obszar: {area.Name}" : $"Ukryj obszar: {area.Name}")"
+                                @onclick="() => SetVisibilityAsync(area, !area.IsHidden)"
+                                disabled="@(_creating || _saving || _editingAreaId is not null)">
+                            @(area.IsHidden ? "Pokaż" : "Ukryj")
+                        </button>
                         <div class="area-editor__ordering" role="group" aria-label="Kolejność obszaru @area.Name">
                             <button type="button"
                                     aria-label="Przenieś wyżej: @area.Name"
@@ -231,7 +237,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _areas = await AreaService.ListAsync();
+        _areas = await AreaService.ListForManagementAsync();
         if (_areas.Count > 0)
         {
             _contentEpoch = _areas[0].ContentEpoch;
@@ -416,6 +422,43 @@
                     break;
                 case MoveAreaStatus.NotFound:
                     _message = "Nie znaleziono obszaru albo miejsca docelowego. Odśwież stronę.";
+                    break;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SetVisibilityAsync(AreaListItem area, bool isHidden)
+    {
+        _saving = true;
+        _message = isHidden
+            ? $"Ukrywanie obszaru „{area.Name}”…"
+            : $"Pokazywanie obszaru „{area.Name}”…";
+        try
+        {
+            var result = await AreaService.SetVisibilityAsync(new SetAreaVisibilityCommand(
+                area.Id,
+                isHidden,
+                area.Revision,
+                area.ContentEpoch));
+            switch (result.Status)
+            {
+                case SetAreaVisibilityStatus.Success:
+                    var savedArea = result.Area!;
+                    _areas = _areas.Select(item => item.Id == savedArea.Id ? savedArea : item).ToList();
+                    _message = isHidden
+                        ? $"Ukryto obszar „{area.Name}” na pulpicie i w panelu bocznym."
+                        : $"Obszar „{area.Name}” jest ponownie widoczny.";
+                    await AreaChanges.NotifyAsync();
+                    break;
+                case SetAreaVisibilityStatus.Conflict:
+                    _message = "Obszar zmienił się w innej karcie. Odśwież stronę i spróbuj ponownie.";
+                    break;
+                case SetAreaVisibilityStatus.NotFound:
+                    _message = "Nie znaleziono obszaru. Odśwież stronę.";
                     break;
             }
         }

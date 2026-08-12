@@ -116,6 +116,13 @@ public sealed class Area
         return errors;
     }
 
+    public void SetVisibility(bool isHidden, DateTimeOffset timestamp)
+    {
+        IsHidden = isHidden;
+        UpdatedAt = timestamp;
+        Revision++;
+    }
+
     public static IReadOnlyDictionary<string, string[]> ValidateContent(string name, string description)
     {
         var errors = new Dictionary<string, string[]>();

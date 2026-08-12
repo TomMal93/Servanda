@@ -138,6 +138,49 @@ public sealed class AreaPersistenceTests
     }
 
     [Fact]
+    public async Task SetVisibilityFiltersUserListPersistsAndRejectsStaleRevision()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var areaService = services.GetRequiredService<IAreaService>();
+        var original = Assert.Single(await areaService.ListAsync(), area => area.Name == "Dom");
+
+        var hidden = await areaService.SetVisibilityAsync(new SetAreaVisibilityCommand(
+            original.Id,
+            true,
+            original.Revision,
+            original.ContentEpoch));
+        var stale = await areaService.SetVisibilityAsync(new SetAreaVisibilityCommand(
+            original.Id,
+            false,
+            original.Revision,
+            original.ContentEpoch));
+        var visibleAreas = await areaService.ListAsync();
+        var managedArea = Assert.Single(
+            await areaService.ListForManagementAsync(),
+            area => area.Id == original.Id);
+
+        Assert.Equal(SetAreaVisibilityStatus.Success, hidden.Status);
+        Assert.NotNull(hidden.Area);
+        Assert.True(hidden.Area.IsHidden);
+        Assert.Equal(2, hidden.Area.Revision);
+        Assert.Equal(SetAreaVisibilityStatus.Conflict, stale.Status);
+        Assert.DoesNotContain(visibleAreas, area => area.Id == original.Id);
+        Assert.True(managedArea.IsHidden);
+
+        var restored = await areaService.SetVisibilityAsync(new SetAreaVisibilityCommand(
+            managedArea.Id,
+            false,
+            managedArea.Revision,
+            managedArea.ContentEpoch));
+
+        Assert.Equal(SetAreaVisibilityStatus.Success, restored.Status);
+        Assert.Contains(await areaService.ListAsync(), area => area.Id == original.Id && !area.IsHidden);
+    }
+
+    [Fact]
     public async Task InitialMigrationCreatesRequiredTables()
     {
         using var temporaryDirectory = new TemporaryDirectory();

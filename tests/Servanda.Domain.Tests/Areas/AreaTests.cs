@@ -19,6 +19,20 @@ public sealed class AreaTests
         Assert.Equal(created.AddMinutes(1), area.UpdatedAt);
     }
 
+    [Fact]
+    public void SetVisibilityChangesStateAndIncrementsRevision()
+    {
+        var created = new DateTimeOffset(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
+        var changed = created.AddMinutes(1);
+        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", 0, created);
+
+        area.SetVisibility(true, changed);
+
+        Assert.True(area.IsHidden);
+        Assert.Equal(2, area.Revision);
+        Assert.Equal(changed, area.UpdatedAt);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

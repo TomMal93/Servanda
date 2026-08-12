@@ -422,6 +422,41 @@ public sealed class BrowserHostFlowTests
                 await page.Locator("aside.sidebar .sidebar-content__area-name")
                     .GetByText("Mój dom", new() { Exact = true })
                     .CountAsync());
+            var projectEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::article");
+            await projectEditor.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Ukryj obszar: Projekty", Exact = true }).ClickAsync();
+            await page.GetByText(
+                "Ukryto obszar „Projekty” na pulpicie i w panelu bocznym.",
+                new() { Exact = true }).WaitForAsync();
+            Assert.Equal(1, await projectEditor.GetByText("Ukryty · Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(
+                0,
+                await page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText("Projekty", new() { Exact = true })
+                    .CountAsync());
+            await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true }).ClickAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Twoje obszary", Exact = true, Level = 1 })
+                .WaitForAsync();
+            Assert.Equal(
+                0,
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 3 }).CountAsync());
+            Assert.Equal(7, await page.Locator(".area-tile").CountAsync());
+            await page.GetByRole(AriaRole.Link, new() { Name = "Zarządzaj obszarami", Exact = true }).ClickAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Zarządzaj obszarami", Exact = true, Level = 1 })
+                .WaitForAsync();
+            projectEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::article");
+            await projectEditor.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Pokaż obszar: Projekty", Exact = true }).ClickAsync();
+            await page.GetByText("Obszar „Projekty” jest ponownie widoczny.", new() { Exact = true }).WaitForAsync();
+            Assert.Equal(
+                1,
+                await page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText("Projekty", new() { Exact = true })
+                    .CountAsync());
             await AssertNoAxeViolationsAsync(page, "zarządzanie obszarami");
             foreach (var control in await page.Locator("main a:visible, main button:visible, main input:visible, main textarea:visible, main select:visible").AllAsync())
             {
