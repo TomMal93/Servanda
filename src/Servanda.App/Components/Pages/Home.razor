@@ -1,7 +1,55 @@
 ﻿@page "/"
 
-<PageTitle>Servanda</PageTitle>
+<PageTitle>Pulpit — Servanda</PageTitle>
 
-<h1>Servanda</h1>
+<div class="dashboard">
+    <header class="dashboard__header">
+        <p class="dashboard__eyebrow">Osobisty pulpit</p>
+        <h1>Twoje obszary</h1>
+        <p class="dashboard__intro">
+            Servanda będzie porządkować ważne sprawy codzienności. Wszystkie obszary są obecnie planowane.
+        </p>
+    </header>
 
-<p>Bezpieczny lokalny host działa. Pulpit powstanie w etapie P2.</p>
+    <section aria-labelledby="areas-heading">
+        <h2 id="areas-heading" class="dashboard__section-heading">Planowane obszary</h2>
+
+        <div class="area-grid">
+            @foreach (var area in AreaCatalog.Items)
+            {
+                <article class="area-tile @area.AccentClass"
+                         data-area="@area.Id"
+                         aria-labelledby="@area.HeadingId">
+                    <div class="area-tile__topline">
+                        <span class="area-tile__icon" aria-hidden="true">
+                            @AreaIcon(area.Icon)
+                        </span>
+                        <span class="area-tile__status">Planowane</span>
+                    </div>
+                    <h3 id="@area.HeadingId">@area.Name</h3>
+                    <p>@area.Description</p>
+                </article>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private static RenderFragment AreaIcon(AreaIconKind icon) => builder =>
+    {
+        var markup = icon switch
+        {
+            AreaIconKind.Prompts => """<svg viewBox="0 0 24 24" focusable="false"><path d="M5 4h14v12H9l-4 4V4Z"/><path d="M8 8h8M8 12h5"/></svg>""",
+            AreaIconKind.Tools => """<svg viewBox="0 0 24 24" focusable="false"><path d="m14 6 4-4 4 4-4 4M18 2v8M4 14h8v8H4zM8 14V9a3 3 0 0 1 3-3h7"/></svg>""",
+            AreaIconKind.Home => """<svg viewBox="0 0 24 24" focusable="false"><path d="m3 11 9-8 9 8M5 10v11h14V10M9 21v-7h6v7"/></svg>""",
+            AreaIconKind.Family => """<svg viewBox="0 0 24 24" focusable="false"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M15 14a5 5 0 0 1 6 5v2"/></svg>""",
+            AreaIconKind.Vitality => """<svg viewBox="0 0 24 24" focusable="false"><path d="M3 12h4l2-6 4 12 2-6h6M12 21C6 17 3 14 3 9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5-3 8-9 12Z"/></svg>""",
+            AreaIconKind.Notes => """<svg viewBox="0 0 24 24" focusable="false"><path d="M5 3h14v18H5zM9 7h6M9 11h6M9 15h4"/></svg>""",
+            AreaIconKind.Budget => """<svg viewBox="0 0 24 24" focusable="false"><path d="M3 7h18v13H3zM3 10h18M16 15h3M6 7V4h12v3"/></svg>""",
+            _ => throw new ArgumentOutOfRangeException(nameof(icon), icon, null),
+        };
+
+        builder.AddMarkupContent(0, markup);
+    };
+
+}

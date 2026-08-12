@@ -18,10 +18,10 @@
         <section class="sidebar__areas" aria-labelledby="sidebar-areas-heading">
             <h2 id="sidebar-areas-heading">Obszary</h2>
             <ul class="sidebar__area-list">
-                @foreach (var areaName in AreaNames)
+                @foreach (var area in AreaCatalog.Items)
                 {
                     <li class="sidebar__area">
-                        <span class="sidebar__area-name">@areaName</span>
+                        <span class="sidebar__area-name">@area.Name</span>
                         <span class="sidebar__status">Planowane</span>
                     </li>
                 }
@@ -43,16 +43,3 @@
     <a href="." class="reload">Odśwież stronę</a>
     <button type="button" class="dismiss" aria-label="Zamknij komunikat błędu">×</button>
 </div>
-
-@code {
-    private static readonly string[] AreaNames =
-    [
-        "Skarbiec promptów",
-        "Przechowalnia narzędzi",
-        "Dom",
-        "Rodzina",
-        "Witalność",
-        "Przechowalnia notatek",
-        "Budżet domowy",
-    ];
-}

@@ -132,8 +132,8 @@ public sealed class BrowserHostFlowTests
             Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy, StringComparison.Ordinal);
             Assert.Contains("object-src 'none'", contentSecurityPolicy, StringComparison.Ordinal);
             Assert.DoesNotContain("unsafe-eval", contentSecurityPolicy, StringComparison.Ordinal);
-            Assert.Equal("Servanda", await page.TitleAsync());
-            Assert.Equal("Servanda", await page.GetByRole(AriaRole.Heading, new() { Level = 1 }).TextContentAsync());
+            Assert.Equal("Pulpit — Servanda", await page.TitleAsync());
+            Assert.Equal("Twoje obszary", await page.GetByRole(AriaRole.Heading, new() { Level = 1 }).TextContentAsync());
             Assert.Equal("pl", await page.Locator("html").GetAttributeAsync("lang"));
             Assert.Equal(1, await page.GetByRole(AriaRole.Main).CountAsync());
             Assert.Equal(
@@ -147,25 +147,34 @@ public sealed class BrowserHostFlowTests
                 await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true })
                     .GetAttributeAsync("aria-current"));
             Assert.Equal(7, await page.Locator(".sidebar__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(7, await page.Locator(".area-tile").CountAsync());
+            Assert.Equal(7, await page.Locator(".area-tile__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(7, await page.Locator(".area-tile svg[viewBox='0 0 24 24']").CountAsync());
             Assert.Equal(0, await page.GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
 
-            foreach (var areaName in new[]
+            foreach (var area in new[]
             {
-                "Skarbiec promptów",
-                "Przechowalnia narzędzi",
-                "Dom",
-                "Rodzina",
-                "Witalność",
-                "Przechowalnia notatek",
-                "Budżet domowy",
+                (Id: "prompts", Name: "Skarbiec promptów", Description: "Przechowywanie, przygotowywanie i ponowne używanie promptów."),
+                (Id: "tools", Name: "Przechowalnia narzędzi", Description: "Katalog sprawdzonych stron i aplikacji przydatnych na co dzień."),
+                (Id: "home", Name: "Dom", Description: "Harmonogram prac porządkowych i innych obowiązków domowych."),
+                (Id: "family", Name: "Rodzina", Description: "Ważne informacje, potrzeby, daty i relacje dotyczące bliskich."),
+                (Id: "vitality", Name: "Witalność", Description: "Zdrowie, biohacking, dieta i trening w jednym uporządkowanym miejscu."),
+                (Id: "notes", Name: "Przechowalnia notatek", Description: "Pomysły, obserwacje i informacje zachowane do późniejszego użycia."),
+                (Id: "budget", Name: "Budżet domowy", Description: "Planowanie miesięcznego budżetu gospodarstwa domowego."),
             })
             {
-                var plannedArea = page.GetByText(areaName, new() { Exact = true });
-                Assert.Equal(1, await plannedArea.CountAsync());
+                var sidebarArea = page.Locator(".sidebar__area-name").GetByText(area.Name, new() { Exact = true });
+                Assert.Equal(1, await sidebarArea.CountAsync());
                 Assert.False(
-                    await plannedArea.EvaluateAsync<bool>(
+                    await sidebarArea.EvaluateAsync<bool>(
                         "element => element.closest('a, button') !== null"),
-                    $"Planowany obszar „{areaName}” nie może być interaktywny w v1.");
+                    $"Planowany obszar „{area.Name}” nie może być interaktywny w panelu v1.");
+
+                var tile = page.Locator($".area-tile[data-area='{area.Id}']");
+                Assert.Equal(1, await tile.CountAsync());
+                Assert.Equal(area.Name, await tile.GetByRole(AriaRole.Heading, new() { Level = 3 }).TextContentAsync());
+                Assert.Equal(area.Description, await tile.Locator("p").TextContentAsync());
+                Assert.Equal(0, await tile.Locator("a, button, input, select, textarea").CountAsync());
             }
 
             Assert.Equal(
@@ -188,6 +197,20 @@ public sealed class BrowserHostFlowTests
                     292,
                     await page.Locator(".sidebar").EvaluateAsync<int>(
                         "element => Math.round(element.getBoundingClientRect().width)"));
+                Assert.True(
+                    await page.Locator(".area-grid").EvaluateAsync<bool>(
+                        "element => element.getBoundingClientRect().width <= element.parentElement.getBoundingClientRect().width"),
+                    $"Siatka kafli wychodzi poza dostępną treść przy szerokości {viewportWidth}px.");
+                Assert.True(
+                    await page.Locator(".dashboard").EvaluateAsync<bool>(
+                        """
+                        element => {
+                            const dashboard = element.getBoundingClientRect();
+                            const main = element.closest('main').getBoundingClientRect();
+                            return Math.abs((dashboard.left - main.left) - (main.right - dashboard.right)) <= 1;
+                        }
+                        """),
+                    $"Pulpit nie jest wyśrodkowany przy szerokości {viewportWidth}px.");
             }
 
             await page.Locator(".sidebar__brand").FocusAsync();
