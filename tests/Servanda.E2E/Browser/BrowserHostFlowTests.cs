@@ -134,6 +134,32 @@ public sealed class BrowserHostFlowTests
             Assert.DoesNotContain("unsafe-eval", contentSecurityPolicy, StringComparison.Ordinal);
             Assert.Equal("Servanda", await page.TitleAsync());
             Assert.Equal("Servanda", await page.GetByRole(AriaRole.Heading, new() { Level = 1 }).TextContentAsync());
+            Assert.Equal("pl", await page.Locator("html").GetAttributeAsync("lang"));
+            Assert.Equal(1, await page.GetByRole(AriaRole.Main).CountAsync());
+            Assert.Equal(
+                "rgb(11, 13, 17)",
+                await page.Locator("body").EvaluateAsync<string>("element => getComputedStyle(element).backgroundColor"));
+            Assert.Equal(
+                "rgb(243, 245, 247)",
+                await page.Locator("body").EvaluateAsync<string>("element => getComputedStyle(element).color"));
+
+            foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
+            {
+                await page.SetViewportSizeAsync(viewportWidth, 1080);
+                Assert.True(
+                    await page.Locator("html").EvaluateAsync<bool>(
+                        "element => element.scrollWidth <= element.clientWidth"),
+                    $"Strona przewija się poziomo przy szerokości {viewportWidth}px.");
+            }
+
+            await page.GetByRole(AriaRole.Button, new() { Name = "Zamknij Servandę" }).FocusAsync();
+            await page.Keyboard.PressAsync("Shift+Tab");
+            var activeElement = await page.EvaluateAsync<string>(
+                "() => `${document.activeElement?.tagName}.${document.activeElement?.className}`");
+            Assert.True(
+                await page.Locator(".skip-link").EvaluateAsync<bool>(
+                    "element => element === document.activeElement"),
+                $"Fokus klawiatury trafił na {activeElement} zamiast linku pomijającego.");
             Assert.DoesNotContain("ticket=", page.Url, StringComparison.Ordinal);
 
             var sessionCookie = Assert.Single(
@@ -213,7 +239,14 @@ public sealed class BrowserHostFlowTests
         browserName switch
         {
             "chromium" => await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true }),
-            "firefox" => await playwright.Firefox.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true }),
+            "firefox" => await playwright.Firefox.LaunchAsync(new BrowserTypeLaunchOptions
+            {
+                Headless = true,
+                FirefoxUserPrefs = new Dictionary<string, object>
+                {
+                    ["accessibility.tabfocus"] = 7,
+                },
+            }),
             _ => throw new ArgumentOutOfRangeException(nameof(browserName), browserName, "Nieobsługiwana przeglądarka testowa."),
         };
 

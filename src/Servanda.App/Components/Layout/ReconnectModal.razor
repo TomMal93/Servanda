@@ -1,31 +1,38 @@
 ﻿<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
 
-<dialog id="components-reconnect-modal" data-nosnippet>
-    <div class="components-reconnect-container">
+<dialog id="components-reconnect-modal"
+        aria-labelledby="components-reconnect-heading"
+        data-nosnippet>
+    <div class="components-reconnect-container"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true">
         <div class="components-rejoining-animation" aria-hidden="true">
             <div></div>
             <div></div>
         </div>
+        <h2 id="components-reconnect-heading">Połączenie z Servandą</h2>
         <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
+            Trwa ponowne łączenie z lokalnym procesem…
         </p>
         <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+            Nie udało się połączyć. Kolejna próba za
+            <span id="components-seconds-to-next-attempt"></span> s.
         </p>
         <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
+            Nie udało się przywrócić połączenia. Spróbuj ponownie lub odśwież stronę.
         </p>
         <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            Retry
+            Ponów próbę
         </button>
         <p class="components-pause-visible">
-            The session has been paused by the server.
+            Sesja została wstrzymana przez lokalny proces.
         </p>
         <p class="components-resume-failed-visible">
-            Failed to resume the session.<br />Please retry or reload the page.
+            Nie udało się wznowić sesji. Spróbuj ponownie lub odśwież stronę.
         </p>
         <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">
-            Resume
+            Wznów sesję
         </button>
     </div>
 </dialog>

@@ -19,139 +19,101 @@
     display: block;
 }
 
-
 #components-reconnect-modal {
-    background-color: white;
-    width: 20rem;
-    margin: 20vh auto;
-    padding: 2rem;
-    border: 0;
-    border-radius: 0.5rem;
-    box-shadow: 0 3px 6px 2px rgba(0, 0, 0, 0.3);
+    width: min(calc(100% - var(--space-8)), 28rem);
+    padding: var(--space-6);
+    border: var(--border-width) solid var(--border-interactive);
+    border-radius: var(--radius-lg);
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: var(--shadow-dialog);
     opacity: 0;
-    transition: display 0.5s allow-discrete, overlay 0.5s allow-discrete;
-    animation: components-reconnect-modal-fadeOutOpacity 0.5s both;
-    &[open]
-
-{
-    animation: components-reconnect-modal-slideUp 1.5s cubic-bezier(.05, .89, .25, 1.02) 0.3s, components-reconnect-modal-fadeInOpacity 0.5s ease-in-out 0.3s;
-    animation-fill-mode: both;
+    animation: components-reconnect-fade-out var(--motion-normal) var(--ease-standard) both;
 }
 
+#components-reconnect-modal[open] {
+    animation: components-reconnect-fade-in var(--motion-normal) var(--ease-standard) both;
 }
 
 #components-reconnect-modal::backdrop {
-    background-color: rgba(0, 0, 0, 0.4);
-    animation: components-reconnect-modal-fadeInOpacity 0.5s ease-in-out;
-    opacity: 1;
-}
-
-@keyframes components-reconnect-modal-slideUp {
-    0% {
-        transform: translateY(30px) scale(0.95);
-    }
-
-    100% {
-        transform: translateY(0);
-    }
-}
-
-@keyframes components-reconnect-modal-fadeInOpacity {
-    0% {
-        opacity: 0;
-    }
-
-    100% {
-        opacity: 1;
-    }
-}
-
-@keyframes components-reconnect-modal-fadeOutOpacity {
-    0% {
-        opacity: 1;
-    }
-
-    100% {
-        opacity: 0;
-    }
+    background: rgb(0 0 0 / 0.72);
 }
 
 .components-reconnect-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    gap: var(--space-4);
 }
 
+#components-reconnect-modal h2,
 #components-reconnect-modal p {
-    margin: 0;
+    margin: var(--space-0);
     text-align: center;
 }
 
-#components-reconnect-modal button {
-    border: 0;
-    background-color: #6b9ed2;
-    color: white;
-    padding: 4px 24px;
-    border-radius: 4px;
-}
-
-    #components-reconnect-modal button:hover {
-        background-color: #3b6ea2;
-    }
-
-    #components-reconnect-modal button:active {
-        background-color: #6b9ed2;
-    }
-
 .components-rejoining-animation {
     position: relative;
-    width: 80px;
-    height: 80px;
+    width: var(--control-lg);
+    height: var(--control-lg);
 }
 
+.components-rejoining-animation div {
+    position: absolute;
+    inset: var(--space-0);
+    border: var(--focus-width) solid var(--info);
+    border-radius: var(--radius-pill);
+    animation: components-rejoining-pulse calc(var(--motion-slow) * 5) var(--ease-standard) infinite;
+}
+
+.components-rejoining-animation div:nth-child(2) {
+    animation-delay: calc(var(--motion-slow) * -2.5);
+}
+
+@keyframes components-reconnect-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(var(--space-2));
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes components-reconnect-fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes components-rejoining-pulse {
+    from {
+        opacity: 1;
+        transform: scale(0.2);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #components-reconnect-modal,
+    #components-reconnect-modal[open],
     .components-rejoining-animation div {
-        position: absolute;
-        border: 3px solid #0087ff;
+        animation: none;
         opacity: 1;
-        border-radius: 50%;
-        animation: components-rejoining-animation 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+        transform: none;
     }
 
-        .components-rejoining-animation div:nth-child(2) {
-            animation-delay: -0.5s;
-        }
-
-@keyframes components-rejoining-animation {
-    0% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 0;
-    }
-
-    4.9% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 0;
-    }
-
-    5% {
-        top: 40px;
-        left: 40px;
-        width: 0;
-        height: 0;
-        opacity: 1;
-    }
-
-    100% {
-        top: 0px;
-        left: 0px;
-        width: 80px;
-        height: 80px;
-        opacity: 0;
+    .components-rejoining-animation div:nth-child(2) {
+        display: none;
     }
 }
