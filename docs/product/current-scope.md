@@ -1,7 +1,7 @@
 # Bieżący zakres Servandy
 
 > Status: obowiązujący  
-> Etap: specyfikacja projektu greenfield i wydanie v1
+> Etap: ukończone wydanie v1; aktywny fundament danych i odzyskiwania v2 (P3)
 
 ## Cel etapu
 

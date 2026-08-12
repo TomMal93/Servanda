@@ -38,7 +38,7 @@
 
 ## P2 — pulpit v1
 
-**Status:** aktywny
+**Status:** ukończony
 **Wersja:** v1  
 **Rezultat:** użytkownik widzi docelową powłokę i statyczny pulpit planowanych obszarów bez pozorowania gotowych modułów.
 
@@ -52,7 +52,7 @@
 
 ## P3 — fundament danych i odzyskiwania v2
 
-**Status:** później  
+**Status:** aktywny
 **Wersja:** v2  
 **Rezultat:** Servanda otrzymuje pierwszy kanoniczny magazyn danych, bezpieczne aktualizacje schematu oraz odzyskiwalność przed udostępnieniem zapisu modułom.
 
