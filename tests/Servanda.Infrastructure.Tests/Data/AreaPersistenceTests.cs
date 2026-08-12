@@ -181,6 +181,58 @@ public sealed class AreaPersistenceTests
     }
 
     [Fact]
+    public async Task SetArchivedPreservesAreaRestoresItAndRejectsStaleRevision()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var areaService = services.GetRequiredService<IAreaService>();
+        var original = Assert.Single(await areaService.ListAsync(), area => area.Name == "Dom");
+
+        var archived = await areaService.SetArchivedAsync(new SetAreaArchivedCommand(
+            original.Id,
+            true,
+            original.Revision,
+            original.ContentEpoch));
+        var stale = await areaService.SetArchivedAsync(new SetAreaArchivedCommand(
+            original.Id,
+            false,
+            original.Revision,
+            original.ContentEpoch));
+        var archivedArea = Assert.Single(
+            await areaService.ListForManagementAsync(),
+            area => area.Id == original.Id);
+
+        Assert.Equal(SetAreaArchivedStatus.Success, archived.Status);
+        Assert.NotNull(archived.Area?.ArchivedAt);
+        Assert.Equal(2, archived.Area.Revision);
+        Assert.Equal(SetAreaArchivedStatus.Conflict, stale.Status);
+        Assert.DoesNotContain(await areaService.ListAsync(), area => area.Id == original.Id);
+        Assert.Equal(original.SortOrder, archivedArea.SortOrder);
+
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        archivedArea = Assert.Single(
+            await areaService.ListForManagementAsync(),
+            area => area.Id == original.Id);
+        Assert.NotNull(archivedArea.ArchivedAt);
+
+        var restored = await areaService.SetArchivedAsync(new SetAreaArchivedCommand(
+            archivedArea.Id,
+            false,
+            archivedArea.Revision,
+            archivedArea.ContentEpoch));
+        var visibleArea = Assert.Single(await areaService.ListAsync(), area => area.Id == original.Id);
+
+        Assert.Equal(SetAreaArchivedStatus.Success, restored.Status);
+        Assert.Null(visibleArea.ArchivedAt);
+        Assert.Equal(original.Name, visibleArea.Name);
+        Assert.Equal(original.Description, visibleArea.Description);
+        Assert.Equal(original.SortOrder, visibleArea.SortOrder);
+        Assert.Equal(3, visibleArea.Revision);
+    }
+
+    [Fact]
     public async Task InitialMigrationCreatesRequiredTables()
     {
         using var temporaryDirectory = new TemporaryDirectory();

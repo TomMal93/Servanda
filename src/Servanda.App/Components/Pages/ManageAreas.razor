@@ -11,12 +11,12 @@
         <p class="area-management__eyebrow">Ustawienia pulpitu</p>
         <h1>Zarządzaj obszarami</h1>
         <p>
-            Dodawaj własne planowane obszary, edytuj je, ustawiaj kolejność oraz decyduj, które są widoczne na pulpicie i w panelu bocznym.
+            Dodawaj własne planowane obszary, edytuj je, ustawiaj kolejność i widoczność oraz bezpiecznie odkładaj nieużywane obszary do archiwum.
         </p>
         <button class="button button--primary"
                 type="button"
                 @onclick="BeginCreate"
-                disabled="@(_creating || _editingAreaId is not null)">
+                disabled="@(_creating || _editingAreaId is not null || _archivingAreaId is not null)">
             Dodaj obszar
         </button>
     </header>
@@ -122,7 +122,7 @@
     }
 
     <div class="area-management__list">
-        @foreach (var area in _areas)
+        @foreach (var area in ActiveAreas)
         {
             <article class="area-editor @(area.IsHidden ? "area-editor--hidden" : string.Empty)" @key="area.Id">
                 <div class="area-editor__summary">
@@ -186,34 +186,97 @@
                     <div class="area-editor__toolbar">
                         <button type="button"
                                 @onclick="() => BeginEdit(area)"
-                                disabled="@(_creating || _saving || _editingAreaId is not null)">
+                                disabled="@(_creating || _saving || _editingAreaId is not null || _archivingAreaId is not null)">
                             Edytuj obszar
                         </button>
                         <button type="button"
                                 aria-label="@(area.IsHidden ? $"Pokaż obszar: {area.Name}" : $"Ukryj obszar: {area.Name}")"
                                 @onclick="() => SetVisibilityAsync(area, !area.IsHidden)"
-                                disabled="@(_creating || _saving || _editingAreaId is not null)">
+                                disabled="@(_creating || _saving || _editingAreaId is not null || _archivingAreaId is not null)">
                             @(area.IsHidden ? "Pokaż" : "Ukryj")
                         </button>
                         <div class="area-editor__ordering" role="group" aria-label="Kolejność obszaru @area.Name">
                             <button type="button"
                                     aria-label="Przenieś wyżej: @area.Name"
                                     @onclick="() => MoveUpAsync(area)"
-                                    disabled="@(_creating || _saving || _editingAreaId is not null || IsFirst(area))">
+                                    disabled="@(_creating || _saving || _editingAreaId is not null || _archivingAreaId is not null || IsFirst(area))">
                                 Wyżej
                             </button>
                             <button type="button"
                                     aria-label="Przenieś niżej: @area.Name"
                                     @onclick="() => MoveDownAsync(area)"
-                                    disabled="@(_creating || _saving || _editingAreaId is not null || IsLast(area))">
+                                    disabled="@(_creating || _saving || _editingAreaId is not null || _archivingAreaId is not null || IsLast(area))">
                                 Niżej
                             </button>
                         </div>
+                        <button type="button"
+                                aria-label="Archiwizuj obszar: @area.Name"
+                                @onclick="() => BeginArchive(area)"
+                                disabled="@(_creating || _saving || _editingAreaId is not null || _archivingAreaId is not null)">
+                            Archiwizuj
+                        </button>
                     </div>
+                    @if (_archivingAreaId == area.Id)
+                    {
+                        <div class="area-editor__confirmation"
+                             role="alert"
+                             aria-labelledby="@ArchiveConfirmationId(area)">
+                            <p id="@ArchiveConfirmationId(area)">
+                                <strong>Archiwizować „@area.Name”?</strong>
+                                Obszar zniknie z pulpitu i panelu bocznego, ale jego dane zostaną zachowane. Możesz go później przywrócić.
+                            </p>
+                            <div class="area-editor__actions">
+                                <button class="button button--primary"
+                                        type="button"
+                                        aria-label="Potwierdź archiwizację: @area.Name"
+                                        @onclick="() => SetArchivedAsync(area, true)"
+                                        disabled="@_saving">
+                                    Potwierdź archiwizację
+                                </button>
+                                <button type="button" @onclick="CancelArchive" disabled="@_saving">Anuluj</button>
+                            </div>
+                        </div>
+                    }
                 }
             </article>
         }
     </div>
+
+    @if (ArchivedAreas.Any())
+    {
+        <section class="area-management__archive" aria-labelledby="archived-areas-heading">
+            <header>
+                <p class="area-management__eyebrow">Zachowane dane</p>
+                <h2 id="archived-areas-heading">Archiwum</h2>
+                <p>Zarchiwizowane obszary nie są widoczne na pulpicie ani w panelu bocznym.</p>
+            </header>
+            <div class="area-management__list">
+                @foreach (var area in ArchivedAreas)
+                {
+                    <article class="area-editor area-editor--archived" @key="area.Id">
+                        <div class="area-editor__summary">
+                            <span class="area-editor__icon @AreaPresentation.AccentClass(area)" aria-hidden="true">
+                                @AreaPresentation.Icon(area.IconKey)
+                            </span>
+                            <div>
+                                <h3>@area.Name</h3>
+                                <span class="area-editor__status">Zarchiwizowany · Planowane</span>
+                            </div>
+                        </div>
+                        <p class="area-editor__description">@area.Description</p>
+                        <div class="area-editor__actions">
+                            <button type="button"
+                                    aria-label="Przywróć obszar: @area.Name"
+                                    @onclick="() => SetArchivedAsync(area, false)"
+                                    disabled="@(_creating || _saving || _editingAreaId is not null || _archivingAreaId is not null)">
+                                Przywróć obszar
+                            </button>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
 
     <p class="area-management__message @MessageClass" aria-live="polite">@_message</p>
 </div>
@@ -222,6 +285,7 @@
     private IReadOnlyList<AreaListItem> _areas = [];
     private bool _creating;
     private string? _editingAreaId;
+    private string? _archivingAreaId;
     private AreaListItem? _editingArea;
     private EditAreaForm _form = new();
     private CreateAreaForm _createForm = new();
@@ -234,6 +298,10 @@
     private IJSObjectReference? _unsavedChangesModule;
 
     private string MessageClass => string.IsNullOrEmpty(_message) ? string.Empty : "area-management__message--visible";
+
+    private IEnumerable<AreaListItem> ActiveAreas => _areas.Where(area => area.ArchivedAt is null);
+
+    private IEnumerable<AreaListItem> ArchivedAreas => _areas.Where(area => area.ArchivedAt is not null);
 
     protected override async Task OnInitializedAsync()
     {
@@ -380,21 +448,23 @@
 
     private Task MoveUpAsync(AreaListItem area)
     {
-        var index = IndexOf(area);
+        var activeAreas = ActiveAreas.ToList();
+        var index = IndexOf(activeAreas, area);
         return index <= 0
             ? Task.CompletedTask
-            : MoveAsync(area, _areas[index - 1].Id);
+            : MoveAsync(area, activeAreas[index - 1].Id);
     }
 
     private Task MoveDownAsync(AreaListItem area)
     {
-        var index = IndexOf(area);
-        if (index < 0 || index >= _areas.Count - 1)
+        var activeAreas = ActiveAreas.ToList();
+        var index = IndexOf(activeAreas, area);
+        if (index < 0 || index >= activeAreas.Count - 1)
         {
             return Task.CompletedTask;
         }
 
-        var beforeAreaId = index + 2 < _areas.Count ? _areas[index + 2].Id : null;
+        var beforeAreaId = index + 2 < activeAreas.Count ? activeAreas[index + 2].Id : null;
         return MoveAsync(area, beforeAreaId);
     }
 
@@ -468,11 +538,61 @@
         }
     }
 
-    private int IndexOf(AreaListItem area)
+    private void BeginArchive(AreaListItem area)
     {
-        for (var index = 0; index < _areas.Count; index++)
+        _archivingAreaId = area.Id;
+        _message = $"Potwierdź archiwizację obszaru „{area.Name}”.";
+    }
+
+    private void CancelArchive()
+    {
+        _archivingAreaId = null;
+        _message = "Anulowano archiwizację. Obszar nie został zmieniony.";
+    }
+
+    private async Task SetArchivedAsync(AreaListItem area, bool isArchived)
+    {
+        _saving = true;
+        _message = isArchived
+            ? $"Archiwizowanie obszaru „{area.Name}”…"
+            : $"Przywracanie obszaru „{area.Name}”…";
+        try
         {
-            if (_areas[index].Id == area.Id)
+            var result = await AreaService.SetArchivedAsync(new SetAreaArchivedCommand(
+                area.Id,
+                isArchived,
+                area.Revision,
+                area.ContentEpoch));
+            switch (result.Status)
+            {
+                case SetAreaArchivedStatus.Success:
+                    var savedArea = result.Area!;
+                    _areas = _areas.Select(item => item.Id == savedArea.Id ? savedArea : item).ToList();
+                    _archivingAreaId = null;
+                    _message = isArchived
+                        ? $"Zarchiwizowano obszar „{area.Name}”. Dane zostały zachowane."
+                        : $"Przywrócono obszar „{area.Name}” w poprzednim miejscu.";
+                    await AreaChanges.NotifyAsync();
+                    break;
+                case SetAreaArchivedStatus.Conflict:
+                    _message = "Obszar zmienił się w innej karcie. Odśwież stronę i spróbuj ponownie.";
+                    break;
+                case SetAreaArchivedStatus.NotFound:
+                    _message = "Nie znaleziono obszaru. Odśwież stronę.";
+                    break;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private static int IndexOf(IReadOnlyList<AreaListItem> areas, AreaListItem area)
+    {
+        for (var index = 0; index < areas.Count; index++)
+        {
+            if (areas[index].Id == area.Id)
             {
                 return index;
             }
@@ -481,13 +601,19 @@
         return -1;
     }
 
-    private bool IsFirst(AreaListItem area) => IndexOf(area) == 0;
+    private bool IsFirst(AreaListItem area) => IndexOf(ActiveAreas.ToList(), area) == 0;
 
-    private bool IsLast(AreaListItem area) => IndexOf(area) == _areas.Count - 1;
+    private bool IsLast(AreaListItem area)
+    {
+        var activeAreas = ActiveAreas.ToList();
+        return IndexOf(activeAreas, area) == activeAreas.Count - 1;
+    }
 
     private static string NameDescriptionId(AreaListItem area) => $"area-name-help-{area.Id}";
 
     private static string DescriptionDescriptionId(AreaListItem area) => $"area-description-help-{area.Id}";
+
+    private static string ArchiveConfirmationId(AreaListItem area) => $"archive-confirmation-{area.Id}";
 
     private async void HandleFieldChanged(object? sender, FieldChangedEventArgs args)
     {

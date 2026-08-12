@@ -457,6 +457,78 @@ public sealed class BrowserHostFlowTests
                 await page.Locator("aside.sidebar .sidebar-content__area-name")
                     .GetByText("Projekty", new() { Exact = true })
                     .CountAsync());
+            var archiveButton = projectEditor.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Archiwizuj obszar: Projekty", Exact = true });
+            await archiveButton.FocusAsync();
+            await page.Keyboard.PressAsync("Enter");
+            var archiveConfirmation = projectEditor.GetByRole(AriaRole.Alert);
+            await archiveConfirmation.WaitForAsync();
+            Assert.Contains(
+                "dane zostaną zachowane",
+                await archiveConfirmation.TextContentAsync(),
+                StringComparison.Ordinal);
+            var confirmArchiveButton = archiveConfirmation.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Potwierdź archiwizację: Projekty", Exact = true });
+            await confirmArchiveButton.FocusAsync();
+            await page.Keyboard.PressAsync("Enter");
+            await page.GetByText(
+                "Zarchiwizowano obszar „Projekty”. Dane zostały zachowane.",
+                new() { Exact = true }).WaitForAsync();
+            var archivedProject = page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Projekty", Exact = true, Level = 3 })
+                .Locator("xpath=ancestor::article");
+            await archivedProject.WaitForAsync();
+            foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
+            {
+                await page.SetViewportSizeAsync(viewportWidth, 768);
+                Assert.True(
+                    await page.Locator("html").EvaluateAsync<bool>(
+                        "element => element.scrollWidth <= element.clientWidth"),
+                    $"Archiwum przewija się poziomo przy szerokości {viewportWidth}px.");
+            }
+
+            await page.SetViewportSizeAsync(1024, 768);
+            Assert.Equal(0, await page.GetByRole(
+                AriaRole.Heading,
+                new() { Name = "Projekty", Exact = true, Level = 2 }).CountAsync());
+            Assert.Equal(
+                0,
+                await page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText("Projekty", new() { Exact = true })
+                    .CountAsync());
+            await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true }).ClickAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Twoje obszary", Exact = true, Level = 1 })
+                .WaitForAsync();
+            Assert.Equal(
+                0,
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 3 }).CountAsync());
+            Assert.Equal(7, await page.Locator(".area-tile").CountAsync());
+            await page.GetByRole(AriaRole.Link, new() { Name = "Zarządzaj obszarami", Exact = true }).ClickAsync();
+            await page.GetByRole(AriaRole.Heading, new() { Name = "Archiwum", Exact = true, Level = 2 })
+                .WaitForAsync();
+            archivedProject = page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Projekty", Exact = true, Level = 3 })
+                .Locator("xpath=ancestor::article");
+            await archivedProject.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Przywróć obszar: Projekty", Exact = true }).ClickAsync();
+            await page.GetByText(
+                "Przywrócono obszar „Projekty” w poprzednim miejscu.",
+                new() { Exact = true }).WaitForAsync();
+            projectEditor = page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Projekty", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::article");
+            await projectEditor.WaitForAsync();
+            Assert.Equal(
+                1,
+                await page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText("Projekty", new() { Exact = true })
+                    .CountAsync());
             await AssertNoAxeViolationsAsync(page, "zarządzanie obszarami");
             foreach (var control in await page.Locator("main a:visible, main button:visible, main input:visible, main textarea:visible, main select:visible").AllAsync())
             {

@@ -123,6 +123,13 @@ public sealed class Area
         Revision++;
     }
 
+    public void SetArchived(bool isArchived, DateTimeOffset timestamp)
+    {
+        ArchivedAt = isArchived ? timestamp : null;
+        UpdatedAt = timestamp;
+        Revision++;
+    }
+
     public static IReadOnlyDictionary<string, string[]> ValidateContent(string name, string description)
     {
         var errors = new Dictionary<string, string[]>();

@@ -33,6 +33,30 @@ public sealed class AreaTests
         Assert.Equal(changed, area.UpdatedAt);
     }
 
+    [Fact]
+    public void SetArchivedPreservesContentAndCanRestoreArea()
+    {
+        var created = new DateTimeOffset(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
+        var archived = created.AddMinutes(1);
+        var restored = created.AddMinutes(2);
+        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", 0, created);
+        area.SetVisibility(true, created.AddSeconds(30));
+
+        area.SetArchived(true, archived);
+
+        Assert.Equal(archived, area.ArchivedAt);
+        Assert.True(area.IsHidden);
+        Assert.Equal("Dom", area.Name);
+        Assert.Equal(3, area.Revision);
+
+        area.SetArchived(false, restored);
+
+        Assert.Null(area.ArchivedAt);
+        Assert.True(area.IsHidden);
+        Assert.Equal(4, area.Revision);
+        Assert.Equal(restored, area.UpdatedAt);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

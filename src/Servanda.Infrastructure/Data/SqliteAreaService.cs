@@ -11,17 +11,18 @@ internal sealed class SqliteAreaService(
 {
     public async Task<IReadOnlyList<AreaListItem>> ListAsync(CancellationToken cancellationToken = default)
     {
-        return await ListAsync(includeHidden: false, cancellationToken);
+        return await ListAsync(includeHidden: false, includeArchived: false, cancellationToken);
     }
 
     public async Task<IReadOnlyList<AreaListItem>> ListForManagementAsync(
         CancellationToken cancellationToken = default)
     {
-        return await ListAsync(includeHidden: true, cancellationToken);
+        return await ListAsync(includeHidden: true, includeArchived: true, cancellationToken);
     }
 
     private async Task<IReadOnlyList<AreaListItem>> ListAsync(
         bool includeHidden,
+        bool includeArchived,
         CancellationToken cancellationToken)
     {
         await using var database = await contextFactory.CreateDbContextAsync(cancellationToken);
@@ -38,7 +39,7 @@ internal sealed class SqliteAreaService(
 
         return await database.Areas
             .AsNoTracking()
-            .Where(area => area.ArchivedAt == null && (includeHidden || !area.IsHidden))
+            .Where(area => (includeArchived || area.ArchivedAt == null) && (includeHidden || !area.IsHidden))
             .OrderBy(area => area.SortOrder)
             .ThenBy(area => area.Id)
             .Select(area => new AreaListItem(
@@ -49,6 +50,7 @@ internal sealed class SqliteAreaService(
                 area.AccentKey,
                 area.Availability,
                 area.IsHidden,
+                area.ArchivedAt,
                 area.SortOrder,
                 area.Revision,
                 epoch,
@@ -201,7 +203,6 @@ internal sealed class SqliteAreaService(
         var areasById = areas.ToDictionary(area => area.Id, StringComparer.Ordinal);
         var reordered = originalOrder
             .Select((id, sortOrder) => (Area: areasById[id], SortOrder: sortOrder))
-            .Where(item => item.Area.ArchivedAt is null)
             .Select(item => ToListItem(item.Area, epoch, orderingRevision, item.SortOrder))
             .ToList();
         return new MoveAreaResult(MoveAreaStatus.Success, reordered);
@@ -254,6 +255,56 @@ internal sealed class SqliteAreaService(
 
         return new SetAreaVisibilityResult(
             SetAreaVisibilityStatus.Success,
+            ToListItem(area, epoch, orderingRevision));
+    }
+
+    public async Task<SetAreaArchivedResult> SetArchivedAsync(
+        SetAreaArchivedCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var database = await contextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var epoch = await database.AppState
+            .Where(item => item.Id == 1)
+            .Select(item => item.ContentEpoch)
+            .SingleAsync(cancellationToken);
+        var orderingRevision = await database.OrderingScopes
+            .Where(item => item.ScopeKey == "areas")
+            .Select(item => item.Revision)
+            .SingleAsync(cancellationToken);
+        if (!string.Equals(epoch, command.ContentEpoch, StringComparison.Ordinal))
+        {
+            return new SetAreaArchivedResult(SetAreaArchivedStatus.Conflict);
+        }
+
+        var area = await database.Areas.SingleOrDefaultAsync(
+            item => item.Id == command.Id,
+            cancellationToken);
+        if (area is null)
+        {
+            return new SetAreaArchivedResult(SetAreaArchivedStatus.NotFound);
+        }
+
+        if (area.Revision != command.ExpectedRevision)
+        {
+            return new SetAreaArchivedResult(SetAreaArchivedStatus.Conflict);
+        }
+
+        area.SetArchived(command.IsArchived, timeProvider.GetUtcNow());
+        try
+        {
+            await database.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new SetAreaArchivedResult(SetAreaArchivedStatus.Conflict);
+        }
+
+        return new SetAreaArchivedResult(
+            SetAreaArchivedStatus.Success,
             ToListItem(area, epoch, orderingRevision));
     }
 
@@ -325,6 +376,7 @@ internal sealed class SqliteAreaService(
             area.AccentKey,
             area.Availability,
             area.IsHidden,
+            area.ArchivedAt,
             sortOrder ?? area.SortOrder,
             area.Revision,
             epoch,
