@@ -9,6 +9,7 @@ cd -- "$repository_root"
 
 dotnet restore
 dotnet publish src/Servanda.App/Servanda.App.csproj -p:PublishProfile=linux-x64 --no-restore
+./packaging/linux/verify-artifact.sh "$artifact_dir"
 dotnet build tests/Servanda.E2E/Servanda.E2E.csproj --no-restore -m:1
 
 "$test_output/.playwright/node/linux-x64/node" \

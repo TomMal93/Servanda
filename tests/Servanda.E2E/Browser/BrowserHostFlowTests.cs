@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using Deque.AxeCore.Playwright;
 using Microsoft.Playwright;
 using Servanda.App.Security;
 using Servanda.Infrastructure.Runtime;
@@ -119,14 +120,20 @@ public sealed class BrowserHostFlowTests
                 socket.FrameReceived += (_, _) => circuitMessageReceived.TrySetResult();
             };
 
+            var interactionStopwatch = Stopwatch.StartNew();
             var applicationResponse = await page.GotoAsync(bootstrapAddress, new PageGotoOptions
             {
                 WaitUntil = WaitUntilState.DOMContentLoaded,
             });
             await page.WaitForURLAsync($"{descriptor.Origin}/");
+            await page.GetByRole(AriaRole.Heading, new() { Level = 1 }).WaitForAsync();
+            interactionStopwatch.Stop();
 
             Assert.NotNull(applicationResponse);
             Assert.Equal(200, applicationResponse.Status);
+            Assert.True(
+                interactionStopwatch.Elapsed <= TimeSpan.FromSeconds(2),
+                $"Pulpit był gotowy do interakcji po {interactionStopwatch.Elapsed.TotalMilliseconds:F0} ms.");
             var contentSecurityPolicy = await applicationResponse.HeaderValueAsync("content-security-policy");
             Assert.NotNull(contentSecurityPolicy);
             Assert.Contains("frame-ancestors 'none'", contentSecurityPolicy, StringComparison.Ordinal);
@@ -155,6 +162,11 @@ public sealed class BrowserHostFlowTests
             Assert.Equal(7, await page.Locator(".area-tile__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile svg[viewBox='0 0 24 24']").CountAsync());
             Assert.Equal(0, await page.GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
+            Assert.Equal(0, await page.Locator("input:visible, textarea:visible, select:visible").CountAsync());
+            foreach (var unavailableAction in new[] { "Zapisz", "Szukaj", "Importuj", "Eksportuj" })
+            {
+                Assert.Equal(0, await page.GetByText(unavailableAction, new() { Exact = true }).CountAsync());
+            }
 
             foreach (var area in new[]
             {
@@ -194,6 +206,16 @@ public sealed class BrowserHostFlowTests
                 await page.Locator(".components-rejoining-animation div").First.EvaluateAsync<string>(
                     "element => getComputedStyle(element).animationName"));
             await page.EmulateMediaAsync(new() { ReducedMotion = ReducedMotion.NoPreference });
+            await AssertNoAxeViolationsAsync(page, "pulpit desktopowy");
+
+            foreach (var control in await page.Locator("a:visible, button:visible").AllAsync())
+            {
+                var box = await control.BoundingBoxAsync();
+                Assert.NotNull(box);
+                Assert.True(
+                    box.Width >= 32 && box.Height >= 32,
+                    $"Widoczna kontrolka ma rozmiar {box.Width}×{box.Height}px zamiast co najmniej 32×32px.");
+            }
 
             foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
             {
@@ -223,6 +245,50 @@ public sealed class BrowserHostFlowTests
                         """),
                     $"Pulpit nie jest wyśrodkowany przy szerokości {viewportWidth}px.");
             }
+
+            await page.SetViewportSizeAsync(1024, 768);
+            await page.EvaluateAsync(
+                """
+                () => {
+                    const sheet = [...document.styleSheets].find(candidate => candidate.href?.includes('/app.'));
+                    if (!sheet) {
+                        throw new Error('Nie znaleziono lokalnego arkusza app.css.');
+                    }
+
+                    window.servandaSpacingTest = { sheet, initialRuleCount: sheet.cssRules.length };
+                    sheet.insertRule('* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; }', sheet.cssRules.length);
+                    sheet.insertRule('p { margin-block-end: 2em !important; }', sheet.cssRules.length);
+                }
+                """);
+            Assert.True(
+                await page.Locator("html").EvaluateAsync<bool>(
+                    "element => element.scrollWidth <= element.clientWidth"),
+                "Nadpisane odstępy tekstu powodują poziome przewijanie strony.");
+            Assert.All(
+                await page.Locator(".area-tile").AllTextContentsAsync(),
+                content => Assert.False(string.IsNullOrWhiteSpace(content)));
+            await page.EvaluateAsync(
+                """
+                () => {
+                    const { sheet, initialRuleCount } = window.servandaSpacingTest;
+                    while (sheet.cssRules.length > initialRuleCount) {
+                        sheet.deleteRule(initialRuleCount);
+                    }
+                    delete window.servandaSpacingTest;
+                }
+                """);
+
+            const string longLabel =
+                "BardzoDługiNieprzerwanyCiągSprawdzającyZawijanieTreściBezUcinaniaLubPoziomegoPrzewijaniaCałejStronyServandy";
+            var stressedHeading = page.Locator(".area-tile[data-area='prompts'] h3");
+            var originalHeading = await stressedHeading.TextContentAsync();
+            await stressedHeading.EvaluateAsync("(element, value) => element.textContent = value", longLabel);
+            Assert.True(
+                await stressedHeading.EvaluateAsync<bool>("element => element.scrollWidth <= element.clientWidth"));
+            Assert.True(
+                await page.Locator("html").EvaluateAsync<bool>(
+                    "element => element.scrollWidth <= element.clientWidth"));
+            await stressedHeading.EvaluateAsync("(element, value) => element.textContent = value", originalHeading);
 
             await page.Locator("aside.sidebar .sidebar-content__brand").FocusAsync();
             await page.Keyboard.PressAsync("Shift+Tab");
@@ -266,6 +332,7 @@ public sealed class BrowserHostFlowTests
                 AriaRole.Button,
                 new() { Name = "Zamknij panel boczny", Exact = true });
             Assert.True(await closeDrawer.EvaluateAsync<bool>("element => element === document.activeElement"));
+            await AssertNoAxeViolationsAsync(page, "modalna szuflada panelu");
             await page.Keyboard.PressAsync("Shift+Tab");
             Assert.True(
                 await drawer.EvaluateAsync<bool>("element => element.contains(document.activeElement)"),
@@ -367,6 +434,20 @@ public sealed class BrowserHostFlowTests
             }),
             _ => throw new ArgumentOutOfRangeException(nameof(browserName), browserName, "Nieobsługiwana przeglądarka testowa."),
         };
+
+    private static async Task AssertNoAxeViolationsAsync(IPage page, string context)
+    {
+        var result = await page.RunAxe();
+        Assert.True(
+            result.Violations is null || result.Violations.Length == 0,
+            result.Violations is null
+                ? string.Empty
+                : $"Axe wykrył naruszenia dla: {context}.{Environment.NewLine}" +
+                  string.Join(
+                      Environment.NewLine,
+                      result.Violations.Select(violation =>
+                          $"{violation.Id}: {violation.Help} ({string.Join(", ", violation.Nodes.Select(node => node.Html))})")));
+    }
 
     private static async Task CreateXdgOpenShimAsync(string shimDirectory)
     {
