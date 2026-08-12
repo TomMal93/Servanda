@@ -1,4 +1,6 @@
 @inject IAreaService AreaService
+@inject AreaChangeNotifier AreaChanges
+@implements IDisposable
 
 <div class="sidebar-content">
     <a class="sidebar-content__brand" href="/" aria-label="Servanda — pulpit">
@@ -43,6 +45,18 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AreaChanges.Changed += ReloadAsync;
         _areas = await AreaService.ListAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        _areas = await AreaService.ListAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AreaChanges.Changed -= ReloadAsync;
     }
 }

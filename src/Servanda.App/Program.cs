@@ -116,6 +116,7 @@ public class Program
             builder.Services.AddSingleton<BootstrapRateLimiter>();
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+            builder.Services.AddScoped<AreaChangeNotifier>();
             builder.Services.AddSingleton(paths);
             builder.Services.AddServandaDatabase(paths);
             builder.Services.AddSingleton<InstanceRuntimeState>();

@@ -27,6 +27,12 @@ public sealed record UpdateAreaCommand(
     long ExpectedRevision,
     string ContentEpoch);
 
+public sealed record MoveAreaCommand(
+    string Id,
+    string? BeforeAreaId,
+    long ExpectedOrderingRevision,
+    string ContentEpoch);
+
 public enum UpdateAreaStatus
 {
     Success,
@@ -52,12 +58,27 @@ public sealed record CreateAreaResult(
     AreaListItem? Area = null,
     IReadOnlyDictionary<string, string[]>? Errors = null);
 
+public enum MoveAreaStatus
+{
+    Success,
+    Conflict,
+    NotFound,
+}
+
+public sealed record MoveAreaResult(
+    MoveAreaStatus Status,
+    IReadOnlyList<AreaListItem>? Areas = null);
+
 public interface IAreaService
 {
     Task<IReadOnlyList<AreaListItem>> ListAsync(CancellationToken cancellationToken = default);
 
     Task<CreateAreaResult> CreateAsync(
         CreateAreaCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<MoveAreaResult> MoveAsync(
+        MoveAreaCommand command,
         CancellationToken cancellationToken = default);
 
     Task<UpdateAreaResult> UpdateAsync(

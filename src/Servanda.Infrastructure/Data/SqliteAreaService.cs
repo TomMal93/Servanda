@@ -107,6 +107,92 @@ internal sealed class SqliteAreaService(
             ToListItem(area, epoch, command.ExpectedOrderingRevision + 1));
     }
 
+    public async Task<MoveAreaResult> MoveAsync(
+        MoveAreaCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        await using var database = await contextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
+        var epoch = await database.AppState
+            .Where(item => item.Id == 1)
+            .Select(item => item.ContentEpoch)
+            .SingleAsync(cancellationToken);
+        if (!string.Equals(epoch, command.ContentEpoch, StringComparison.Ordinal))
+        {
+            return new MoveAreaResult(MoveAreaStatus.Conflict);
+        }
+
+        var areas = await database.Areas
+            .AsNoTracking()
+            .OrderBy(area => area.SortOrder)
+            .ThenBy(area => area.Id)
+            .ToListAsync(cancellationToken);
+        var originalOrder = areas.Select(area => area.Id).ToList();
+        if (!originalOrder.Remove(command.Id)
+            || (command.BeforeAreaId is not null && !originalOrder.Contains(command.BeforeAreaId)))
+        {
+            return new MoveAreaResult(MoveAreaStatus.NotFound);
+        }
+
+        var targetIndex = command.BeforeAreaId is null
+            ? originalOrder.Count
+            : originalOrder.IndexOf(command.BeforeAreaId);
+        originalOrder.Insert(targetIndex, command.Id);
+        var orderingRevision = command.ExpectedOrderingRevision + 1;
+        var timestamp = timeProvider.GetUtcNow();
+
+        try
+        {
+            var changedScopes = await database.OrderingScopes
+                .Where(scope =>
+                    scope.ScopeKey == "areas"
+                    && scope.Revision == command.ExpectedOrderingRevision)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(scope => scope.Revision, scope => scope.Revision + 1)
+                        .SetProperty(scope => scope.UpdatedAt, timestamp),
+                    cancellationToken);
+            if (changedScopes == 0)
+            {
+                return new MoveAreaResult(MoveAreaStatus.Conflict);
+            }
+
+            var offset = areas.Count;
+            await database.Areas.ExecuteUpdateAsync(
+                setters => setters.SetProperty(area => area.SortOrder, area => area.SortOrder + offset),
+                cancellationToken);
+            for (var sortOrder = 0; sortOrder < originalOrder.Count; sortOrder++)
+            {
+                var areaId = originalOrder[sortOrder];
+                var changedAreas = await database.Areas
+                    .Where(area => area.Id == areaId)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(area => area.SortOrder, sortOrder),
+                        cancellationToken);
+                if (changedAreas != 1)
+                {
+                    throw new InvalidOperationException("Nie udało się atomowo zmienić kolejności obszarów.");
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch (SqliteException exception) when (exception.SqliteErrorCode is 5 or 6)
+        {
+            return new MoveAreaResult(MoveAreaStatus.Conflict);
+        }
+
+        var areasById = areas.ToDictionary(area => area.Id, StringComparer.Ordinal);
+        var reordered = originalOrder
+            .Select((id, sortOrder) => (Area: areasById[id], SortOrder: sortOrder))
+            .Where(item => item.Area.ArchivedAt is null && !item.Area.IsHidden)
+            .Select(item => ToListItem(item.Area, epoch, orderingRevision, item.SortOrder))
+            .ToList();
+        return new MoveAreaResult(MoveAreaStatus.Success, reordered);
+    }
+
     public async Task<UpdateAreaResult> UpdateAsync(
         UpdateAreaCommand command,
         CancellationToken cancellationToken = default)
@@ -162,7 +248,11 @@ internal sealed class SqliteAreaService(
             ToListItem(area, epoch, orderingRevision));
     }
 
-    private static AreaListItem ToListItem(Area area, string epoch, long orderingRevision) =>
+    private static AreaListItem ToListItem(
+        Area area,
+        string epoch,
+        long orderingRevision,
+        int? sortOrder = null) =>
         new(
             area.Id,
             area.Name,
@@ -170,7 +260,7 @@ internal sealed class SqliteAreaService(
             area.IconKey,
             area.AccentKey,
             area.Availability,
-            area.SortOrder,
+            sortOrder ?? area.SortOrder,
             area.Revision,
             epoch,
             orderingRevision);

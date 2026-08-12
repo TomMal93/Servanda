@@ -105,6 +105,39 @@ public sealed class AreaPersistenceTests
     }
 
     [Fact]
+    public async Task MoveReordersDenseListWithoutChangingContentRevisionAndRejectsStaleCommand()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var areaService = services.GetRequiredService<IAreaService>();
+        var initial = await areaService.ListAsync();
+        var moved = initial[^1];
+
+        var result = await areaService.MoveAsync(new MoveAreaCommand(
+            moved.Id,
+            initial[0].Id,
+            initial[0].OrderingRevision,
+            initial[0].ContentEpoch));
+        var stale = await areaService.MoveAsync(new MoveAreaCommand(
+            initial[1].Id,
+            null,
+            initial[0].OrderingRevision,
+            initial[0].ContentEpoch));
+        var persisted = await areaService.ListAsync();
+
+        Assert.Equal(MoveAreaStatus.Success, result.Status);
+        Assert.NotNull(result.Areas);
+        Assert.Equal(moved.Id, result.Areas[0].Id);
+        Assert.Equal(2, result.Areas[0].OrderingRevision);
+        Assert.Equal(MoveAreaStatus.Conflict, stale.Status);
+        Assert.Equal(Enumerable.Range(0, persisted.Count), persisted.Select(area => area.SortOrder));
+        Assert.All(persisted, area => Assert.Equal(1, area.Revision));
+        Assert.Equal(moved.Id, persisted[0].Id);
+    }
+
+    [Fact]
     public async Task InitialMigrationCreatesRequiredTables()
     {
         using var temporaryDirectory = new TemporaryDirectory();

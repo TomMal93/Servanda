@@ -161,6 +161,17 @@
     gap: var(--space-3);
 }
 
+.area-editor__toolbar,
+.area-editor__ordering {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.area-editor__toolbar {
+    justify-content: space-between;
+}
+
 .area-management__message {
     min-height: var(--control-md);
     margin-block: var(--space-5) var(--space-0);

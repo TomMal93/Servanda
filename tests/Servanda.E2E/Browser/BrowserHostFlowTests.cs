@@ -388,6 +388,23 @@ public sealed class BrowserHostFlowTests
             await creator.GetByLabel("Akcent").SelectOptionAsync("accent-2");
             await creator.GetByRole(AriaRole.Button, new() { Name = "Dodaj obszar", Exact = true }).ClickAsync();
             await page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 2 }).WaitForAsync();
+            Assert.Equal(
+                1,
+                await page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText("Projekty", new() { Exact = true })
+                    .CountAsync());
+            await page.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Przenieś wyżej: Projekty", Exact = true }).ClickAsync();
+            await page.GetByText("Zmieniono kolejność obszaru „Projekty”.", new() { Exact = true }).WaitForAsync();
+            var managedAreaNames = await page.Locator(".area-editor h2").AllTextContentsAsync();
+            Assert.True(
+                managedAreaNames.ToList().IndexOf("Projekty") < managedAreaNames.ToList().IndexOf("Budżet domowy"),
+                "Obszar nie został przeniesiony wyżej na liście zarządzania.");
+            var sidebarAreaNames = await page.Locator("aside.sidebar .sidebar-content__area-name").AllTextContentsAsync();
+            Assert.True(
+                sidebarAreaNames.ToList().IndexOf("Projekty") < sidebarAreaNames.ToList().IndexOf("Budżet domowy"),
+                "Panel boczny nie odświeżył zmienionej kolejności obszarów.");
             var homeEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Dom", Exact = true, Level = 2 })
                 .Locator("xpath=ancestor::article");
             await homeEditor.GetByRole(AriaRole.Button, new() { Name = "Edytuj obszar" }).ClickAsync();
@@ -400,6 +417,18 @@ public sealed class BrowserHostFlowTests
                 $"Edycja obszaru nie została zapisana. URL={page.Url}; " +
                 $"Komunikaty={string.Join(" | ", await page.Locator(".area-management__message").AllTextContentsAsync())}; " +
                 $"Konsola={string.Join(" | ", browserErrors)}");
+            Assert.Equal(
+                1,
+                await page.Locator("aside.sidebar .sidebar-content__area-name")
+                    .GetByText("Mój dom", new() { Exact = true })
+                    .CountAsync());
+            await AssertNoAxeViolationsAsync(page, "zarządzanie obszarami");
+            foreach (var control in await page.Locator("main a:visible, main button:visible, main input:visible, main textarea:visible, main select:visible").AllAsync())
+            {
+                var box = await control.BoundingBoxAsync();
+                Assert.NotNull(box);
+                Assert.True(box.Width >= 32 && box.Height >= 32);
+            }
             await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true }).ClickAsync();
             var savedTile = page.GetByRole(AriaRole.Heading, new() { Name = "Mój dom", Exact = true, Level = 3 })
                 .Locator("xpath=ancestor::article");
@@ -408,6 +437,10 @@ public sealed class BrowserHostFlowTests
                 .Locator("xpath=ancestor::article");
             Assert.Equal("Własne projekty i kolejne kroki.", await projectTile.Locator("p").TextContentAsync());
             Assert.Equal(8, await page.Locator(".area-tile").CountAsync());
+            var dashboardAreaNames = await page.Locator(".area-tile h3").AllTextContentsAsync();
+            Assert.True(
+                dashboardAreaNames.ToList().IndexOf("Projekty") < dashboardAreaNames.ToList().IndexOf("Budżet domowy"),
+                "Pulpit nie zachował zmienionej kolejności obszarów.");
             await page.ReloadAsync();
             Assert.Equal(
                 1,

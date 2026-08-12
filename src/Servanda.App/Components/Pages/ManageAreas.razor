@@ -1,5 +1,6 @@
 @page "/manage-areas"
 @inject IAreaService AreaService
+@inject AreaChangeNotifier AreaChanges
 @inject IJSRuntime JavaScript
 @implements IAsyncDisposable
 
@@ -182,7 +183,27 @@
                 else
                 {
                     <p class="area-editor__description">@area.Description</p>
-                    <button type="button" @onclick="() => BeginEdit(area)" disabled="@_creating">Edytuj obszar</button>
+                    <div class="area-editor__toolbar">
+                        <button type="button"
+                                @onclick="() => BeginEdit(area)"
+                                disabled="@(_creating || _saving || _editingAreaId is not null)">
+                            Edytuj obszar
+                        </button>
+                        <div class="area-editor__ordering" role="group" aria-label="Kolejność obszaru @area.Name">
+                            <button type="button"
+                                    aria-label="Przenieś wyżej: @area.Name"
+                                    @onclick="() => MoveUpAsync(area)"
+                                    disabled="@(_creating || _saving || _editingAreaId is not null || IsFirst(area))">
+                                Wyżej
+                            </button>
+                            <button type="button"
+                                    aria-label="Przenieś niżej: @area.Name"
+                                    @onclick="() => MoveDownAsync(area)"
+                                    disabled="@(_creating || _saving || _editingAreaId is not null || IsLast(area))">
+                                Niżej
+                            </button>
+                        </div>
+                    </div>
                 }
             </article>
         }
@@ -285,6 +306,7 @@
                     ClearEditContext();
                     _creating = false;
                     _message = "Dodano planowany obszar do lokalnej bazy.";
+                    await AreaChanges.NotifyAsync();
                     break;
                 case CreateAreaStatus.ValidationFailed:
                     _errors = result.Errors ?? new Dictionary<string, string[]>();
@@ -330,6 +352,7 @@
                     _editingAreaId = null;
                     _editingArea = null;
                     _message = "Zapisano zmiany w lokalnej bazie.";
+                    await AreaChanges.NotifyAsync();
                     break;
                 case UpdateAreaStatus.ValidationFailed:
                     _errors = result.Errors ?? new Dictionary<string, string[]>();
@@ -348,6 +371,76 @@
             _saving = false;
         }
     }
+
+    private Task MoveUpAsync(AreaListItem area)
+    {
+        var index = IndexOf(area);
+        return index <= 0
+            ? Task.CompletedTask
+            : MoveAsync(area, _areas[index - 1].Id);
+    }
+
+    private Task MoveDownAsync(AreaListItem area)
+    {
+        var index = IndexOf(area);
+        if (index < 0 || index >= _areas.Count - 1)
+        {
+            return Task.CompletedTask;
+        }
+
+        var beforeAreaId = index + 2 < _areas.Count ? _areas[index + 2].Id : null;
+        return MoveAsync(area, beforeAreaId);
+    }
+
+    private async Task MoveAsync(AreaListItem area, string? beforeAreaId)
+    {
+        _saving = true;
+        _message = $"Zmiana kolejności obszaru „{area.Name}”…";
+        try
+        {
+            var result = await AreaService.MoveAsync(new MoveAreaCommand(
+                area.Id,
+                beforeAreaId,
+                _orderingRevision,
+                _contentEpoch));
+            switch (result.Status)
+            {
+                case MoveAreaStatus.Success:
+                    _areas = result.Areas!;
+                    _orderingRevision = _areas[0].OrderingRevision;
+                    _message = $"Zmieniono kolejność obszaru „{area.Name}”.";
+                    await AreaChanges.NotifyAsync();
+                    break;
+                case MoveAreaStatus.Conflict:
+                    _message = "Lista obszarów zmieniła się w innej karcie. Odśwież stronę i spróbuj ponownie.";
+                    break;
+                case MoveAreaStatus.NotFound:
+                    _message = "Nie znaleziono obszaru albo miejsca docelowego. Odśwież stronę.";
+                    break;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private int IndexOf(AreaListItem area)
+    {
+        for (var index = 0; index < _areas.Count; index++)
+        {
+            if (_areas[index].Id == area.Id)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private bool IsFirst(AreaListItem area) => IndexOf(area) == 0;
+
+    private bool IsLast(AreaListItem area) => IndexOf(area) == _areas.Count - 1;
 
     private static string NameDescriptionId(AreaListItem area) => $"area-name-help-{area.Id}";
 
