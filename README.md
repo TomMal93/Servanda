@@ -37,8 +37,11 @@ mkdir -p .servanda-dev/runtime .servanda-dev/state
 chmod 700 .servanda-dev/runtime .servanda-dev/state
 XDG_RUNTIME_DIR="$PWD/.servanda-dev/runtime" \
 XDG_STATE_HOME="$PWD/.servanda-dev/state" \
+DOTNET_ENVIRONMENT=Development \
 dotnet run --project src/Servanda.App
 ```
+
+`DOTNET_ENVIRONMENT=Development` jest wymagane przy uruchamianiu z wyniku kompilacji. W przeciwnym razie ASP.NET Core nie włącza deweloperskich Static Web Assets i przeglądarka może otrzymać pusty wariant skompresowanego CSS lub JavaScript. Po zmianie środowiska wcześniej uruchomiony host trzeba zatrzymać i uruchomić ponownie.
 
 Host wybiera dynamiczny port IPv4 wyłącznie na loopbacku. Launcher potwierdza prywatny deskryptor istniejącej instancji albo uruchamia host, czeka na stan `ready`, pobiera jednorazowy bilet prywatnym sekretem i otwiera procesową sesję przeglądarki. Chroniona akcja „Zamknij Servandę” wymaga potwierdzenia w interfejsie, sesji procesu, dokładnego originu i tokenu antiforgery.
 

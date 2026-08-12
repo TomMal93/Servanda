@@ -85,14 +85,23 @@ Przed publikacją `ready` host uzyskuje blokadę bazy, otwiera SQLite, weryfikuj
 
 ## Uruchomienie deweloperskie
 
-Po utworzeniu rozwiązania minimalny przepływ będzie używał przypiętego SDK:
+Lokalne uruchomienie do developmentu i ręcznych testów wymaga przypiętego SDK .NET oraz jawnie odizolowanych katalogów XDG w repozytorium:
 
 ```bash
 dotnet restore
+mkdir -p .servanda-dev/runtime .servanda-dev/state
+chmod 700 .servanda-dev/runtime .servanda-dev/state
+XDG_RUNTIME_DIR="$PWD/.servanda-dev/runtime" \
+XDG_STATE_HOME="$PWD/.servanda-dev/state" \
+DOTNET_ENVIRONMENT=Development \
 dotnet run --project src/Servanda.App
 ```
 
-Rzeczywiste nazwy projektu i polecenia MUSZĄ zostać zsynchronizowane z README w chwili bootstrapu. Tryb deweloperski może używać katalogu danych repozytorium lub katalogu tymczasowego wyłącznie po jawnym ustawieniu środowiska deweloperskiego; nie może przypadkowo otworzyć produkcyjnej bazy użytkownika.
+`DOTNET_ENVIRONMENT=Development` jest obowiązkowe dla uruchomienia z nieopublikowanego wyniku kompilacji. Zapewnia obsługę deweloperskich Static Web Assets; bez niego negocjowany wariant skompresowanego CSS lub JavaScript może nie zostać udostępniony przeglądarce. Opublikowany artefakt użytkowy nadal działa w środowisku `Production` i nie używa tego wyjątku deweloperskiego.
+
+Launcher uruchamia host jako osobny proces. Ponowne wykonanie polecenia otwiera istniejącą instancję i nie zmienia jej środowiska. Po zmianie zmiennych środowiskowych host trzeba najpierw zamknąć z interfejsu. Jeżeli interfejs nie działa, PID można odczytać z odizolowanego deskryptora `.servanda-dev/runtime/servanda/instance.json`, zakończyć proces sygnałem `TERM`, a następnie ponownie wykonać powyższe polecenie.
+
+Rzeczywiste nazwy projektu i polecenia MUSZĄ pozostać zsynchronizowane z README. Tryb deweloperski może używać katalogu danych repozytorium lub katalogu tymczasowego wyłącznie po jawnym ustawieniu środowiska deweloperskiego; nie może przypadkowo otworzyć produkcyjnej bazy użytkownika.
 
 Izolacja deweloperskiego `XDG_RUNTIME_DIR` nie może psuć integracji pulpitu. Launcher otwiera adres przez `xdg-open` i, gdy runtime hosta jest odizolowany, przekazuje mechanizmowi pulpitu systemowy katalog `/run/user/<UID>`. Jeżeli nie może potwierdzić tego katalogu, nie przekazuje przeglądarce izolowanej wartości hosta.
 
