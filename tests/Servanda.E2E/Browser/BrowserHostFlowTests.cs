@@ -137,6 +137,38 @@ public sealed class BrowserHostFlowTests
             Assert.Equal("pl", await page.Locator("html").GetAttributeAsync("lang"));
             Assert.Equal(1, await page.GetByRole(AriaRole.Main).CountAsync());
             Assert.Equal(
+                1,
+                await page.GetByRole(AriaRole.Complementary, new() { Name = "Panel boczny" }).CountAsync());
+            Assert.Equal(
+                1,
+                await page.GetByRole(AriaRole.Navigation, new() { Name = "Główna nawigacja" }).CountAsync());
+            Assert.Equal(
+                "page",
+                await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true })
+                    .GetAttributeAsync("aria-current"));
+            Assert.Equal(7, await page.Locator(".sidebar__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(0, await page.GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
+
+            foreach (var areaName in new[]
+            {
+                "Skarbiec promptów",
+                "Przechowalnia narzędzi",
+                "Dom",
+                "Rodzina",
+                "Witalność",
+                "Przechowalnia notatek",
+                "Budżet domowy",
+            })
+            {
+                var plannedArea = page.GetByText(areaName, new() { Exact = true });
+                Assert.Equal(1, await plannedArea.CountAsync());
+                Assert.False(
+                    await plannedArea.EvaluateAsync<bool>(
+                        "element => element.closest('a, button') !== null"),
+                    $"Planowany obszar „{areaName}” nie może być interaktywny w v1.");
+            }
+
+            Assert.Equal(
                 "rgb(11, 13, 17)",
                 await page.Locator("body").EvaluateAsync<string>("element => getComputedStyle(element).backgroundColor"));
             Assert.Equal(
@@ -145,14 +177,20 @@ public sealed class BrowserHostFlowTests
 
             foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
             {
-                await page.SetViewportSizeAsync(viewportWidth, 1080);
+                await page.SetViewportSizeAsync(viewportWidth, 768);
+                await page.WaitForFunctionAsync(
+                    "document.querySelector('.sidebar')?.getBoundingClientRect().width > 0");
                 Assert.True(
                     await page.Locator("html").EvaluateAsync<bool>(
                         "element => element.scrollWidth <= element.clientWidth"),
                     $"Strona przewija się poziomo przy szerokości {viewportWidth}px.");
+                Assert.Equal(
+                    292,
+                    await page.Locator(".sidebar").EvaluateAsync<int>(
+                        "element => Math.round(element.getBoundingClientRect().width)"));
             }
 
-            await page.GetByRole(AriaRole.Button, new() { Name = "Zamknij Servandę" }).FocusAsync();
+            await page.Locator(".sidebar__brand").FocusAsync();
             await page.Keyboard.PressAsync("Shift+Tab");
             var activeElement = await page.EvaluateAsync<string>(
                 "() => `${document.activeElement?.tagName}.${document.activeElement?.className}`");

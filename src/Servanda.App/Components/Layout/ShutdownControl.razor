@@ -1,7 +1,8 @@
-<section aria-labelledby="shutdown-heading">
+<section class="shutdown-control" aria-labelledby="shutdown-heading">
     <h2 id="shutdown-heading">Zamykanie aplikacji</h2>
 
     <button type="button"
+            class="shutdown-control__toggle"
             aria-expanded="@_isConfirmationVisible"
             aria-controls="shutdown-confirmation"
             @onclick="ToggleConfirmation">
@@ -19,7 +20,7 @@
             <p id="shutdown-warning" role="alert">
                 Zamknięcie Servandy rozłączy wszystkie otwarte karty aplikacji.
             </p>
-            <button type="submit">Tak, zamknij Servandę</button>
+            <button type="submit" class="shutdown-control__confirm">Tak, zamknij Servandę</button>
         }
     </form>
 </section>
