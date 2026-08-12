@@ -1,12 +1,11 @@
-using System.Collections.Concurrent;
-
 namespace Servanda.App.Security;
 
 public sealed class BootstrapTicketStore
 {
     public static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(60);
 
-    private readonly ConcurrentDictionary<string, DateTimeOffset> _tickets = new(StringComparer.Ordinal);
+    private readonly Lock _gate = new();
+    private readonly Dictionary<string, DateTimeOffset> _tickets = new(StringComparer.Ordinal);
     private readonly TimeProvider _timeProvider;
 
     public BootstrapTicketStore(TimeProvider timeProvider)
@@ -16,36 +15,65 @@ public sealed class BootstrapTicketStore
 
     public string Issue()
     {
-        RemoveExpiredTickets();
         var ticket = SecurityToken.Create(24);
-        var expiresAt = _timeProvider.GetUtcNow().Add(Lifetime);
-        if (!_tickets.TryAdd(SecurityToken.Fingerprint(ticket), expiresAt))
+        var fingerprint = SecurityToken.Fingerprint(ticket);
+        var now = _timeProvider.GetUtcNow();
+
+        lock (_gate)
         {
-            throw new InvalidOperationException("Nie udało się utworzyć unikalnego biletu startowego.");
+            RemoveExpiredTickets(now);
+            if (!_tickets.TryAdd(fingerprint, now.Add(Lifetime)))
+            {
+                throw new InvalidOperationException("Nie udało się utworzyć unikalnego biletu startowego.");
+            }
         }
 
         return ticket;
     }
 
-    public bool TryConsume(string? ticket)
+    public bool TryConsume(string? ticket) => TryConsume(ticket, static () => true);
+
+    public bool TryConsume(string? ticket, Func<bool> tryCompleteExchange)
     {
+        ArgumentNullException.ThrowIfNull(tryCompleteExchange);
+
         if (string.IsNullOrWhiteSpace(ticket) || ticket.Length > 128)
         {
             return false;
         }
 
-        return _tickets.TryRemove(SecurityToken.Fingerprint(ticket), out var expiresAt)
-            && expiresAt >= _timeProvider.GetUtcNow();
+        var fingerprint = SecurityToken.Fingerprint(ticket);
+        var now = _timeProvider.GetUtcNow();
+        lock (_gate)
+        {
+            if (!_tickets.TryGetValue(fingerprint, out var expiresAt))
+            {
+                return false;
+            }
+
+            if (expiresAt < now)
+            {
+                _tickets.Remove(fingerprint);
+                return false;
+            }
+
+            if (!tryCompleteExchange())
+            {
+                return false;
+            }
+
+            _tickets.Remove(fingerprint);
+            return true;
+        }
     }
 
-    private void RemoveExpiredTickets()
+    private void RemoveExpiredTickets(DateTimeOffset now)
     {
-        var now = _timeProvider.GetUtcNow();
         foreach (var ticket in _tickets)
         {
             if (ticket.Value < now)
             {
-                _tickets.TryRemove(ticket.Key, out _);
+                _tickets.Remove(ticket.Key);
             }
         }
     }

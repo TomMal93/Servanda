@@ -349,8 +349,8 @@ public sealed class BrowserHostFlowTests
             await page.SetViewportSizeAsync(1024, 768);
             await page.Locator("aside.sidebar").WaitForAsync(new() { State = WaitForSelectorState.Visible });
             await drawer.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
-            await page.WaitForFunctionAsync(
-                "document.querySelector('dialog.navigation-drawer__dialog')?.open === false");
+            await page.Locator("dialog.navigation-drawer__dialog:not([open])").WaitForAsync(
+                new() { State = WaitForSelectorState.Attached });
             Assert.Null(await page.Locator("dialog.navigation-drawer__dialog").GetAttributeAsync("open"));
             var desktopBrand = page.Locator("aside.sidebar .sidebar-content__brand");
             await desktopBrand.FocusAsync();

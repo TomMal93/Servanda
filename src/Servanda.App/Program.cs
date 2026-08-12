@@ -171,18 +171,27 @@ public class Program
                 ProcessSessionStore sessions,
                 BootstrapRateLimiter rateLimiter) =>
             {
-                if (!tickets.TryConsume(request.Ticket))
+                string? session = null;
+                var wasRateLimited = false;
+                if (!tickets.TryConsume(request.Ticket, () =>
+                    {
+                        using var lease = rateLimiter.AttemptSessionBootstrap();
+                        if (!lease.IsAcquired)
+                        {
+                            wasRateLimited = true;
+                            return false;
+                        }
+
+                        session = sessions.Create();
+                        return true;
+                    }))
                 {
-                    return Results.Unauthorized();
+                    return wasRateLimited
+                        ? Results.StatusCode(StatusCodes.Status429TooManyRequests)
+                        : Results.Unauthorized();
                 }
 
-                using var lease = rateLimiter.AttemptSessionBootstrap();
-                if (!lease.IsAcquired)
-                {
-                    return Results.StatusCode(StatusCodes.Status429TooManyRequests);
-                }
-
-                response.Cookies.Append(ProcessSessionStore.CookieName, sessions.Create(), new CookieOptions
+                response.Cookies.Append(ProcessSessionStore.CookieName, session!, new CookieOptions
                 {
                     HttpOnly = true,
                     IsEssential = true,
