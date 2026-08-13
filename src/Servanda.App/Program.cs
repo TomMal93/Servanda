@@ -1,4 +1,5 @@
 using System.Net;
+using System.Reflection;
 using System.Runtime.Versioning;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
@@ -77,6 +78,14 @@ public class Program
         }
     }
 
+    private static string GetApplicationVersion()
+    {
+        var assembly = typeof(Program).Assembly;
+        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString()
+            ?? throw new InvalidOperationException("Nie można ustalić wersji aplikacji.");
+    }
+
     private static async Task<int> RunHostAsync(ServandaPaths paths)
     {
         using var instanceLock = InstanceLock.TryAcquire(paths.InstanceLockPath);
@@ -118,7 +127,7 @@ public class Program
                 .AddInteractiveServerComponents();
             builder.Services.AddScoped<AreaChangeNotifier>();
             builder.Services.AddSingleton(paths);
-            builder.Services.AddServandaDatabase(paths);
+            builder.Services.AddServandaDatabase(paths, GetApplicationVersion());
             builder.Services.AddSingleton<InstanceRuntimeState>();
             builder.Services.AddSingleton(new AtomicInstanceDescriptorStore(paths.DescriptorPath));
             builder.Services.AddHostedService<InstanceLifecyclePublisher>();

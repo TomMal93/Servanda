@@ -290,6 +290,8 @@ Generated_Code/
 # because we have git ;-)
 _UpgradeReport_Files/
 Backup*/
+!src/Servanda.Infrastructure/Data/Backups/
+!src/Servanda.Infrastructure/Data/Backups/**
 UpgradeLog*.XML
 UpgradeLog*.htm
 ServiceFabricBackup/

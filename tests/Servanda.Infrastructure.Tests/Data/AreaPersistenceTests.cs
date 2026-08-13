@@ -256,7 +256,7 @@ public sealed class AreaPersistenceTests
     {
         var services = new ServiceCollection();
         services.AddSingleton(TimeProvider.System);
-        services.AddServandaDatabase(paths);
+        services.AddServandaDatabase(paths, "test-version");
         return services.BuildServiceProvider();
     }
 

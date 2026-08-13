@@ -2,6 +2,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Servanda.Application.Areas;
+using Servanda.Application.DataProtection;
+using Servanda.Infrastructure.Data.Backups;
 using Servanda.Infrastructure.Runtime;
 using System.Runtime.Versioning;
 
@@ -12,10 +14,12 @@ public static class ServandaDatabase
 {
     public static IServiceCollection AddServandaDatabase(
         this IServiceCollection services,
-        ServandaPaths paths)
+        ServandaPaths paths,
+        string applicationVersion)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(paths);
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationVersion);
 
         var connectionString = new SqliteConnectionStringBuilder
         {
@@ -26,6 +30,10 @@ public static class ServandaDatabase
 
         services.AddDbContextFactory<ServandaDbContext>(options => options.UseSqlite(connectionString));
         services.AddTransient<IAreaService, SqliteAreaService>();
+        services.AddSingleton<IBackupService>(provider => new SqliteBackupService(
+            paths,
+            provider.GetRequiredService<TimeProvider>(),
+            applicationVersion));
         return services;
     }
 
