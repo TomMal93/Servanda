@@ -51,7 +51,20 @@ public static class ServandaDatabase
 
         await using var scope = services.CreateAsyncScope();
         var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ServandaDbContext>>();
+        var backupService = scope.ServiceProvider.GetRequiredService<IBackupService>();
         await using var database = await factory.CreateDbContextAsync(cancellationToken);
+        var appliedMigrations = (await database.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
+        var pendingMigrations = (await database.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
+        if (appliedMigrations.Count > 0 && pendingMigrations.Count > 0)
+        {
+            var backup = await backupService.CreateAsync(BackupReason.Migration, cancellationToken);
+            var verification = await backupService.VerifyAsync(backup.Id, cancellationToken);
+            if (verification.Status != BackupVerificationStatus.Verified)
+            {
+                throw new InvalidDataException("Kopia ochronna przed migracją nie przeszła weryfikacji.");
+            }
+        }
+
         await database.Database.MigrateAsync(cancellationToken);
         await InitialAreaSeed.ApplyAsync(database, timeProvider, cancellationToken);
         PrivateFileSystem.VerifyPrivateFile(paths.DatabasePath, LinuxIdentity.GetEffectiveUserId());

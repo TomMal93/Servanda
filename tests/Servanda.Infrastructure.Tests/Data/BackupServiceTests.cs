@@ -37,7 +37,7 @@ public sealed class BackupServiceTests
         Assert.Equal(BackupVerificationStatus.Verified, verification.Status);
         Assert.Equal(backup, verification.Backup);
         Assert.Equal(BackupReason.Migration, backup.Reason);
-        Assert.Equal("20260812211246_InitialAreas", backup.SchemaVersion);
+        Assert.Equal("20260813120000_AddAreaVisibilityIndex", backup.SchemaVersion);
         Assert.NotEqual(default, backup.CreatedAt);
         Assert.Equal(TimeSpan.Zero, backup.CreatedAt.Offset);
         Assert.Equal("test-version", backup.ApplicationVersion);
@@ -181,7 +181,11 @@ public sealed class BackupServiceTests
         {
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE __EFMigrationsHistory SET MigrationId = $migrationId;";
+            command.CommandText = """
+                DELETE FROM __EFMigrationsHistory;
+                INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion)
+                VALUES ($migrationId, '10.0.10');
+                """;
             command.Parameters.AddWithValue("$migrationId", futureSchema);
             await command.ExecuteNonQueryAsync();
         }

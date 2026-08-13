@@ -53,6 +53,7 @@ public sealed class ServandaDbContext(DbContextOptions<ServandaDbContext> option
             entity.Property(item => item.UpdatedAt).HasColumnName("updated_at");
             entity.Property(item => item.Revision).HasColumnName("revision").IsConcurrencyToken();
             entity.HasIndex(item => item.SortOrder).IsUnique();
+            entity.HasIndex(item => new { item.ArchivedAt, item.IsHidden, item.SortOrder });
             entity.HasIndex(item => item.ModuleKey)
                 .IsUnique()
                 .HasFilter("availability = 'active' AND archived_at IS NULL");

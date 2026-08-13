@@ -87,6 +87,8 @@ namespace Servanda.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ArchivedAt", "IsHidden", "SortOrder");
+
                     b.HasIndex("ModuleKey")
                         .IsUnique()
                         .HasFilter("availability = 'active' AND archived_at IS NULL");

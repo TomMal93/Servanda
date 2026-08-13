@@ -85,6 +85,8 @@ Reguły:
 - archiwizacja zachowuje rekord i powiązane dane,
 - trwałe usunięcie obszaru nie należy do v2.
 
+Filtrowanie pulpitu i nawigacji po `archived_at`, `is_hidden` oraz `sort_order` wspiera złożony indeks w tej kolejności. Indeks jest szczegółem fizycznym i nie należy do eksportu.
+
 ## Wspólne kategorie i tagi
 
 ### `categories`
