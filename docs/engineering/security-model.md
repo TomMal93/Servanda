@@ -108,7 +108,7 @@ Trwałe drafty w przeglądarce wymagają osobnej przyszłej decyzji obejmującej
 ## Limity i logowanie
 
 - Nieuwierzytelnione endpointy bootstrapu mają małe, jawne limity ciała żądania. Oddzielne ograniczenia tempa wydania biletu i utworzenia sesji są stosowane dopiero po uwierzytelnieniu odpowiednio sekretem sterującym lub jednorazowym biletem, aby obcy proces nie wyczerpał kwoty poprawnych otwarć aplikacji.
-- Od v2 import, eksport i upload dokumentu mają limit wynikający z kontraktu formatu i przetwarzanie odporne na niekontrolowaną alokację; dokładny limit importu musi zostać ustalony przed ukończeniem P4.
+- Import dokumentu kolekcji ma limit `64 MiB`, egzekwowany przed buforowaniem i ponownie przez strumień wejściowy. Przekroczenie limitu odrzuca dokument bez utworzenia stagingu, kopii ani zmiany kolekcji. Każdy przyszły upload wymaga własnego jawnego limitu przed udostępnieniem.
 - Logi nie zawierają ciasteczek, nagłówków autoryzacyjnych, sekretu sterującego, biletów, fragmentów URL, treści formularzy ani wartości antiforgery.
 - Diagnostyka może rejestrować kategorię odrzucenia, identyfikator zdarzenia i zagregowany licznik, lecz nie surowy sekret, bilet ani prywatne dane.
 

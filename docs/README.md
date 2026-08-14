@@ -89,7 +89,7 @@ Słowa **MUSI**, **POWINIEN** i **MOŻE** oznaczają odpowiednio wymaganie, mocn
 
 ## Stan projektu
 
-Dokumentacja opisuje nową aplikację budowaną od zera. W repozytorium nie ma wcześniejszej implementacji ani danych do migracji. Do czasu utworzenia rozwiązania .NET ścieżki i polecenia docelowe są kontraktem bootstrapu, a nie deklaracją istnienia implementacji.
+Dokumentacja opisuje aplikację zbudowaną od zera bez wcześniejszej implementacji ani danych do migracji. Repozytorium zawiera ukończone etapy P1–P4: host i pulpit v1, fundament danych i odzyskiwania v2 oraz katalog narzędzi, bibliotekę promptów i Prompt Studio. Kolejny etap P5 może aktywować pozostałe obszary wyłącznie po dodaniu ich własnych kontraktów.
 
 ## Utrzymanie
 

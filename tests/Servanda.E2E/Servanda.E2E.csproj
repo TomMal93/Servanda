@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>
-    <VSTestTestCaseFilter>Category!=Browser</VSTestTestCaseFilter>
+    <VSTestTestCaseFilter>Category!=Browser&amp;Category!=PerformanceBrowser</VSTestTestCaseFilter>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +21,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Servanda.App\Servanda.App.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Servanda.Infrastructure.Tests\Data\P4SearchPerformanceProfile.cs"
+             Link="Performance\P4SearchPerformanceProfile.cs" />
   </ItemGroup>
 
   <ItemGroup>

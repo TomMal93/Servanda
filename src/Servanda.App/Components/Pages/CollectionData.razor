@@ -48,6 +48,7 @@
         <div class="field">
             <label for="import-file">Dokument eksportu (JSON)</label>
             <InputFile id="import-file" OnChange="PrepareAsync" accept=".json,application/json" disabled="@_busy" />
+            <p class="field__hint">Maksymalny rozmiar dokumentu: 64 MiB.</p>
         </div>
 
         @if (_preview is not null)
@@ -127,8 +128,6 @@
 </div>
 
 @code {
-    private const long MaximumDocumentSize = 64L * 1024 * 1024;
-
     private ExportSummary? _export;
     private ImportPreview? _preview;
     private ImportResult? _result;
@@ -145,19 +144,33 @@
     private async Task PrepareAsync(InputFileChangeEventArgs args)
     {
         _busy = true;
-        _result = null;
-        if (_preview?.Token is { } previousToken)
+        try
         {
-            await ImportService.DiscardAsync(previousToken);
-        }
+            _result = null;
+            if (_preview?.Token is { } previousToken)
+            {
+                await ImportService.DiscardAsync(previousToken);
+            }
 
-        _importConfirmed = false;
-        await using var stream = args.File.OpenReadStream(MaximumDocumentSize);
-        using var buffer = new MemoryStream();
-        await stream.CopyToAsync(buffer);
-        buffer.Position = 0;
-        _preview = await ImportService.PrepareAsync(buffer);
-        _busy = false;
+            _importConfirmed = false;
+            if (args.File.Size > CollectionTransferLimits.MaximumDocumentBytes)
+            {
+                _preview = new ImportPreview(
+                    ImportPreviewStatus.Rejected,
+                    null,
+                    null,
+                    [],
+                    ["Dokument przekracza dozwolony rozmiar 64 MiB."]);
+                return;
+            }
+
+            await using var stream = args.File.OpenReadStream(CollectionTransferLimits.MaximumDocumentBytes);
+            _preview = await ImportService.PrepareAsync(stream);
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task ApplyAsync()

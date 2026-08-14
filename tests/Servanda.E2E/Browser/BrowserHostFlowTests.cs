@@ -1161,7 +1161,7 @@ public sealed class BrowserHostFlowTests
     /// <summary>
     /// Czeka na pierwszą wiadomość obwodu Blazor, czyli na moment, w którym strona przyjmuje zdarzenia.
     /// </summary>
-    private sealed class CircuitWatcher
+    internal sealed class CircuitWatcher
     {
         private TaskCompletionSource _connected = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -1205,7 +1205,7 @@ public sealed class BrowserHostFlowTests
         throw new InvalidOperationException($"Formularz nie stał się interaktywny po wpisaniu wartości „{value}”.");
     }
 
-    private static async Task<IBrowser> LaunchBrowserAsync(IPlaywright playwright, string browserName) =>
+    internal static async Task<IBrowser> LaunchBrowserAsync(IPlaywright playwright, string browserName) =>
         browserName switch
         {
             "chromium" => await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true }),
@@ -1234,7 +1234,7 @@ public sealed class BrowserHostFlowTests
                           $"{violation.Id}: {violation.Help} ({string.Join(", ", violation.Nodes.Select(node => node.Html))})")));
     }
 
-    private static async Task CreateXdgOpenShimAsync(string shimDirectory)
+    internal static async Task CreateXdgOpenShimAsync(string shimDirectory)
     {
         var shimPath = Path.Combine(shimDirectory, "xdg-open");
         await File.WriteAllTextAsync(
@@ -1278,14 +1278,15 @@ public sealed class BrowserHostFlowTests
         return execLine[6..^1];
     }
 
-    private static async Task<int> RunLauncherAsync(
+    internal static async Task<int> RunLauncherAsync(
         string executablePath,
         string runtimeBase,
         string stateBase,
         string homeDirectory,
         string shimDirectory,
         string openedAddressesPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool quietLogging = false)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -1300,6 +1301,11 @@ public sealed class BrowserHostFlowTests
         startInfo.Environment["XDG_DATA_HOME"] = Path.Combine(homeDirectory, ".local", "share");
         startInfo.Environment["DOTNET_ENVIRONMENT"] = "Production";
         startInfo.Environment["SERVANDA_XDG_OPEN_CAPTURE"] = openedAddressesPath;
+        if (quietLogging)
+        {
+            startInfo.Environment["Logging__LogLevel__Default"] = "Warning";
+            startInfo.Environment["Logging__LogLevel__Microsoft.EntityFrameworkCore"] = "Warning";
+        }
 
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Nie udało się uruchomić launchera z artefaktu.");
@@ -1307,7 +1313,7 @@ public sealed class BrowserHostFlowTests
         return process.ExitCode;
     }
 
-    private static async Task<string[]> WaitForOpenedAddressesAsync(
+    internal static async Task<string[]> WaitForOpenedAddressesAsync(
         string path,
         int expectedCount,
         CancellationToken cancellationToken)
@@ -1328,7 +1334,7 @@ public sealed class BrowserHostFlowTests
         }
     }
 
-    private static async Task<InstanceDescriptor> WaitForReadyDescriptorAsync(
+    internal static async Task<InstanceDescriptor> WaitForReadyDescriptorAsync(
         string descriptorPath,
         CancellationToken cancellationToken)
     {
@@ -1384,7 +1390,7 @@ public sealed class BrowserHostFlowTests
     private static string GetHeader(Dictionary<string, string> headers, string name) =>
         headers.TryGetValue(name, out var value) ? value : "<brak>";
 
-    private static async Task StopProcessAsync(Process process)
+    internal static async Task StopProcessAsync(Process process)
     {
         if (!process.HasExited)
         {
@@ -1393,7 +1399,7 @@ public sealed class BrowserHostFlowTests
         }
     }
 
-    private const UnixFileMode PrivateDirectoryMode =
+    internal const UnixFileMode PrivateDirectoryMode =
         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode PrivateFileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 

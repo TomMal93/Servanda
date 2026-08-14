@@ -77,7 +77,9 @@ Cele v2 mierzymy na dwóch deterministycznych profilach danych:
 | referencyjny | 2 000 | 1 000 | średnio 5 bieżących wariantów na prompt i 2 000 znaków na wariant; co najmniej jeden prompt ma 20 wariantów po 30 000 znaków | kryterium v2 |
 | graniczny | 10 000 | 5 000 | ten sam deterministyczny rozkład długości i wariantów co profil referencyjny | kontrolowana degradacja i wykrywanie nieograniczonych operacji |
 
-Oba profile zawierają hierarchie kategorii, maksymalne liczby tagów, polskie znaki, podobne prefiksy oraz 500 wpisów historii użycia. Generator, stałe ziarno i zestaw zapytań pomiarowych MUSZĄ zostać zapisane w repozytorium wraz z testami P4. Zestaw zapytań obejmuje dokładną nazwę, prefiks, kilka tokenów, kategorię, tag, URL, polskie znaki i dopasowanie wyłącznie w treści wariantu.
+Oba profile zawierają hierarchie kategorii, maksymalne liczby tagów, polskie znaki, podobne prefiksy oraz 500 wpisów historii użycia. Deterministyczny generator ze stałym ziarnem `20260814` i zestaw zapytań pomiarowych znajdują się w `tests/Servanda.Infrastructure.Tests/Data/P4SearchPerformanceProfile.cs`, a budżety SQLite egzekwuje `P4SearchPerformanceTests.cs`. Zestaw zapytań obejmuje dokładną nazwę, prefiks, kilka tokenów, kategorię, tag, URL, polskie znaki i dopasowanie wyłącznie w treści wariantu.
+
+Pełną pętlę od wpisania zapytania do wyrenderowania strony mierzy `P4SearchPerformanceBrowserTests.cs` w Chromium i Firefox. Kwalifikacyjny przebieg obu profili uruchamia `tests/Servanda.E2E/run-p4-performance-tests.sh`; jest oddzielony od szybkich E2E ze względu na rozmiar danych i co najmniej 100 prób na przeglądarkę.
 
 Każdy raport podaje wersję aplikacji, .NET, SQLite i przeglądarki, tryb publikacji, CPU, RAM, rodzaj dysku i system plików. Pomiar wykonuje się na wydaniu `Release` z lokalną bazą po 10 rozgrzewających zapytaniach i co najmniej 100 mierzonych zapytaniach na wspieraną przeglądarkę. Raportuje się medianę i p95; osobno mierzy się pierwsze zapytanie po otwarciu procesu bez wcześniejszego rozgrzania indeksu.
 

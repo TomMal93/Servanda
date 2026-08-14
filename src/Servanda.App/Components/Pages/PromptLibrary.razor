@@ -65,7 +65,7 @@ else
                              Value="@(Text ?? string.Empty)"
                              ValueChanged="SearchAsync" />
 
-                <p class="module-page__status" role="status" aria-live="polite">
+                <p class="module-page__status" role="status" aria-live="polite" data-query="@(_loadedText ?? string.Empty)">
                     @if (_loading)
                     {
                         @:Wyszukiwanie…
@@ -196,6 +196,7 @@ else
     private CancellationTokenSource? _searchCancellation;
     private long _searchGeneration;
     private string? _loadedKey;
+    private string? _loadedText;
     private string? _operationStatus;
 
     [SupplyParameterFromQuery(Name = "kategoria")]
@@ -291,6 +292,7 @@ else
         _hasMore = page.HasMore;
         _queryTooShort = page.QueryTooShort;
         _contentEpoch = page.ContentEpoch;
+        _loadedText = text;
         if (categoryId is null && string.IsNullOrEmpty(text) && filter == "wszystkie")
         {
             _allCount = page.TotalCount;

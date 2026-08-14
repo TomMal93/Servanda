@@ -23,10 +23,16 @@ internal sealed class SqliteCollectionImportService(
     {
         ArgumentNullException.ThrowIfNull(document);
 
+        using var bufferedDocument = await BufferWithinLimitAsync(document, cancellationToken);
+        if (bufferedDocument is null)
+        {
+            return Rejected(["Dokument przekracza dozwolony rozmiar 64 MiB."]);
+        }
+
         JsonDocument parsed;
         try
         {
-            parsed = await JsonDocument.ParseAsync(document, cancellationToken: cancellationToken);
+            parsed = await JsonDocument.ParseAsync(bufferedDocument, cancellationToken: cancellationToken);
         }
         catch (JsonException)
         {
@@ -141,6 +147,39 @@ internal sealed class SqliteCollectionImportService(
 
     private static ImportPreview Rejected(IReadOnlyList<string> problems) =>
         new(ImportPreviewStatus.Rejected, null, null, [], problems);
+
+    private static async Task<MemoryStream?> BufferWithinLimitAsync(
+        Stream document,
+        CancellationToken cancellationToken)
+    {
+        if (document.CanSeek
+            && document.Length - document.Position > CollectionTransferLimits.MaximumDocumentBytes)
+        {
+            return null;
+        }
+
+        var buffered = new MemoryStream();
+        var buffer = new byte[80 * 1024];
+        long total = 0;
+        while (true)
+        {
+            var read = await document.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
+            {
+                buffered.Position = 0;
+                return buffered;
+            }
+
+            total += read;
+            if (total > CollectionTransferLimits.MaximumDocumentBytes)
+            {
+                buffered.Dispose();
+                return null;
+            }
+
+            await buffered.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+    }
 
     /// <summary>
     /// Reguły, których nie wyraża schemat: dokładnie jeden aktywny obszar modułu i spójność relacji.

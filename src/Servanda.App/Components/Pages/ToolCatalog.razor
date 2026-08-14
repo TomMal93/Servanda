@@ -53,7 +53,7 @@ else
                              Value="@(Text ?? string.Empty)"
                              ValueChanged="SearchAsync" />
 
-                <p class="module-page__status" role="status" aria-live="polite">
+                <p class="module-page__status" role="status" aria-live="polite" data-query="@(_loadedText ?? string.Empty)">
                     @if (_loading)
                     {
                         @:Wyszukiwanie…

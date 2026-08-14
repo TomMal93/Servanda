@@ -110,6 +110,22 @@ public sealed class CollectionTransferTests
     }
 
     [Fact]
+    public async Task OversizedDocumentIsRejectedBeforeReadingOrCreatingStaging()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        await using var services = await TestDatabase.InitializeAsync(temporaryDirectory.Path);
+        var import = services.GetRequiredService<ICollectionImportService>();
+        await using var document = new OversizedSeekableStream();
+
+        var preview = await import.PrepareAsync(document);
+
+        Assert.Equal(ImportPreviewStatus.Rejected, preview.Status);
+        Assert.Contains(preview.Problems, problem => problem.Contains("64 MiB", StringComparison.Ordinal));
+        Assert.Equal(0, document.ReadCount);
+        Assert.Empty(Directory.GetDirectories(Path.Combine(temporaryDirectory.Path, "data"), "import-*"));
+    }
+
+    [Fact]
     public async Task DocumentWithoutActiveModuleAreaIsRejected()
     {
         using var temporaryDirectory = new TemporaryDirectory();
@@ -222,5 +238,30 @@ public sealed class CollectionTransferTests
 
         var editor = await prompts.GetForEditAsync(prompt.Prompt!.Id);
         await prompts.RecordUsageAsync(new RecordPromptUsageCommand(prompt.Prompt.Id, editor!.Variants[0].Id));
+    }
+
+    private sealed class OversizedSeekableStream : Stream
+    {
+        public int ReadCount { get; private set; }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => true;
+        public override bool CanWrite => false;
+        public override long Length => CollectionTransferLimits.MaximumDocumentBytes + 1;
+        public override long Position { get; set; }
+
+        public override void Flush() => throw new NotSupportedException();
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            ReadCount++;
+            return 0;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

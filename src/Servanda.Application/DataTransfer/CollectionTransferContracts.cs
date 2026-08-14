@@ -1,5 +1,10 @@
 namespace Servanda.Application.DataTransfer;
 
+public static class CollectionTransferLimits
+{
+    public const long MaximumDocumentBytes = 64L * 1024 * 1024;
+}
+
 public sealed record ExportSummary(
     string FilePath,
     string ExportId,
