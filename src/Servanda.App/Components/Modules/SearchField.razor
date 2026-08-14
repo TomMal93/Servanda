@@ -54,10 +54,15 @@
             return;
         }
 
-        _module = await JavaScript.InvokeAsync<IJSObjectReference>(
-            "import",
-            "./search-shortcut.js");
-        await _module.InvokeVoidAsync("register", Id);
+        try
+        {
+            _module = await JavaScript.InvokeAsync<IJSObjectReference>("import", "/search-shortcut.js");
+            await _module.InvokeVoidAsync("register", Id);
+        }
+        catch (JSException)
+        {
+            // Skrót Ctrl+K jest dodatkiem; widoczne pole pozostaje dostępne klawiaturą.
+        }
     }
 
     private async Task OnInputAsync(ChangeEventArgs args)

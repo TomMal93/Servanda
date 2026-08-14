@@ -631,3 +631,11 @@ code {
     border-block-end: var(--border-width) solid var(--border-soft);
     text-align: start;
 }
+
+/* Odnośniki nawigacyjne pozostają celem o wysokości co najmniej kontrolki `sm`. */
+.area-tile h3 a,
+.sidebar-content__area-name[href] {
+    display: inline-flex;
+    min-height: var(--control-sm);
+    align-items: center;
+}

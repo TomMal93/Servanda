@@ -312,12 +312,18 @@ public sealed class BrowserHostFlowTests
                 await page.GetByRole(AriaRole.Link, new() { Name = "Pulpit", Exact = true })
                     .GetAttributeAsync("aria-current"));
             Assert.Equal(
-                7,
+                5,
                 await page.Locator("aside.sidebar .sidebar-content__status")
                     .GetByText("Planowane", new() { Exact = true })
                     .CountAsync());
+            Assert.Equal(
+                2,
+                await page.Locator("aside.sidebar .sidebar-content__status")
+                    .GetByText("Aktywny", new() { Exact = true })
+                    .CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile").CountAsync());
-            Assert.Equal(7, await page.Locator(".area-tile__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(5, await page.Locator(".area-tile__status").GetByText("Planowane", new() { Exact = true }).CountAsync());
+            Assert.Equal(2, await page.Locator(".area-tile__status").GetByText("Aktywny", new() { Exact = true }).CountAsync());
             Assert.Equal(7, await page.Locator(".area-tile svg[viewBox='0 0 24 24']").CountAsync());
             Assert.Equal(1, await page.Locator("aside.sidebar").GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
             Assert.Equal(0, await page.Locator("input:visible, textarea:visible, select:visible").CountAsync());
@@ -328,29 +334,38 @@ public sealed class BrowserHostFlowTests
 
             foreach (var area in new[]
             {
-                (Name: "Skarbiec promptów", Description: "Przechowywanie, przygotowywanie i ponowne używanie promptów."),
-                (Name: "Przechowalnia narzędzi", Description: "Katalog sprawdzonych stron i aplikacji przydatnych na co dzień."),
-                (Name: "Dom", Description: "Harmonogram prac porządkowych i innych obowiązków domowych."),
-                (Name: "Rodzina", Description: "Ważne informacje, potrzeby, daty i relacje dotyczące bliskich."),
-                (Name: "Witalność", Description: "Zdrowie, biohacking, dieta i trening w jednym uporządkowanym miejscu."),
-                (Name: "Przechowalnia notatek", Description: "Pomysły, obserwacje i informacje zachowane do późniejszego użycia."),
-                (Name: "Budżet domowy", Description: "Planowanie miesięcznego budżetu gospodarstwa domowego."),
+                (Name: "Skarbiec promptów", Description: "Przechowywanie, przygotowywanie i ponowne używanie promptów.", Route: "/prompty"),
+                (Name: "Przechowalnia narzędzi", Description: "Katalog sprawdzonych stron i aplikacji przydatnych na co dzień.", Route: "/narzedzia"),
+                (Name: "Dom", Description: "Harmonogram prac porządkowych i innych obowiązków domowych.", Route: null),
+                (Name: "Rodzina", Description: "Ważne informacje, potrzeby, daty i relacje dotyczące bliskich.", Route: null),
+                (Name: "Witalność", Description: "Zdrowie, biohacking, dieta i trening w jednym uporządkowanym miejscu.", Route: null),
+                (Name: "Przechowalnia notatek", Description: "Pomysły, obserwacje i informacje zachowane do późniejszego użycia.", Route: null),
+                (Name: "Budżet domowy", Description: "Planowanie miesięcznego budżetu gospodarstwa domowego.", Route: null),
             })
             {
                 var sidebarArea = page.Locator("aside.sidebar .sidebar-content__area-name")
                     .GetByText(area.Name, new() { Exact = true });
                 Assert.Equal(1, await sidebarArea.CountAsync());
-                Assert.False(
-                    await sidebarArea.EvaluateAsync<bool>(
-                        "element => element.closest('a, button') !== null"),
-                    $"Planowany obszar „{area.Name}” nie może być interaktywny w panelu v1.");
+                Assert.Equal(
+                    area.Route is not null,
+                    await sidebarArea.EvaluateAsync<bool>("element => element.closest('a') !== null"));
 
                 var tile = page.GetByRole(AriaRole.Heading, new() { Name = area.Name, Exact = true, Level = 3 })
                     .Locator("xpath=ancestor::article");
                 Assert.Equal(1, await tile.CountAsync());
                 Assert.Equal(area.Name, await tile.GetByRole(AriaRole.Heading, new() { Level = 3 }).TextContentAsync());
                 Assert.Equal(area.Description, await tile.Locator("p").TextContentAsync());
-                Assert.Equal(0, await tile.Locator("a, button, input, select, textarea").CountAsync());
+                if (area.Route is null)
+                {
+                    Assert.Equal(0, await tile.Locator("a, button, input, select, textarea").CountAsync());
+                }
+                else
+                {
+                    Assert.Equal(
+                        area.Route,
+                        await tile.GetByRole(AriaRole.Link, new() { Name = area.Name, Exact = true })
+                            .GetAttributeAsync("href"));
+                }
             }
 
             Assert.Equal(
@@ -854,6 +869,247 @@ public sealed class BrowserHostFlowTests
 
             Directory.Delete(temporaryPath, recursive: true);
         }
+    }
+
+    [Theory]
+    [Trait("Category", "Browser")]
+    [InlineData("chromium")]
+    [InlineData("firefox")]
+    public async Task PublishedHostCompletesToolAndPromptModuleFlow(string browserName)
+    {
+        var artifactDirectory = Environment.GetEnvironmentVariable("SERVANDA_BROWSER_E2E_ARTIFACT");
+        Assert.False(
+            string.IsNullOrWhiteSpace(artifactDirectory),
+            "Ustaw SERVANDA_BROWSER_E2E_ARTIFACT albo uruchom tests/Servanda.E2E/run-browser-tests.sh.");
+
+        var executablePath = Path.Combine(Path.GetFullPath(artifactDirectory!), "Servanda");
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"servanda-modules-browser-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(temporaryPath, PrivateDirectoryMode);
+        var runtimeBase = Path.Combine(temporaryPath, "runtime");
+        var stateBase = Path.Combine(temporaryPath, "state");
+        var homeDirectory = Path.Combine(temporaryPath, "home");
+        var shimDirectory = Path.Combine(temporaryPath, "bin");
+        var openedAddressesPath = Path.Combine(temporaryPath, "opened-addresses.txt");
+        Directory.CreateDirectory(homeDirectory, PrivateDirectoryMode);
+        Directory.CreateDirectory(shimDirectory, PrivateDirectoryMode);
+        await CreateXdgOpenShimAsync(shimDirectory);
+        var paths = new ServandaPaths(Path.Combine(runtimeBase, "servanda"), Path.Combine(stateBase, "servanda"));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        Process? host = null;
+
+        try
+        {
+            var launcherResult = await RunLauncherAsync(
+                executablePath,
+                runtimeBase,
+                stateBase,
+                homeDirectory,
+                shimDirectory,
+                openedAddressesPath,
+                timeout.Token);
+            Assert.Equal(0, launcherResult);
+            var descriptor = await WaitForReadyDescriptorAsync(paths.DescriptorPath, timeout.Token);
+            host = Process.GetProcessById(descriptor.ProcessId);
+            var bootstrapAddress = Assert.Single(
+                await WaitForOpenedAddressesAsync(openedAddressesPath, 1, timeout.Token));
+
+            using var playwright = await Playwright.CreateAsync();
+            await using var browser = await LaunchBrowserAsync(playwright, browserName);
+            await using var context = await browser.NewContextAsync();
+            var page = await context.NewPageAsync();
+            var browserErrors = new ConcurrentBag<string>();
+            page.Console += (_, message) =>
+            {
+                if (message.Type == "error")
+                {
+                    browserErrors.Add(message.Text);
+                }
+            };
+            page.PageError += (_, error) => browserErrors.Add(error);
+            var circuit = new CircuitWatcher(page);
+
+            page.SetDefaultTimeout(15_000);
+            circuit.Reset();
+            await page.GotoAsync(bootstrapAddress, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
+            await page.WaitForURLAsync($"{descriptor.Origin}/");
+            await circuit.WaitAsync(timeout.Token);
+            try
+            {
+
+                // Katalog narzędzi: kategoria, zapis narzędzia i wyszukiwanie bez polskich znaków.
+                await page.Locator(".area-tile")
+                    .GetByRole(AriaRole.Link, new() { Name = "Przechowalnia narzędzi", Exact = true })
+                    .ClickAsync();
+                await page.WaitForURLAsync($"{descriptor.Origin}/narzedzia");
+                await circuit.WaitAsync(timeout.Token);
+                await page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Przechowalnia narzędzi", Exact = true, Level = 1 }).WaitForAsync();
+                await FillWhenInteractiveAsync(
+                    page,
+                    page.GetByLabel("Nowa kategoria", new() { Exact = true }),
+                    "Codzienne",
+                    page.GetByRole(AriaRole.Button, new() { Name = "Dodaj", Exact = true }));
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj", Exact = true }).ClickAsync();
+                await page.GetByRole(AriaRole.Button, new() { Name = "Codzienne 0", Exact = true }).WaitForAsync();
+
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj narzędzie", Exact = true }).ClickAsync();
+                await page.GetByLabel("Nazwa *", new() { Exact = true }).FillAsync("Kalkulator Łódź");
+                await page.GetByLabel("Opis *", new() { Exact = true }).FillAsync("Przelicznik jednostek");
+                await page.GetByLabel("Adres *", new() { Exact = true }).FillAsync("https://example.com/kalkulator");
+                await page.GetByLabel("Tagi", new() { Exact = true }).FillAsync("liczby");
+                await page.GetByRole(AriaRole.Button, new() { Name = "Zapisz", Exact = true }).ClickAsync();
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Kalkulator Łódź", Level = 4 }).WaitForAsync();
+
+                var searchField = page.GetByLabel("Szukaj narzędzia", new() { Exact = true });
+                await searchField.FillAsync("lodz");
+                await page.GetByText("Widoczne narzędzia: 1 z 1.", new() { Exact = true }).WaitForAsync();
+                Assert.Equal(
+                    "https://example.com/kalkulator",
+                    await page.GetByRole(AriaRole.Link, new() { Name = "Otwórz stronę", Exact = true })
+                        .GetAttributeAsync("href"));
+                Assert.Equal(
+                    "noopener noreferrer",
+                    await page.GetByRole(AriaRole.Link, new() { Name = "Otwórz stronę", Exact = true })
+                        .GetAttributeAsync("rel"));
+
+                await searchField.FillAsync("brakujace");
+                await page.GetByText("Brak narzędzi spełniających kryteria.", new() { Exact = true }).WaitForAsync();
+                await searchField.PressAsync("Escape");
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Kalkulator Łódź", Level = 4 }).WaitForAsync();
+                await AssertNoAxeViolationsAsync(page, "katalog narzędzi");
+
+                // Biblioteka promptów i Prompt Studio.
+                circuit.Reset();
+                await page.GotoAsync($"{descriptor.Origin}/prompty");
+                await circuit.WaitAsync(timeout.Token);
+                await page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Skarbiec promptów", Exact = true, Level = 1 }).WaitForAsync();
+                await FillWhenInteractiveAsync(
+                    page,
+                    page.GetByLabel("Nowa kategoria", new() { Exact = true }),
+                    "Pisanie",
+                    page.GetByRole(AriaRole.Button, new() { Name = "Dodaj", Exact = true }));
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj", Exact = true }).ClickAsync();
+                await page.GetByRole(AriaRole.Button, new() { Name = "Pisanie 0", Exact = true }).WaitForAsync();
+
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj prompt", Exact = true }).ClickAsync();
+                await page.GetByLabel("Tytuł *", new() { Exact = true }).FillAsync("Streszczenie");
+                await page.GetByLabel("Opis *", new() { Exact = true }).FillAsync("Streszcza wskazany tekst");
+                await page.GetByLabel("Treść", new() { Exact = true }).FillAsync("Streść {{temat}} w trzech zdaniach.");
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj zmienną", Exact = true }).ClickAsync();
+                await page.GetByLabel("Nazwa", new() { Exact = true }).Last.FillAsync("temat");
+                await page.GetByLabel("Etykieta", new() { Exact = true }).Last.FillAsync("Temat");
+                await page.GetByLabel("Wymagana", new() { Exact = true }).CheckAsync();
+                await page.GetByRole(AriaRole.Button, new() { Name = "Zapisz", Exact = true }).ClickAsync();
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Streszczenie", Level = 3 }).WaitForAsync();
+
+                circuit.Reset();
+                await page.GetByRole(AriaRole.Link, new() { Name = "Otwórz Prompt Studio", Exact = true }).ClickAsync();
+                await page.GetByRole(AriaRole.Heading, new() { Name = "Streszczenie", Level = 1 }).WaitForAsync();
+                await circuit.WaitAsync(timeout.Token);
+                var copyButton = page.GetByRole(AriaRole.Button, new() { Name = "Kopiuj gotowy prompt", Exact = true });
+                Assert.True(await copyButton.IsDisabledAsync());
+                await FillWhenInteractiveAsync(
+                    page,
+                    page.GetByLabel("Temat *", new() { Exact = true }),
+                    "Servandzie",
+                    copyButton);
+                Assert.False(await copyButton.IsDisabledAsync());
+                Assert.Equal(
+                    "Streść Servandzie w trzech zdaniach.",
+                    await page.GetByLabel("Gotowa treść", new() { Exact = true }).InputValueAsync());
+
+                await copyButton.ClickAsync();
+
+                // Kopiowanie kończy się zapisem historii albo jawną drogą ręczną; nie zgłasza fałszywego sukcesu.
+                await page.WaitForFunctionAsync(
+                    """
+                () => document.querySelector('.module-page__status')?.textContent?.includes('historii użycia')
+                    || document.querySelector('.module-page__content [role=alert]') !== null
+                """);
+                var status = await page.Locator(".module-page__status").TextContentAsync() ?? string.Empty;
+                var manualCopy = await page.Locator(".module-page__content [role=alert]").CountAsync() > 0;
+                Assert.True(
+                    manualCopy || status.Contains("historii użycia", StringComparison.Ordinal),
+                    $"Kopiowanie nie zgłosiło ani sukcesu, ani drogi ręcznej: {status}");
+                await AssertNoAxeViolationsAsync(page, "Prompt Studio");
+                Assert.Empty(browserErrors);
+
+                foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
+                {
+                    await page.SetViewportSizeAsync(viewportWidth, 768);
+                    Assert.True(
+                        await page.Locator("html").EvaluateAsync<bool>(
+                            "element => element.scrollWidth <= element.clientWidth"),
+                        $"Prompt Studio przewija się poziomo przy szerokości {viewportWidth}px.");
+                }
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(
+                    $"Przepływ modułów przerwany na {page.Url}. Konsola: {string.Join(" | ", browserErrors)}",
+                    exception);
+            }
+        }
+        finally
+        {
+            if (host is not null)
+            {
+                await StopProcessAsync(host);
+                host.Dispose();
+            }
+
+            Directory.Delete(temporaryPath, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Czeka na pierwszą wiadomość obwodu Blazor, czyli na moment, w którym strona przyjmuje zdarzenia.
+    /// </summary>
+    private sealed class CircuitWatcher
+    {
+        private TaskCompletionSource _connected = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public CircuitWatcher(IPage page) =>
+            page.WebSocket += (_, socket) => socket.FrameReceived += (_, _) => _connected.TrySetResult();
+
+        public void Reset() => _connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task WaitAsync(CancellationToken cancellationToken)
+        {
+            await _connected.Task.WaitAsync(TimeSpan.FromSeconds(20), cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Wpisuje wartość i powtarza próbę, dopóki serwerowy komponent nie odbierze zdarzenia i nie odblokuje akcji.
+    /// </summary>
+    private static async Task FillWhenInteractiveAsync(
+        IPage page,
+        ILocator field,
+        string value,
+        ILocator action)
+    {
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            try
+            {
+                await field.FillAsync(value, new LocatorFillOptions { Timeout = 2_000 });
+                await page.WaitForTimeoutAsync(500);
+                if (await action.First.IsEnabledAsync(new LocatorIsEnabledOptions { Timeout = 2_000 }))
+                {
+                    return;
+                }
+            }
+            catch (TimeoutException)
+            {
+                // Interaktywny render dla nowej strony może jeszcze trwać.
+            }
+        }
+
+        throw new InvalidOperationException($"Formularz nie stał się interaktywny po wpisaniu wartości „{value}”.");
     }
 
     private static async Task<IBrowser> LaunchBrowserAsync(IPlaywright playwright, string browserName) =>

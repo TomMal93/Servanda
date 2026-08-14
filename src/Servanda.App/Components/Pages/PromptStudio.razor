@@ -47,7 +47,7 @@ else
                             @(string.IsNullOrEmpty(variable.Label) ? variable.Name : variable.Label)
                             @if (variable.IsRequired)
                             {
-                                <span aria-hidden="true">*</span>
+                                <span aria-hidden="true">&#32;*</span>
                             }
                         </label>
                         @if (variable.IsMultiline)
@@ -75,10 +75,10 @@ else
             <section class="module-page__content" aria-labelledby="studio-preview-heading">
                 <h2 id="studio-preview-heading">Podgląd</h2>
 
-                <label class="field" for="studio-preview">
-                    <span>Gotowa treść</span>
+                <div class="field">
+                    <label for="studio-preview">Gotowa treść</label>
                     <textarea id="studio-preview" rows="16" readonly>@_preview</textarea>
-                </label>
+                </div>
 
                 <p class="module-page__status" role="status" aria-live="polite">@_status</p>
 
@@ -193,8 +193,17 @@ else
         }
 
         _copying = true;
-        _clipboard ??= await JavaScript.InvokeAsync<IJSObjectReference>("import", "./clipboard.js");
-        var copied = await _clipboard.InvokeAsync<bool>("copy", _preview);
+        var copied = false;
+        try
+        {
+            _clipboard ??= await JavaScript.InvokeAsync<IJSObjectReference>("import", "/clipboard.js");
+            copied = await _clipboard.InvokeAsync<bool>("copy", _preview);
+        }
+        catch (JSException)
+        {
+            // Brak schowka nie może zgłosić fałszywego sukcesu ani przerwać sesji.
+        }
+
         _manualCopy = !copied;
         if (copied)
         {
