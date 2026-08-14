@@ -106,6 +106,76 @@ Rzeczywiste nazwy projektu i polecenia MUSZĄ pozostać zsynchronizowane z READM
 
 Izolacja deweloperskiego `XDG_RUNTIME_DIR` nie może psuć integracji pulpitu. Launcher otwiera adres przez `xdg-open` i, gdy runtime hosta jest odizolowany, przekazuje mechanizmowi pulpitu systemowy katalog `/run/user/<UID>`. Jeżeli nie może potwierdzić tego katalogu, nie przekazuje przeglądarce izolowanej wartości hosta.
 
+### Weryfikacja trybu recovery
+
+Tryb `recovery` nie jest wybierany przez użytkownika. Host publikuje go automatycznie, gdy nie może bezpiecznie otworzyć albo przygotować bazy. Do zwykłego sprawdzenia implementacji służy izolowany test procesowy i przeglądarkowy:
+
+```bash
+./tests/Servanda.E2E/run-browser-tests.sh
+```
+
+Skrypt publikuje samowystarczalny artefakt, uruchamia go na danych tymczasowych i sprawdza recovery w Chromium oraz Firefoxie. Nie korzysta z produkcyjnego katalogu XDG użytkownika.
+
+Ręczne obejrzenie ekranu wymaga osobnego katalogu przeznaczonego wyłącznie do tego testu. **Nie wolno wykonywać poniższych kroków w domyślnym `~/.local/share/servanda`, w `.servanda-dev` używanym do zwykłej pracy ani na kopii jedynych danych użytkownika.**
+
+Najpierw, z katalogu głównego repozytorium, przygotuj wynik kompilacji i celowo niepoprawną testową bazę:
+
+```bash
+dotnet restore
+dotnet build
+mkdir -p \
+  .servanda-recovery-dev/runtime \
+  .servanda-recovery-dev/state \
+  .servanda-recovery-dev/config \
+  .servanda-recovery-dev/cache \
+  .servanda-recovery-dev/data/servanda
+chmod 700 \
+  .servanda-recovery-dev/runtime \
+  .servanda-recovery-dev/state \
+  .servanda-recovery-dev/config \
+  .servanda-recovery-dev/cache \
+  .servanda-recovery-dev/data \
+  .servanda-recovery-dev/data/servanda
+dd if=/dev/zero \
+  of=.servanda-recovery-dev/data/servanda/servanda.db \
+  bs=128 count=1 status=none oflag=excl
+chmod 600 .servanda-recovery-dev/data/servanda/servanda.db
+```
+
+W pierwszym terminalu uruchom host na odizolowanych katalogach:
+
+```bash
+XDG_RUNTIME_DIR="$PWD/.servanda-recovery-dev/runtime" \
+XDG_STATE_HOME="$PWD/.servanda-recovery-dev/state" \
+XDG_DATA_HOME="$PWD/.servanda-recovery-dev/data" \
+XDG_CONFIG_HOME="$PWD/.servanda-recovery-dev/config" \
+XDG_CACHE_HOME="$PWD/.servanda-recovery-dev/cache" \
+DOTNET_ENVIRONMENT=Development \
+dotnet run --no-build --project src/Servanda.App -- --host
+```
+
+Pozostaw host uruchomiony. W drugim terminalu, również z katalogu głównego repozytorium, uruchom launcher z dokładnie tym samym zestawem zmiennych:
+
+```bash
+XDG_RUNTIME_DIR="$PWD/.servanda-recovery-dev/runtime" \
+XDG_STATE_HOME="$PWD/.servanda-recovery-dev/state" \
+XDG_DATA_HOME="$PWD/.servanda-recovery-dev/data" \
+XDG_CONFIG_HOME="$PWD/.servanda-recovery-dev/config" \
+XDG_CACHE_HOME="$PWD/.servanda-recovery-dev/cache" \
+DOTNET_ENVIRONMENT=Development \
+dotnet run --no-build --project src/Servanda.App
+```
+
+Oczekiwany wynik:
+
+1. launcher potwierdza instancję w stanie `recovery` i otwiera ją przez bezpieczny bootstrap,
+2. przeglądarka pokazuje osobny ekran „Servanda nie może otworzyć magazynu danych”, bez panelu obszarów,
+3. zwykłe trasy aplikacji pozostają niedostępne,
+4. akcja „Ponów przygotowanie magazynu” ponawia inicjalizację; dla celowo niepoprawnego pliku pokazuje bezpieczny komunikat o niepowodzeniu,
+5. ścieżka bazy, surowy wyjątek i stack trace nie pojawiają się w przeglądarce.
+
+Po teście zatrzymaj host przez `Ctrl+C` w pierwszym terminalu. Dopiero po jego zakończeniu można usunąć cały jednorazowy katalog `.servanda-recovery-dev`. Nie kopiuj znajdującej się w nim niepoprawnej bazy do żadnego innego profilu Servandy.
+
 ## Aktualizacja i odinstalowanie
 
 - Aktualizacja v1 zatrzymuje proces i zastępuje wyłącznie pliki programu; nie ma bazy do migracji.
