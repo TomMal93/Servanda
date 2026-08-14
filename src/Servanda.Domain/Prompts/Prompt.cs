@@ -322,11 +322,16 @@ public sealed class Prompt
 
     private void ReplaceTags(IReadOnlyCollection<string> tagIds)
     {
-        _tags.Clear();
+        // Zachowanie istniejących powiązań pozwala zapisać zmianę bez usuwania i wstawiania tego samego wiersza.
+        var kept = new List<PromptTag>(tagIds.Count);
         foreach (var tagId in tagIds)
         {
-            _tags.Add(new PromptTag(Id, tagId));
+            var existing = _tags.Find(tag => string.Equals(tag.TagId, tagId, StringComparison.Ordinal));
+            kept.Add(existing ?? new PromptTag(Id, tagId));
         }
+
+        _tags.Clear();
+        _tags.AddRange(kept);
     }
 
     private void ReplaceChildren(

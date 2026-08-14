@@ -2,6 +2,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Servanda.Application.Areas;
+using Servanda.Application.Catalog;
+using Servanda.Application.Tools;
 using Servanda.Application.DataProtection;
 using Servanda.Infrastructure.Data.Backups;
 using Servanda.Infrastructure.Runtime;
@@ -30,6 +32,9 @@ public static class ServandaDatabase
 
         services.AddDbContextFactory<ServandaDbContext>(options => options.UseSqlite(connectionString));
         services.AddTransient<IAreaService, SqliteAreaService>();
+        services.AddTransient<ICategoryService, SqliteCategoryService>();
+        services.AddTransient<ITagService, SqliteTagService>();
+        services.AddTransient<IToolCatalogService, SqliteToolCatalogService>();
         services.AddSingleton(provider => new SqliteBackupService(
             paths,
             provider.GetRequiredService<TimeProvider>(),
