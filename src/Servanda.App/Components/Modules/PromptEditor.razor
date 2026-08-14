@@ -1,0 +1,315 @@
+@inject IPromptLibraryService Library
+
+<section class="module-editor" aria-labelledby="prompt-editor-heading">
+    <h3 id="prompt-editor-heading">@(Model.IsNew ? "Nowy prompt" : "Edycja promptu")</h3>
+
+    <EditForm Model="Model" OnValidSubmit="SaveAsync" FormName="prompt-editor">
+        <div class="field">
+            <label for="prompt-title">Tytuł <span aria-hidden="true">*</span></label>
+            <InputText id="prompt-title" @bind-Value="Model.Title" maxlength="100" required />
+            @foreach (var error in ErrorsFor("Title"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        <div class="field">
+            <label for="prompt-description">Opis <span aria-hidden="true">*</span></label>
+            <InputTextArea id="prompt-description" @bind-Value="Model.Description" maxlength="400" rows="2" required />
+            @foreach (var error in ErrorsFor("Description"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        <div class="field">
+            <label for="prompt-tags">Tagi</label>
+            <InputText id="prompt-tags" @bind-Value="Model.Tags" aria-describedby="prompt-tags-help" />
+            <p id="prompt-tags-help" class="field__hint">Rozdziel przecinkami, maksymalnie 12 tagów.</p>
+            @foreach (var error in ErrorsFor("Tags"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        @if (Model.IsNew)
+        {
+            <div class="field">
+                <label for="prompt-category">Kategoria</label>
+                <InputSelect id="prompt-category" @bind-Value="Model.CategoryId">
+                    @foreach (var option in CategoryOptions.Flatten(Tree.Roots))
+                    {
+                        <option value="@option.Id">@option.Label</option>
+                    }
+                </InputSelect>
+            </div>
+        }
+
+        <fieldset class="module-editor__group">
+            <legend>Warianty</legend>
+            @foreach (var variant in Model.Variants)
+            {
+                <div class="module-editor__row" @key="variant.Key">
+                    <div class="field">
+                        <label for="@($"variant-name-{variant.Key}")">Nazwa wariantu</label>
+                        <input id="@($"variant-name-{variant.Key}")"
+                               type="text"
+                               maxlength="80"
+                               value="@variant.Name"
+                               @oninput="args => variant.Name = args.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="field">
+                        <label for="@($"variant-target-{variant.Key}")">Przeznaczenie</label>
+                        <input id="@($"variant-target-{variant.Key}")"
+                               type="text"
+                               maxlength="80"
+                               value="@variant.Target"
+                               @oninput="args => variant.Target = args.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="field">
+                        <label for="@($"variant-content-{variant.Key}")">Treść</label>
+                        <textarea id="@($"variant-content-{variant.Key}")"
+                                  rows="6"
+                                  maxlength="30000"
+                                  @oninput="args => variant.Content = args.Value?.ToString() ?? string.Empty">@variant.Content</textarea>
+                    </div>
+                    <button type="button"
+                            @onclick="() => Model.Variants.Remove(variant)"
+                            disabled="@(Model.Variants.Count == 1)">
+                        Usuń wariant
+                    </button>
+                </div>
+            }
+            <button type="button" @onclick="AddVariant" disabled="@(Model.Variants.Count >= 20)">
+                Dodaj wariant
+            </button>
+            @foreach (var error in ErrorsFor("Variants"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </fieldset>
+
+        <fieldset class="module-editor__group">
+            <legend>Zmienne</legend>
+            @foreach (var variable in Model.Variables)
+            {
+                <div class="module-editor__row" @key="variable.Key">
+                    <div class="field">
+                        <label for="@($"variable-name-{variable.Key}")">Nazwa</label>
+                        <input id="@($"variable-name-{variable.Key}")"
+                               type="text"
+                               maxlength="50"
+                               value="@variable.Name"
+                               @oninput="args => variable.Name = args.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="field">
+                        <label for="@($"variable-label-{variable.Key}")">Etykieta</label>
+                        <input id="@($"variable-label-{variable.Key}")"
+                               type="text"
+                               maxlength="80"
+                               value="@variable.Label"
+                               @oninput="args => variable.Label = args.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="field">
+                        <label for="@($"variable-default-{variable.Key}")">Wartość domyślna</label>
+                        <input id="@($"variable-default-{variable.Key}")"
+                               type="text"
+                               maxlength="4000"
+                               value="@variable.DefaultValue"
+                               @oninput="args => variable.DefaultValue = args.Value?.ToString() ?? string.Empty" />
+                    </div>
+                    <div class="field field--inline">
+                        <label>
+                            <input type="checkbox"
+                                   checked="@variable.IsRequired"
+                                   @onchange="args => variable.IsRequired = (bool?)args.Value ?? false" />
+                            Wymagana
+                        </label>
+                        <label>
+                            <input type="checkbox"
+                                   checked="@variable.IsMultiline"
+                                   @onchange="args => variable.IsMultiline = (bool?)args.Value ?? false" />
+                            Wielowierszowa
+                        </label>
+                    </div>
+                    <button type="button" @onclick="() => Model.Variables.Remove(variable)">Usuń zmienną</button>
+                </div>
+            }
+            <button type="button" @onclick="AddVariable" disabled="@(Model.Variables.Count >= 50)">
+                Dodaj zmienną
+            </button>
+            <label class="module-editor__confirm">
+                <input type="checkbox"
+                       checked="@Model.AllowUnusedVariables"
+                       @onchange="args => Model.AllowUnusedVariables = (bool?)args.Value ?? false" />
+                Zapisz również zmienne nieużywane w żadnym wariancie
+            </label>
+            @foreach (var error in ErrorsFor("Variables"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </fieldset>
+
+        @if (_conflict)
+        {
+            <p class="module-editor__conflict" role="alert">
+                Prompt został zmieniony w innej karcie. Odśwież widok i wprowadź zmianę ponownie.
+            </p>
+        }
+
+        <div class="module-editor__actions">
+            <button class="button button--primary" type="submit" disabled="@_saving">
+                @(_saving ? "Zapisywanie…" : "Zapisz")
+            </button>
+            <button type="button" @onclick="Cancelled" disabled="@_saving">Anuluj</button>
+            @if (!Model.IsNew)
+            {
+                <button type="button" class="module-editor__danger" @onclick="DeleteAsync" disabled="@_saving">
+                    Usuń prompt
+                </button>
+            }
+        </div>
+    </EditForm>
+
+    @if (!Model.IsNew)
+    {
+        <section class="prompt-versions" aria-labelledby="prompt-versions-heading">
+            <h4 id="prompt-versions-heading">Zapisane wersje</h4>
+            @if (_versions.Count == 0)
+            {
+                <p class="field__hint">Zmiana wariantów albo zmiennych zapisze poprzednią treść jako wersję.</p>
+            }
+            else
+            {
+                <ul class="prompt-versions__list">
+                    @foreach (var version in _versions)
+                    {
+                        <li @key="version.Id">
+                            <span>@version.CreatedAt.ToLocalTime().ToString("g")</span>
+                            <span class="field__hint">
+                                warianty: @version.VariantCount, zmienne: @version.VariableCount
+                            </span>
+                            <button type="button"
+                                    @onclick="() => RestoreAsync(version.Id)"
+                                    disabled="@(_saving || !version.IsSupported)">
+                                Przywróć
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private IReadOnlyList<PromptVersionItem> _versions = [];
+    private bool _saving;
+    private bool _conflict;
+
+    [Parameter, EditorRequired]
+    public required PromptEditorState Model { get; set; }
+
+    [Parameter, EditorRequired]
+    public required CategoryTree Tree { get; set; }
+
+    [Parameter]
+    public EventCallback Saved { get; set; }
+
+    [Parameter]
+    public EventCallback Cancelled { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _versions = Model.IsNew ? [] : await Library.ListVersionsAsync(Model.Id!);
+    }
+
+    private IEnumerable<string> ErrorsFor(string field) =>
+        _errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private void AddVariant() => Model.Variants.Add(new PromptEditorState.VariantRow());
+
+    private void AddVariable() => Model.Variables.Add(new PromptEditorState.VariableRow());
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _conflict = false;
+        _errors = new Dictionary<string, string[]>();
+
+        PromptResult result;
+        if (Model.IsNew)
+        {
+            var scope = await Library.GetScopeAsync(Model.CategoryId);
+            result = await Library.CreateAsync(new CreatePromptCommand(
+                Model.AreaId,
+                Model.CategoryId,
+                Model.Title,
+                Model.Description,
+                Model.TagNames(),
+                Model.VariantDrafts(),
+                Model.VariableDrafts(),
+                Model.AllowUnusedVariables,
+                scope.Revision,
+                Tree.ContentEpoch));
+        }
+        else
+        {
+            result = await Library.UpdateAsync(new UpdatePromptCommand(
+                Model.Id!,
+                Model.Title,
+                Model.Description,
+                Model.TagNames(),
+                Model.VariantDrafts(),
+                Model.VariableDrafts(),
+                Model.AllowUnusedVariables,
+                Model.Revision,
+                Model.ContentEpoch));
+        }
+
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private async Task RestoreAsync(string versionId)
+    {
+        _saving = true;
+        var result = await Library.RestoreVersionAsync(new RestorePromptVersionCommand(
+            Model.Id!,
+            versionId,
+            Model.Revision,
+            Model.ContentEpoch));
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private async Task DeleteAsync()
+    {
+        _saving = true;
+        var scope = await Library.GetScopeAsync(Model.CategoryId);
+        var result = await Library.DeleteAsync(new DeletePromptCommand(
+            Model.Id!,
+            Model.Revision,
+            scope.Revision,
+            Model.ContentEpoch));
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private async Task HandleAsync(PromptResult result)
+    {
+        switch (result.Status)
+        {
+            case WriteStatus.Success:
+                await Saved.InvokeAsync();
+                break;
+            case WriteStatus.ValidationFailed:
+                _errors = result.Errors ?? new Dictionary<string, string[]>();
+                break;
+            default:
+                _conflict = true;
+                break;
+        }
+    }
+}

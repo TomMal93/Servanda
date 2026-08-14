@@ -48,7 +48,7 @@
             <div class="field">
                 <label for="tool-category">Kategoria</label>
                 <InputSelect id="tool-category" @bind-Value="Model.CategoryId">
-                    @foreach (var option in Options(Tree.Roots, 0))
+                    @foreach (var option in CategoryOptions.Flatten(Tree.Roots))
                     {
                         <option value="@option.Id">@option.Label</option>
                     }
@@ -170,18 +170,6 @@
             default:
                 _conflict = true;
                 break;
-        }
-    }
-
-    private static IEnumerable<(string Id, string Label)> Options(IReadOnlyList<CategoryNode> nodes, int depth)
-    {
-        foreach (var node in nodes)
-        {
-            yield return (node.Category.Id, string.Concat(new string('—', depth), depth > 0 ? " " : string.Empty, node.Category.Name));
-            foreach (var child in Options(node.Children, depth + 1))
-            {
-                yield return child;
-            }
         }
     }
 }
