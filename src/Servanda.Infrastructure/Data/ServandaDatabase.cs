@@ -82,6 +82,7 @@ public static class ServandaDatabase
             failure = DatabaseInitializationFailure.DatabaseAccess;
             await InitialAreaSeed.ApplyAsync(database, timeProvider, cancellationToken);
             PrivateFileSystem.VerifyPrivateFile(paths.DatabasePath, LinuxIdentity.GetEffectiveUserId());
+            await backupService.ApplyRetentionAsync(cancellationToken);
         }
         catch (OperationCanceledException)
         {

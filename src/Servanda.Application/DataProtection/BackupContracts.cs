@@ -37,6 +37,8 @@ public interface IBackupService
     Task<BackupVerificationResult> VerifyAsync(
         string backupId,
         CancellationToken cancellationToken = default);
+
+    Task ApplyRetentionAsync(CancellationToken cancellationToken = default);
 }
 
 public enum DatabaseRestoreStatus

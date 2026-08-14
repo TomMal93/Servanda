@@ -1,16 +1,16 @@
 # Servanda
 
-Prywatna, lokalna pamięć zewnętrzna dla ważnych spraw codzienności. Projekt ukończył bezstanowe wydanie v1 i rozpoczął etap P3, obejmujący fundament danych i odzyskiwania v2.
+Prywatna, lokalna pamięć zewnętrzna dla ważnych spraw codzienności. Projekt ukończył bezstanowe wydanie v1 oraz fundament danych i odzyskiwania v2, a aktywnym etapem jest P4 z pierwszymi modułami v2.
 
 ## Aktualny stan
 
-- Dokumentacja w `docs/` jest źródłem wymagań nowego projektu, a etapy D0, P1 i P2 są ukończone.
-- Aktywnym etapem jest P3: SQLite, migracje, kopie ochronne, recovery i trwały model obszarów.
+- Dokumentacja w `docs/` jest źródłem wymagań nowego projektu, a etapy D0 oraz P1–P3 są ukończone.
+- Aktywnym etapem jest P4: katalog narzędzi, biblioteka promptów, Prompt Studio, wyszukiwanie oraz import i eksport.
 - Docelowy stos to .NET 10 LTS (`net10.0`), ASP.NET Core 10, Blazor Web App Interactive Server, EF Core i SQLite.
 - Linux jest podstawową platformą.
 - Pierwsze wydanie jest przeznaczone wyłącznie na komputery osobiste i laptopy; telefony i tablety są poza zakresem.
 - Wydanie użytkowe będzie uruchamiane z menu aplikacji przez launcher i skrót `.desktop`.
-- Ukończone v1 jest bezstanową powłoką ze statycznym pulpitem planowanych obszarów. P3 dodaje fundament danych i odzyskiwania v2; aktywne moduły, import i eksport pozostają zakresem późniejszych etapów.
+- Ukończone P3 zapewnia SQLite, migracje, kopie ochronne, recovery i trwały model obszarów. P4 aktywuje pierwsze moduły oraz dodaje wyszukiwanie, import i eksport.
 
 Kolejność prac definiuje [roadmapa](./docs/product/roadmap.md), a granice pierwszego wydania — [bieżący zakres](./docs/product/current-scope.md).
 

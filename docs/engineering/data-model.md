@@ -225,7 +225,8 @@ Pełny protokół komendy reorderu i mapę agregatów definiuje [ADR 0004](adr/0
 - Bezpośrednio przed odtworzeniem aplikacja ponownie weryfikuje źródłową kopię, tworzy z niej osobny kandydat SQLite i sprawdza jego integralność, klucze obce oraz historię migracji.
 - Przed zastąpieniem kanonicznej bazy aplikacja zamyka pule połączeń i zachowuje bieżącą bazę wraz z istniejącymi plikami `-wal`, `-shm` i `-journal` w prywatnym artefakcie diagnostycznym. Zgodność skopiowanych plików jest sprawdzana przed podmianą.
 - Zweryfikowany kandydat zastępuje główny plik przez atomową zmianę nazwy w tym samym systemie plików. Źródłowa kopia pozostaje niezmieniona, a zwykła inicjalizacja ponownie sprawdza i w razie potrzeby migruje odtworzoną bazę przed publikacją `ready`.
-- Polityka automatycznej retencji pozostaje decyzją otwartą; ręczna kopia i kopia ochronna nie mogą zostać usunięte w ramach tej samej operacji, którą chronią.
+- Automatyczna retencja dotyczy wyłącznie zweryfikowanych kopii ochronnych. Zachowuje 10 najnowszych takich kopii oraz najnowszą kopię z każdego dnia UTC z ostatnich 30 dni. Kopie ręczne, niezgodne z bieżącym schematem, niepoprawne i niemożliwe do odczytania nie są usuwane automatycznie.
+- Retencja działa dopiero po udanej inicjalizacji bazy albo po zakończeniu operacji chronionej. Nie działa w stanie `recovery`, nie usuwa kopii podczas operacji, którą ta kopia chroni, i bezpośrednio przed usunięciem ponownie ją weryfikuje. Niepowodzenie porządkowania pozostawia kopię i nie unieważnia udanej operacji danych.
 
 ## Eksport i import
 

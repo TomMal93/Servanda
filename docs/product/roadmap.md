@@ -52,7 +52,7 @@
 
 ## P3 — fundament danych i odzyskiwania v2
 
-**Status:** aktywny
+**Status:** ukończony
 **Wersja:** v2  
 **Rezultat:** Servanda otrzymuje pierwszy kanoniczny magazyn danych, bezpieczne aktualizacje schematu oraz odzyskiwalność przed udostępnieniem zapisu modułom.
 
@@ -68,7 +68,7 @@
 
 ## P4 — pierwsze moduły v2
 
-**Status:** później  
+**Status:** aktywny
 **Wersja:** v2  
 **Rezultat:** katalog narzędzi oraz biblioteka promptów stają się pierwszymi aktywnymi obszarami opartymi na fundamencie danych v2.
 

@@ -105,9 +105,11 @@ public sealed class BackupServiceTests
         await File.WriteAllTextAsync(metadataPath, "{}");
 
         var verification = await service.VerifyAsync(backup.Id);
+        await service.ApplyRetentionAsync();
 
         Assert.Equal(BackupVerificationStatus.Invalid, verification.Status);
         Assert.Null(verification.Backup);
+        Assert.True(Directory.Exists(Path.Combine(paths.BackupsDirectory, backup.Id)));
     }
 
     [Fact]
@@ -197,10 +199,12 @@ public sealed class BackupServiceTests
             metadata.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
         var verification = await service.VerifyAsync(backup.Id);
+        await service.ApplyRetentionAsync();
 
         Assert.Equal(BackupVerificationStatus.Incompatible, verification.Status);
         Assert.NotNull(verification.Backup);
         Assert.Equal(futureSchema, verification.Backup.SchemaVersion);
+        Assert.True(Directory.Exists(backupDirectory));
     }
 
     [Theory]
@@ -312,6 +316,43 @@ public sealed class BackupServiceTests
         Assert.Equal(DatabaseRestoreStatus.Failed, result.Status);
         Assert.Equal(currentDatabase, await File.ReadAllBytesAsync(paths.DatabasePath));
         Assert.Equal(BackupVerificationStatus.Verified, (await backupService.VerifyAsync(backup.Id)).Status);
+    }
+
+    [Fact]
+    public async Task RetentionDeletesOnlyExcessVerifiedAutomaticBackups()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        await using var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var service = services.GetRequiredService<IBackupService>();
+        var manualBackup = await service.CreateAsync(BackupReason.Manual);
+        var invalidBackup = await service.CreateAsync(BackupReason.BulkDataOperation);
+        await File.WriteAllTextAsync(
+            Path.Combine(paths.BackupsDirectory, invalidBackup.Id, "metadata.json"),
+            "{}");
+        var automaticBackups = new List<BackupInfo>();
+        for (var index = 0; index < 12; index++)
+        {
+            automaticBackups.Add(await service.CreateAsync(BackupReason.Migration));
+        }
+
+        await service.ApplyRetentionAsync();
+
+        var expectedRetainedIds = automaticBackups
+            .OrderByDescending(backup => backup.CreatedAt)
+            .ThenByDescending(backup => backup.Id, StringComparer.Ordinal)
+            .Take(10)
+            .Select(backup => backup.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.True(Directory.Exists(Path.Combine(paths.BackupsDirectory, manualBackup.Id)));
+        Assert.True(Directory.Exists(Path.Combine(paths.BackupsDirectory, invalidBackup.Id)));
+        Assert.Equal(
+            expectedRetainedIds,
+            automaticBackups
+                .Where(backup => Directory.Exists(Path.Combine(paths.BackupsDirectory, backup.Id)))
+                .Select(backup => backup.Id)
+                .ToHashSet(StringComparer.Ordinal));
     }
 
     private static ServiceProvider CreateServices(ServandaPaths paths)

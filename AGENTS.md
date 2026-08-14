@@ -2,9 +2,9 @@
 
 ## Stan projektu
 
-Repozytorium zawiera ukończone bezstanowe wydanie v1 (etapy P1 i P2) budowanej od zera aplikacji. Dokumentacja w `docs/` definiuje nowy produkt. Nie ma wcześniejszej implementacji ani danych do migracji.
+Repozytorium zawiera ukończone etapy P1–P3 budowanej od zera aplikacji: bezstanowe wydanie v1 oraz fundament danych i odzyskiwania v2. Dokumentacja w `docs/` definiuje nowy produkt. Nie ma wcześniejszej implementacji ani danych do migracji.
 
-Aktywnym etapem jest P3 — fundament danych i odzyskiwania v2. Rozwiązanie .NET rozwijaj zgodnie z kolejnością w `docs/product/roadmap.md`.
+Aktywnym etapem jest P4 — pierwsze moduły v2. Rozwiązanie .NET rozwijaj zgodnie z kolejnością w `docs/product/roadmap.md`.
 
 ## Czytaj tylko potrzebny kontekst
 

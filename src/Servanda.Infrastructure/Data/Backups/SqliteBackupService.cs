@@ -103,6 +103,77 @@ internal sealed class SqliteBackupService(
         return VerifyDirectoryAsync(backupDirectory, backupId, cancellationToken);
     }
 
+    public async Task ApplyRetentionAsync(CancellationToken cancellationToken = default)
+    {
+        LinuxIdentity.EnsureLinux();
+        IReadOnlyList<string> backupDirectories;
+        try
+        {
+            if (!Directory.Exists(paths.BackupsDirectory))
+            {
+                return;
+            }
+
+            PrivateFileSystem.EnsureDirectory(paths.BackupsDirectory, _effectiveUserId);
+            backupDirectories = Directory.EnumerateDirectories(paths.BackupsDirectory).ToList();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        var verifiedBackups = new List<BackupInfo>();
+        foreach (var directory in backupDirectories)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var backupId = Path.GetFileName(Path.TrimEndingDirectorySeparator(directory));
+            if (!IsValidBackupId(backupId))
+            {
+                continue;
+            }
+
+            var verification = await VerifyDirectoryAsync(directory, backupId, cancellationToken);
+            if (verification is { Status: BackupVerificationStatus.Verified, Backup: { } backup })
+            {
+                verifiedBackups.Add(backup);
+            }
+        }
+
+        var removalCandidates = BackupRetentionPolicy.SelectRemovalCandidates(
+            verifiedBackups,
+            timeProvider.GetUtcNow());
+        var expectedCandidates = verifiedBackups
+            .Where(backup => removalCandidates.Contains(backup.Id))
+            .ToDictionary(backup => backup.Id, StringComparer.Ordinal);
+        foreach (var backupId in removalCandidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var verification = await VerifyAsync(backupId, cancellationToken);
+            if (verification is not
+                {
+                    Status: BackupVerificationStatus.Verified,
+                    Backup: { Reason: not BackupReason.Manual } verifiedBackup,
+                })
+            {
+                continue;
+            }
+
+            if (!expectedCandidates.TryGetValue(backupId, out var expectedBackup)
+                || verifiedBackup != expectedBackup)
+            {
+                continue;
+            }
+
+            try
+            {
+                Directory.Delete(GetBackupDirectory(backupId), recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
     internal string GetBackupDatabasePath(string backupId)
     {
         if (!IsValidBackupId(backupId))

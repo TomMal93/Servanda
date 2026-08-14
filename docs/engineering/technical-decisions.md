@@ -24,14 +24,14 @@
 | TD-016 | Dostęp do lokalnego interfejsu wymaga sesji procesu inicjowanej jednorazowym biletem launchera. | Odgadnięcie portu nie ujawnia kolekcji; sekret launchera pozostaje w prywatnym runtime, bilet trafia do fragmentu URL, a sesja do ciasteczka `HttpOnly`. `Host`, `Origin`, antiforgery i CSP pozostają niezależnymi warstwami ochrony. |
 | TD-017 | Style pierwszego wydania powstają w zwykłym CSS oraz izolowanych plikach `.razor.css`, bez SASS/SCSS i frontendowego kroku npm. | Jeden normatywny zestaw tokenów definiuje system wizualny, a build i publikacja nie otrzymują dodatkowego toolchainu Node. |
 | TD-018 | V1 jest bezstanową powłoką bez SQLite, modułów dziedzinowych, migracji, kopii, recovery, importu i eksportu. | Wszystkie kafle v1 mają status „Planowane”. Pierwszy kanoniczny magazyn i operacje danych powstają razem w v2, bez prowizorycznej bazy wymagającej późniejszej konwersji. |
+| TD-019 | Automatyczna retencja usuwa wyłącznie zweryfikowane kopie ochronne po zakończeniu chronionej operacji, zachowując 10 najnowszych oraz po jednej dziennej z ostatnich 30 dni. | Kopie ręczne, niezgodne, niepoprawne i nieczytelne pozostają nietykalne; awaria porządkowania nie blokuje normalnego startu ani nie uruchamia recovery. |
 
-Uzasadnienie głównych wyborów zawierają [ADR 0001](adr/0001-architektura-lokalnej-aplikacji-linux.md), [ADR 0002](adr/0002-import-zastepujacy-kolekcje.md), [ADR 0003](adr/0003-wyszukiwanie-fts5.md), [ADR 0004](adr/0004-agregaty-rewizje-i-kolejnosc.md), [ADR 0005](adr/0005-lokalna-sesja-launchera.md), [ADR 0006](adr/0006-bezstanowy-zakres-v1.md) i [ADR 0007](adr/0007-dystrybucja-linux-v1.md).
+Uzasadnienie głównych wyborów zawierają [ADR 0001](adr/0001-architektura-lokalnej-aplikacji-linux.md), [ADR 0002](adr/0002-import-zastepujacy-kolekcje.md), [ADR 0003](adr/0003-wyszukiwanie-fts5.md), [ADR 0004](adr/0004-agregaty-rewizje-i-kolejnosc.md), [ADR 0005](adr/0005-lokalna-sesja-launchera.md), [ADR 0006](adr/0006-bezstanowy-zakres-v1.md), [ADR 0007](adr/0007-dystrybucja-linux-v1.md) i [ADR 0008](adr/0008-retencja-kopii-ochronnych.md).
 
 ## Decyzje otwarte
 
 | ID | Pytanie | Kiedy rozstrzygnąć | Domyślny kierunek |
 |---|---|---|---|
-| OPEN-002 | Dokładna polityka automatycznej retencji kopii | przed ukończeniem P3 w v2 | zachować kopie ochronne ostatnich operacji oraz rotacyjne kopie dzienne; nigdy nie usuwać jedynej poprawnej kopii |
 | OPEN-004 | Czy szyfrowanie aplikacyjne jest konieczne dla przyszłych danych rodzinnych, zdrowotnych i finansowych | przed aktywacją pierwszego z tych modułów | polegać na szyfrowaniu systemowym w v2; nie tworzyć własnego zarządzania kluczem bez modelu odzyskiwania |
 
 Otwarte decyzje nie pozwalają rozszerzać zakresu. Gdy rozstrzygnięcie zmienia magazyn, bezpieczeństwo, dystrybucję albo wymaga kosztownej migracji, powstaje ADR.

@@ -1,7 +1,7 @@
 # Bieżący zakres Servandy
 
 > Status: obowiązujący  
-> Etap: ukończone wydanie v1; aktywny fundament danych i odzyskiwania v2 (P3)
+> Etap: ukończone wydanie v1 i fundament danych v2 (P1–P3); aktywne pierwsze moduły v2 (P4)
 
 ## Cel etapu
 

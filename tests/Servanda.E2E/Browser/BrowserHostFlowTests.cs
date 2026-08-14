@@ -260,7 +260,7 @@ public sealed class BrowserHostFlowTests
             page.Request += (_, request) => requestedAddresses.Add(request.Url);
             page.Response += (_, response) =>
             {
-                if (response.Status >= 400)
+                if (response.Status >= 400 && !IsExpectedBlazorDisconnect(response))
                 {
                     failedResponses.Add($"{response.Status} {response.Url}");
                 }
@@ -567,7 +567,7 @@ public sealed class BrowserHostFlowTests
             stalePage.Request += (_, request) => requestedAddresses.Add(request.Url);
             stalePage.Response += (_, response) =>
             {
-                if (response.Status >= 400)
+                if (response.Status >= 400 && !IsExpectedBlazorDisconnect(response))
                 {
                     failedResponses.Add($"{response.Status} {response.Url}");
                 }
@@ -1014,6 +1014,11 @@ public sealed class BrowserHostFlowTests
             await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
         }
     }
+
+    private static bool IsExpectedBlazorDisconnect(IResponse response) =>
+        response.Status == 403
+        && response.Request.Method == "POST"
+        && new Uri(response.Url).AbsolutePath == "/_blazor/disconnect";
 
     private static void AssertAllowedAddress(string address, string origin)
     {

@@ -35,7 +35,8 @@ docs/
         ├── 0004-agregaty-rewizje-i-kolejnosc.md
         ├── 0005-lokalna-sesja-launchera.md
         ├── 0006-bezstanowy-zakres-v1.md
-        └── 0007-dystrybucja-linux-v1.md
+        ├── 0007-dystrybucja-linux-v1.md
+        └── 0008-retencja-kopii-ochronnych.md
 ```
 
 ## Routing zadań
