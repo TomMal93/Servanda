@@ -8,12 +8,12 @@
         <p class="dashboard__eyebrow">Osobisty pulpit</p>
         <h1>Twoje obszary</h1>
         <p class="dashboard__intro">
-            Servanda będzie porządkować ważne sprawy codzienności. Wszystkie obszary są obecnie planowane.
+            Servanda porządkuje ważne sprawy codzienności. Aktywne obszary prowadzą do swoich modułów, pozostałe są planowane.
         </p>
     </header>
 
     <section aria-labelledby="areas-heading">
-        <h2 id="areas-heading" class="dashboard__section-heading">Planowane obszary</h2>
+        <h2 id="areas-heading" class="dashboard__section-heading">Obszary</h2>
 
         <div class="area-grid">
             @foreach (var area in _areas)
@@ -25,9 +25,18 @@
                         <span class="area-tile__icon" aria-hidden="true">
                             @AreaPresentation.Icon(area.IconKey)
                         </span>
-                        <span class="area-tile__status">Planowane</span>
+                        <span class="area-tile__status">@StatusLabel(area)</span>
                     </div>
-                    <h3 id="@AreaPresentation.HeadingId(area)">@area.Name</h3>
+                    <h3 id="@AreaPresentation.HeadingId(area)">
+                        @if (IsActive(area))
+                        {
+                            <a href="@ModuleArea.RouteFor(area.ModuleKey)">@area.Name</a>
+                        }
+                        else
+                        {
+                            @area.Name
+                        }
+                    </h3>
                     <p>@area.Description</p>
                 </article>
             }
@@ -37,6 +46,12 @@
 
 @code {
     private IReadOnlyList<AreaListItem> _areas = [];
+
+    private static bool IsActive(AreaListItem area) =>
+        area.Availability == "active"
+        && ModuleArea.RouteFor(area.ModuleKey) != "/";
+
+    private static string StatusLabel(AreaListItem area) => IsActive(area) ? "Aktywny" : "Planowane";
 
     protected override async Task OnInitializedAsync()
     {

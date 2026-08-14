@@ -6,6 +6,7 @@ public sealed record AreaListItem(
     string Description,
     string IconKey,
     string AccentKey,
+    string ModuleKey,
     string Availability,
     bool IsHidden,
     DateTimeOffset? ArchivedAt,

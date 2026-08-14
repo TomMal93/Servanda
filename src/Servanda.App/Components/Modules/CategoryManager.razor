@@ -1,0 +1,175 @@
+@inject ICategoryService CategoryService
+
+<section class="category-manager" aria-labelledby="category-manager-heading">
+    <h3 id="category-manager-heading">Kategorie</h3>
+
+    <form class="category-manager__form" @onsubmit="CreateAsync" @onsubmit:preventDefault>
+        <div class="field">
+            <label for="category-name">Nowa kategoria</label>
+            <input id="category-name"
+                   type="text"
+                   maxlength="60"
+                   value="@_name"
+                   @oninput="args => _name = args.Value?.ToString() ?? string.Empty"
+                   aria-describedby="category-name-help" />
+            <p id="category-name-help" class="field__hint">
+                @(SelectedCategoryId is null
+                    ? "Kategoria powstanie na najwyższym poziomie."
+                    : "Kategoria powstanie w wybranej kategorii.")
+            </p>
+        </div>
+        <button class="button" type="submit" disabled="@(_busy || _name.Trim().Length == 0)">Dodaj</button>
+    </form>
+
+    @if (SelectedCategoryId is not null && Selected() is { } selected)
+    {
+        <form class="category-manager__form" @onsubmit="RenameAsync" @onsubmit:preventDefault>
+            <div class="field">
+                <label for="category-rename">Nazwa wybranej kategorii</label>
+                <input id="category-rename"
+                       type="text"
+                       maxlength="60"
+                       value="@_renameValue"
+                       @oninput="args => _renameValue = args.Value?.ToString() ?? string.Empty" />
+            </div>
+            <button class="button" type="submit" disabled="@_busy">Zmień nazwę</button>
+            <button type="button" class="category-manager__danger" @onclick="DeleteAsync" disabled="@_busy">
+                Usuń kategorię
+            </button>
+        </form>
+        <p class="category-manager__selected">Wybrana kategoria: @selected.Category.Name</p>
+    }
+
+    @foreach (var message in _messages)
+    {
+        <p class="category-manager__message" role="alert">@message</p>
+    }
+</section>
+
+@code {
+    private string _name = string.Empty;
+    private string _renameValue = string.Empty;
+    private string? _renameSource;
+    private bool _busy;
+    private IReadOnlyList<string> _messages = [];
+
+    [Parameter, EditorRequired]
+    public required string AreaId { get; set; }
+
+    [Parameter]
+    public CategoryTree? Tree { get; set; }
+
+    [Parameter]
+    public string? SelectedCategoryId { get; set; }
+
+    [Parameter]
+    public EventCallback Changed { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(_renameSource, SelectedCategoryId, StringComparison.Ordinal))
+        {
+            _renameSource = SelectedCategoryId;
+            _renameValue = Selected()?.Category.Name ?? string.Empty;
+        }
+    }
+
+    private CategoryNode? Selected() =>
+        SelectedCategoryId is null || Tree is null ? null : Find(Tree.Roots, SelectedCategoryId);
+
+    private static CategoryNode? Find(IReadOnlyList<CategoryNode> nodes, string id)
+    {
+        foreach (var node in nodes)
+        {
+            if (string.Equals(node.Category.Id, id, StringComparison.Ordinal))
+            {
+                return node;
+            }
+
+            var found = Find(node.Children, id);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task CreateAsync()
+    {
+        if (Tree is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await CategoryService.CreateAsync(new CreateCategoryCommand(
+            AreaId,
+            SelectedCategoryId,
+            _name,
+            string.Empty,
+            Tree.ScopeRevisionFor(SelectedCategoryId),
+            Tree.ContentEpoch));
+        _busy = false;
+        if (result.Status == WriteStatus.Success)
+        {
+            _name = string.Empty;
+        }
+
+        await ReportAsync(result);
+    }
+
+    private async Task RenameAsync()
+    {
+        var selected = Selected();
+        if (Tree is null || selected is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await CategoryService.UpdateAsync(new UpdateCategoryCommand(
+            selected.Category.Id,
+            _renameValue,
+            selected.Category.Description,
+            selected.Category.Revision,
+            Tree.ContentEpoch));
+        _busy = false;
+        await ReportAsync(result);
+    }
+
+    private async Task DeleteAsync()
+    {
+        var selected = Selected();
+        if (Tree is null || selected is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await CategoryService.DeleteAsync(new DeleteCategoryCommand(
+            selected.Category.Id,
+            selected.Category.Revision,
+            Tree.ScopeRevisionFor(selected.Category.ParentId),
+            Tree.ContentEpoch));
+        _busy = false;
+        await ReportAsync(result);
+    }
+
+    private async Task ReportAsync(CategoryResult result)
+    {
+        _messages = result.Status switch
+        {
+            WriteStatus.Success => [],
+            WriteStatus.ValidationFailed => [.. (result.Errors ?? new Dictionary<string, string[]>()).SelectMany(entry => entry.Value)],
+            WriteStatus.Conflict => ["Kategorie zmieniły się w innej karcie. Odśwież widok i spróbuj ponownie."],
+            _ => ["Nie znaleziono wskazanej kategorii."],
+        };
+        if (result.Status == WriteStatus.Success)
+        {
+            _renameSource = null;
+            await Changed.InvokeAsync();
+        }
+    }
+}

@@ -1,0 +1,100 @@
+<nav class="category-tree" aria-label="Kategorie">
+    <button class="category-tree__all @(SelectedCategoryId is null ? "category-tree__all--active" : null)"
+            type="button"
+            aria-pressed="@(SelectedCategoryId is null)"
+            @onclick="() => SelectAsync(null)">
+        Wszystkie
+        <span class="category-tree__count">@TotalCount</span>
+    </button>
+
+    @if (Nodes.Count == 0)
+    {
+        <p class="category-tree__empty">Brak kategorii. Dodaj pierwszą, aby zacząć porządkować zawartość.</p>
+    }
+    else
+    {
+        @RenderLevel(Nodes)
+    }
+</nav>
+
+@code {
+    private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal);
+
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<CategoryNode> Nodes { get; set; }
+
+    [Parameter]
+    public string? SelectedCategoryId { get; set; }
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> SelectedCategoryIdChanged { get; set; }
+
+    private RenderFragment RenderLevel(IReadOnlyList<CategoryNode> nodes) => builder =>
+    {
+        builder.OpenElement(0, "ul");
+        builder.AddAttribute(1, "class", "category-tree__list");
+        foreach (var node in nodes)
+        {
+            builder.OpenElement(2, "li");
+            builder.SetKey(node.Category.Id);
+            builder.AddAttribute(3, "class", "category-tree__item");
+
+            if (node.Children.Count > 0)
+            {
+                var collapsed = _collapsed.Contains(node.Category.Id);
+                builder.OpenElement(4, "button");
+                builder.AddAttribute(5, "type", "button");
+                builder.AddAttribute(6, "class", "category-tree__toggle");
+                builder.AddAttribute(7, "aria-expanded", (!collapsed).ToString().ToLowerInvariant());
+                builder.AddAttribute(
+                    8,
+                    "aria-label",
+                    collapsed ? $"Rozwiń kategorię {node.Category.Name}" : $"Zwiń kategorię {node.Category.Name}");
+                builder.AddAttribute(9, "onclick", EventCallback.Factory.Create(this, () => Toggle(node.Category.Id)));
+                builder.AddContent(10, collapsed ? "+" : "−");
+                builder.CloseElement();
+            }
+
+            var selected = string.Equals(SelectedCategoryId, node.Category.Id, StringComparison.Ordinal);
+            builder.OpenElement(11, "button");
+            builder.AddAttribute(12, "type", "button");
+            builder.AddAttribute(
+                13,
+                "class",
+                selected ? "category-tree__link category-tree__link--active" : "category-tree__link");
+            builder.AddAttribute(14, "aria-pressed", selected);
+            builder.AddAttribute(
+                15,
+                "onclick",
+                EventCallback.Factory.Create(this, () => SelectAsync(node.Category.Id)));
+            builder.AddContent(16, node.Category.Name);
+            builder.OpenElement(17, "span");
+            builder.AddAttribute(18, "class", "category-tree__count");
+            builder.AddContent(19, node.TotalItemCount);
+            builder.CloseElement();
+            builder.CloseElement();
+
+            if (node.Children.Count > 0 && !_collapsed.Contains(node.Category.Id))
+            {
+                builder.AddContent(20, RenderLevel(node.Children));
+            }
+
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private void Toggle(string categoryId)
+    {
+        if (!_collapsed.Remove(categoryId))
+        {
+            _collapsed.Add(categoryId);
+        }
+    }
+
+    private Task SelectAsync(string? categoryId) => SelectedCategoryIdChanged.InvokeAsync(categoryId);
+}

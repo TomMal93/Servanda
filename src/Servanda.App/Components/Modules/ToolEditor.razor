@@ -1,0 +1,187 @@
+@inject IToolCatalogService Catalog
+
+<section class="module-editor" aria-labelledby="tool-editor-heading">
+    <h3 id="tool-editor-heading">@(Model.IsNew ? "Nowe narzędzie" : "Edycja narzędzia")</h3>
+
+    <EditForm Model="Model" OnValidSubmit="SaveAsync" FormName="tool-editor">
+        <div class="field">
+            <label for="tool-name">Nazwa <span aria-hidden="true">*</span></label>
+            <InputText id="tool-name" @bind-Value="Model.Name" maxlength="70" required />
+            @foreach (var error in ErrorsFor("Name"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        <div class="field">
+            <label for="tool-description">Opis <span aria-hidden="true">*</span></label>
+            <InputTextArea id="tool-description" @bind-Value="Model.Description" maxlength="280" rows="3" required />
+            @foreach (var error in ErrorsFor("Description"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        <div class="field">
+            <label for="tool-url">Adres <span aria-hidden="true">*</span></label>
+            <InputText id="tool-url" @bind-Value="Model.Url" maxlength="2048" required
+                       aria-describedby="tool-url-help" />
+            <p id="tool-url-help" class="field__hint">Dozwolone są wyłącznie adresy http:// i https://.</p>
+            @foreach (var error in ErrorsFor("Url"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        <div class="field">
+            <label for="tool-tags">Tagi</label>
+            <InputText id="tool-tags" @bind-Value="Model.Tags" aria-describedby="tool-tags-help" />
+            <p id="tool-tags-help" class="field__hint">Rozdziel przecinkami, maksymalnie 8 tagów.</p>
+            @foreach (var error in ErrorsFor("Tags"))
+            {
+                <p class="field__error">@error</p>
+            }
+        </div>
+
+        @if (Model.IsNew)
+        {
+            <div class="field">
+                <label for="tool-category">Kategoria</label>
+                <InputSelect id="tool-category" @bind-Value="Model.CategoryId">
+                    @foreach (var option in Options(Tree.Roots, 0))
+                    {
+                        <option value="@option.Id">@option.Label</option>
+                    }
+                </InputSelect>
+            </div>
+
+            <div class="field">
+                <label for="tool-group">Grupa</label>
+                <InputSelect id="tool-group" @bind-Value="Model.GroupKey">
+                    <option value="featured">Lubię i szanuję</option>
+                    <option value="regular">Fajne</option>
+                </InputSelect>
+            </div>
+        }
+
+        @if (_conflict)
+        {
+            <p class="module-editor__conflict" role="alert">
+                Dane zostały zmienione w innej karcie. Odśwież widok i wprowadź zmianę ponownie.
+            </p>
+        }
+
+        <div class="module-editor__actions">
+            <button class="button button--primary" type="submit" disabled="@_saving">
+                @(_saving ? "Zapisywanie…" : "Zapisz")
+            </button>
+            <button type="button" @onclick="Cancelled" disabled="@_saving">Anuluj</button>
+            @if (!Model.IsNew)
+            {
+                <button type="button" class="module-editor__danger" @onclick="DeleteAsync" disabled="@_saving">
+                    Usuń narzędzie
+                </button>
+            }
+        </div>
+    </EditForm>
+</section>
+
+@code {
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private bool _saving;
+    private bool _conflict;
+
+    [Parameter, EditorRequired]
+    public required ToolEditorState Model { get; set; }
+
+    [Parameter, EditorRequired]
+    public required CategoryTree Tree { get; set; }
+
+    [Parameter]
+    public EventCallback Saved { get; set; }
+
+    [Parameter]
+    public EventCallback Cancelled { get; set; }
+
+    private IEnumerable<string> ErrorsFor(string field) =>
+        _errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _conflict = false;
+        _errors = new Dictionary<string, string[]>();
+
+        ToolResult result;
+        if (Model.IsNew)
+        {
+            var scope = await Catalog.GetScopeAsync(Model.CategoryId, Model.GroupKey);
+            result = await Catalog.CreateAsync(new CreateToolCommand(
+                Model.AreaId,
+                Model.CategoryId,
+                Model.GroupKey,
+                Model.Name,
+                Model.Description,
+                Model.Url,
+                Model.TagNames(),
+                scope.Revision,
+                Tree.ContentEpoch));
+        }
+        else
+        {
+            result = await Catalog.UpdateAsync(new UpdateToolCommand(
+                Model.Id!,
+                Model.Name,
+                Model.Description,
+                Model.Url,
+                Model.TagNames(),
+                Model.Revision,
+                Model.ContentEpoch));
+        }
+
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private async Task DeleteAsync()
+    {
+        _saving = true;
+        _conflict = false;
+        var scope = await Catalog.GetScopeAsync(Model.CategoryId, Model.GroupKey);
+        var result = await Catalog.DeleteAsync(new DeleteToolCommand(
+            Model.Id!,
+            Model.Revision,
+            scope.Revision,
+            Model.ContentEpoch));
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private async Task HandleAsync(ToolResult result)
+    {
+        switch (result.Status)
+        {
+            case WriteStatus.Success:
+                await Saved.InvokeAsync();
+                break;
+            case WriteStatus.ValidationFailed:
+                _errors = result.Errors ?? new Dictionary<string, string[]>();
+                break;
+            default:
+                _conflict = true;
+                break;
+        }
+    }
+
+    private static IEnumerable<(string Id, string Label)> Options(IReadOnlyList<CategoryNode> nodes, int depth)
+    {
+        foreach (var node in nodes)
+        {
+            yield return (node.Category.Id, string.Concat(new string('—', depth), depth > 0 ? " " : string.Empty, node.Category.Name));
+            foreach (var child in Options(node.Children, depth + 1))
+            {
+                yield return child;
+            }
+        }
+    }
+}

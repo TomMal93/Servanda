@@ -1,0 +1,289 @@
+@page "/narzedzia"
+@inject IAreaService AreaService
+@inject ICategoryService CategoryService
+@inject IToolCatalogService Catalog
+@inject NavigationManager Navigation
+
+<PageTitle>Przechowalnia narzędzi — Servanda</PageTitle>
+
+@if (_area is null)
+{
+    <div class="system-message">
+        <h1>Moduł narzędzi jest niedostępny</h1>
+        <p>Obszar katalogu narzędzi nie jest aktywny w tej kolekcji.</p>
+    </div>
+}
+else
+{
+    <div class="module-page">
+        <header class="module-page__header">
+            <p class="module-page__eyebrow">Obszar</p>
+            <h1>@_area.Name</h1>
+            <p>@_area.Description</p>
+        </header>
+
+        <div class="module-page__body">
+            <aside class="module-page__aside">
+                <CategoryTreeView Nodes="_tree?.Roots ?? []"
+                                  SelectedCategoryId="@CategoryId"
+                                  TotalCount="_allCount"
+                                  SelectedCategoryIdChanged="SelectCategoryAsync" />
+                <CategoryManager AreaId="@_area.Id"
+                                 Tree="_tree"
+                                 SelectedCategoryId="@CategoryId"
+                                 Changed="ReloadAllAsync" />
+            </aside>
+
+            <section class="module-page__content" aria-labelledby="tools-heading">
+                <div class="module-page__toolbar">
+                    <h2 id="tools-heading">Narzędzia</h2>
+                    <button class="button button--primary"
+                            type="button"
+                            @onclick="BeginCreate"
+                            disabled="@(_tree is null || _tree.Roots.Count == 0)">
+                        Dodaj narzędzie
+                    </button>
+                </div>
+
+                <SearchField Id="tool-search"
+                             Label="Szukaj narzędzia"
+                             Placeholder="Nazwa, opis, tag lub adres"
+                             Value="@(Text ?? string.Empty)"
+                             ValueChanged="SearchAsync" />
+
+                <p class="module-page__status" role="status" aria-live="polite">
+                    @if (_loading)
+                    {
+                        @:Wyszukiwanie…
+                    }
+                    else if (_queryTooShort)
+                    {
+                        @:Wpisz co najmniej dwa znaki, aby wyszukać.
+                    }
+                    else
+                    {
+                        @($"Widoczne narzędzia: {_items.Count} z {_total}.")
+                    }
+                </p>
+
+                @if (_editor is not null)
+                {
+                    <ToolEditor Model="_editor"
+                                Tree="_tree!"
+                                Saved="OnEditorSavedAsync"
+                                Cancelled="() => { _editor = null; return Task.CompletedTask; }" />
+                }
+
+                @if (_items.Count == 0 && !_loading)
+                {
+                    <div class="module-page__empty">
+                        <p>Brak narzędzi spełniających kryteria.</p>
+                        <button type="button" @onclick="ClearFiltersAsync">Wyczyść wyszukiwanie i filtr</button>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var group in Groups())
+                    {
+                        <section class="tool-group" aria-labelledby="@($"group-{group.Key}")">
+                            <h3 id="@($"group-{group.Key}")">@GroupTitle(group.Key)</h3>
+                            <div class="tool-grid">
+                                @foreach (var tool in group.Items)
+                                {
+                                    <article class="tool-card" @key="tool.Id">
+                                        <div class="tool-card__topline">
+                                            <span class="tool-card__initials" aria-hidden="true">@tool.Initials</span>
+                                            <span class="tool-card__host">@tool.Host</span>
+                                        </div>
+                                        <h4>@tool.Name</h4>
+                                        <p class="tool-card__description">@tool.Description</p>
+                                        @if (tool.VisibleTags.Count > 0)
+                                        {
+                                            <ul class="tool-card__tags">
+                                                @foreach (var tag in tool.VisibleTags)
+                                                {
+                                                    <li @key="tag">@tag</li>
+                                                }
+                                                @if (tool.HiddenTagCount > 0)
+                                                {
+                                                    <li class="tool-card__tags-more">+@tool.HiddenTagCount</li>
+                                                }
+                                            </ul>
+                                        }
+                                        @if (tool.MatchExplanation is not null)
+                                        {
+                                            <p class="tool-card__match">@tool.MatchExplanation</p>
+                                        }
+                                        <div class="tool-card__actions">
+                                            <a href="@tool.Url" target="_blank" rel="noopener noreferrer">
+                                                Otwórz stronę
+                                            </a>
+                                            <button type="button" @onclick="() => BeginEditAsync(tool.Id)">
+                                                Edytuj
+                                            </button>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    @if (_hasMore)
+                    {
+                        <button class="module-page__more" type="button" @onclick="LoadMoreAsync">
+                            Pokaż więcej
+                        </button>
+                    }
+                }
+            </section>
+        </div>
+    </div>
+}
+
+@code {
+    private AreaListItem? _area;
+    private CategoryTree? _tree;
+    private readonly List<ToolCard> _items = [];
+    private ToolEditorState? _editor;
+    private int _total;
+    private int _allCount;
+    private bool _hasMore;
+    private bool _loading;
+    private bool _queryTooShort;
+    private string? _loadedCategoryId;
+    private string? _loadedText;
+
+    [SupplyParameterFromQuery(Name = "kategoria")]
+    public string? CategoryId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Text { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _area ??= await ModuleArea.FindAsync(AreaService, ModuleArea.ToolsModuleKey);
+        if (_area is null)
+        {
+            return;
+        }
+
+        _tree ??= await CategoryService.GetTreeAsync(_area.Id);
+        if (_items.Count > 0
+            && string.Equals(_loadedCategoryId, CategoryId, StringComparison.Ordinal)
+            && string.Equals(_loadedText, Text, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        await LoadPageAsync(reset: true);
+    }
+
+    private async Task LoadPageAsync(bool reset)
+    {
+        if (_area is null)
+        {
+            return;
+        }
+
+        _loading = true;
+        if (reset)
+        {
+            _items.Clear();
+        }
+
+        var page = await Catalog.SearchAsync(new ToolQuery(
+            _area.Id,
+            CategoryId,
+            Text,
+            _items.Count));
+        _items.AddRange(page.Items);
+        _total = page.TotalCount;
+        _hasMore = page.HasMore;
+        _queryTooShort = page.QueryTooShort;
+        _loadedCategoryId = CategoryId;
+        _loadedText = Text;
+        if (CategoryId is null && string.IsNullOrEmpty(Text))
+        {
+            _allCount = page.TotalCount;
+        }
+
+        _loading = false;
+    }
+
+    private Task LoadMoreAsync() => LoadPageAsync(reset: false);
+
+    private Task SelectCategoryAsync(string? categoryId) => NavigateAsync(categoryId, Text);
+
+    private Task SearchAsync(string text) => NavigateAsync(CategoryId, text);
+
+    private Task ClearFiltersAsync() => NavigateAsync(null, null);
+
+    private Task NavigateAsync(string? categoryId, string? text)
+    {
+        var query = new Dictionary<string, object?>
+        {
+            ["kategoria"] = string.IsNullOrEmpty(categoryId) ? null : categoryId,
+            ["q"] = string.IsNullOrEmpty(text) ? null : text,
+        };
+        Navigation.NavigateTo(
+            Navigation.GetUriWithQueryParameters(query),
+            forceLoad: false,
+            replace: true);
+        return Task.CompletedTask;
+    }
+
+    private async Task ReloadAllAsync()
+    {
+        if (_area is null)
+        {
+            return;
+        }
+
+        _tree = await CategoryService.GetTreeAsync(_area.Id);
+        await LoadPageAsync(reset: true);
+    }
+
+    private void BeginCreate()
+    {
+        var categoryId = CategoryId ?? _tree?.Roots.FirstOrDefault()?.Category.Id;
+        if (categoryId is null)
+        {
+            return;
+        }
+
+        _editor = ToolEditorState.ForCreate(_area!.Id, categoryId, _tree!.ContentEpoch);
+    }
+
+    private async Task BeginEditAsync(string toolId)
+    {
+        var model = await Catalog.GetForEditAsync(toolId);
+        if (model is not null)
+        {
+            _editor = ToolEditorState.ForEdit(model);
+        }
+    }
+
+    private async Task OnEditorSavedAsync()
+    {
+        _editor = null;
+        await ReloadAllAsync();
+    }
+
+    private IReadOnlyList<(string Key, IReadOnlyList<ToolCard> Items)> Groups()
+    {
+        var groups = new List<(string, IReadOnlyList<ToolCard>)>();
+        foreach (var key in new[] { "featured", "regular" })
+        {
+            var items = _items.Where(item => item.GroupKey == key).ToList();
+            if (items.Count > 0)
+            {
+                groups.Add((key, items));
+            }
+        }
+
+        return groups;
+    }
+
+    private static string GroupTitle(string groupKey) =>
+        groupKey == "featured" ? "Lubię i szanuję" : "Fajne";
+}
