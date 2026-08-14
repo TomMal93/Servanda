@@ -73,6 +73,7 @@ Skala odstępów jest wielokrotnością `0.25rem`:
 - System interfejsu jest projektowany wyłącznie dla komputerów osobistych i laptopów, przy szerokości widoku od `1024px`. Nie definiuje układu na telefony ani tablety.
 - Na szerokim ekranie boczna nawigacja ma szerokość `--sidebar-width: 18.25rem`, a treść zajmuje resztę widoku.
 - Na ekranie głównym treść tworzy responsywna siatka kafli obszarów wyśrodkowana w dostępnej części widoku; szerokość kafli i odstępy mają zachować czytelny rytm bez rozciągania siatki na całą szerokość dużego monitora.
+- Po wejściu do aktywnego obszaru jego elementy są prezentowane jako czytelne kafle w siatce trzech kolumn. Liczba trzech kolumn obowiązuje dla standardowych wspieranych szerokości; przy reflow, powiększeniu lub niewystarczającym miejscu siatka przechodzi do mniejszej liczby kolumn.
 - Poniżej `1200px` upraszczany jest układ Prompt Studio i siatka promptów, ale panel boczny pozostaje stałym elementem nawigacji.
 - Breakpoint wynika z miejsca potrzebnego treści, nie z etykiety konkretnego urządzenia.
 
@@ -91,9 +92,13 @@ Panel boczny zawiera:
 
 1. markę i wejście do ekranu głównego,
 2. w v1 statyczną listę planowanych obszarów,
-3. stałą akcję zamknięcia aplikacji.
+3. po wejściu do aktywnego obszaru wybór jego kategorii i filtrów,
+4. od v2 na dole stałą akcję „Ustawienia” z ikoną ustawień,
+5. stałą akcję zamknięcia aplikacji.
 
-Od v2 panel dodaje aktywne obszary, kontekstowe filtry, drzewo kategorii, podsumowanie zasobów i akcję „Zarządzaj obszarami”. Recovery działa na osobnym ekranie, a import i eksport przez prosty dialog operacji danych. Zunifikowany panel kopii, diagnostyki, retencji i ustawień nie jest objęty zatwierdzonym zakresem v1 ani v2.
+Od v2 panel dodaje aktywne obszary, kontekstowe filtry, drzewo kategorii i podsumowanie zasobów. Kategorie są dostępne bezpośrednio w panelu podczas przeglądania modułu, aby ich wybór nie zajmował głównej części widoku.
+
+Przycisk „Ustawienia” przełącza panel i treść w prosty tryb ustawień. Tryb zawiera co najmniej wejścia „Zarządzaj obszarami” oraz „Dane kolekcji”, obejmujące istniejące operacje importu i eksportu. Powrót z ustawień przywraca zwykłą nawigację obszarów i kategorii. Recovery nadal działa na osobnym ekranie. Ten tryb jest miejscem nawigacji do zatwierdzonych operacji, a nie zgodą na zunifikowane centrum diagnostyki, retencji kopii ani nowe ustawienia produktu.
 
 Obszar planowany ma widoczną etykietę „Planowane” i nie otrzymuje kontrolek aktywnego modułu. Od v2 aktywny obszar i aktywny filtr muszą być odróżnialne. Szczegółowy kontrakt definiuje `../product/features/areas-dashboard.md`.
 
@@ -107,6 +112,13 @@ Aktywny element jest widoczny wizualnie i programowo przez `aria-pressed` albo `
 - Karty `featured` mogą mieć mocniejszy akcent, ale zachowują ten sam kontrakt treści.
 - Przycisk edycji i ulubionych musi mieć dostępną nazwę niezależną od samego symbolu.
 - Karta nie ma stałej wysokości zależnej od przewidywanej długości nazwy. Nazwa, opis, tagi i akcje zawijają się bez zasłaniania sąsiedniej treści.
+
+## Pływająca akcja dodawania
+
+- Widok aktywnego modułu udostępnia jedną główną pływającą akcję „Dodaj” w prawym dolnym rogu obszaru treści. Dostępna nazwa precyzuje typ elementu, na przykład „Dodaj narzędzie” albo „Dodaj prompt”.
+- Przycisk pozostaje widoczny podczas przeglądania kart, ale zachowuje odstęp od prawej i dolnej krawędzi oraz uwzględnia panel boczny. Lista otrzymuje wystarczające dolne wypełnienie, aby ostatnia karta i jej akcje nie znalazły się pod przyciskiem.
+- Przycisk ma tekst lub dostępną nazwę niezależną od ikony, pełny stan `focus-visible` i cel nie mniejszy niż `--control-lg`.
+- Aktywacja otwiera modalny edytor tworzenia. Zamknięcie lub anulowanie zwraca fokus do przycisku, a zapis przenosi fokus do czytelnego potwierdzenia albo nowo utworzonej karty.
 
 ## Stany komponentów
 
@@ -128,6 +140,7 @@ Skeleton może jedynie zastępować znany układ podczas pierwszego odczytu, jes
 ## Dialogi i formularze
 
 - Dostępny komponent oparty na natywnym `<dialog>` tworzy modalną warstwę prostych edytorów i Prompt Studio; złożone zarządzanie może używać osobnego widoku, jeżeli dialog byłby zbyt ciasny.
+- Modal tworzenia elementu zawiera wybór kategorii oraz pełny formularz właściwy danemu typowi. Gdy dialog otwarto z aktywnego widoku kategorii, kategoria jest wstępnie wybrana, lecz pozostaje możliwa do zmiany.
 - Każdy dialog ma nagłówek, jawną kontrolkę zamknięcia i etykietę przez `aria-labelledby`.
 - Formularz łączy etykietę z kontrolką i tekstowo pokazuje pola wymagane oraz błędy.
 - Akcja główna używa koloru `--acid`; akcja destrukcyjna musi być nazwana wprost i chroniona potwierdzeniem.

@@ -64,11 +64,12 @@ Przed utworzeniem rozwiązania .NET dokumentacja MUSI:
 - trwałe zarządzanie obszarami,
 - katalog narzędzi, biblioteka promptów i Prompt Studio,
 - aktywowanie pozostałych obszarów dopiero po dodaniu ich własnych kontraktów zachowania, modelu danych i kryteriów akceptacji,
-- edytory, kategorie, tagi, wyszukiwanie oraz ochrona współbieżności danych.
+- edytory, kategorie, tagi, wyszukiwanie oraz ochrona współbieżności danych,
+- prosty tryb „Ustawienia” dostępny na dole panelu bocznego, grupujący nawigację do „Zarządzaj obszarami” i „Dane kolekcji”.
 
 ## Poza zatwierdzonym zakresem v1 i v2
 
-- zunifikowane centrum ustawień i operacji systemowych obejmujące rozbudowaną diagnostykę, zarządzanie retencją oraz wszystkie operacje danych w jednym miejscu,
+- rozbudowane centrum ustawień i operacji systemowych wykraczające poza prostą nawigację do zarządzania obszarami i danych kolekcji, w szczególności zunifikowana diagnostyka oraz zarządzanie retencją,
 - trwałe wersje robocze w profilu przeglądarki; wymagają osobnego kontraktu prywatności, retencji, czyszczenia i zachowania między profilami,
 - przypomnienia systemowe, integracja kalendarza i automatyczne działania,
 - porady medyczne, diagnozowanie lub automatyczna interpretacja danych zdrowotnych,

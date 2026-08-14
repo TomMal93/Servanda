@@ -61,6 +61,8 @@ Umożliwia:
 - usuwanie narzędzia,
 - usuwanie kategorii wraz z podkategoriami i narzędziami dopiero po pokazaniu podsumowania skutków.
 
+Utworzenie narzędzia rozpoczyna pływający przycisk „Dodaj narzędzie” w widoku katalogu. Otwiera on modalny formularz ze wszystkimi polami narzędzia i wyborem kategorii. Aktywna kategoria jest wartością początkową, jeżeli formularz otwarto z jej widoku; użytkownik może ją zmienić przed zapisem.
+
 ## Edytor promptów
 
 Umożliwia:
@@ -75,6 +77,8 @@ Umożliwia:
 - przywrócenie jednej z zachowanych wersji bez zmiany tożsamości promptu.
 
 Szybkie oznaczenie promptu jako ulubionego jest komendą zapisu z oczekiwaną rewizją promptu. Konflikt odświeża kartę i nie stosuje zasady ostatniego zapisu.
+
+Utworzenie promptu rozpoczyna pływający przycisk „Dodaj prompt” w widoku biblioteki. Otwiera on modalny formularz ze wszystkimi polami promptu, wariantami, zmiennymi i wyborem kategorii. Aktywna kategoria jest wartością początkową, jeżeli formularz otwarto z jej widoku; użytkownik może ją zmienić przed zapisem.
 
 ## Operacje destrukcyjne
 
@@ -96,6 +100,8 @@ Szybkie oznaczenie promptu jako ulubionego jest komendą zapisu z oczekiwaną re
 
 ## Kryteria akceptacji
 
+- formularz tworzenia otwiera się modalnie i zawiera wybór kategorii oraz pełny zakres danych tworzonego elementu,
+- otwarcie formularza z aktywnej kategorii ustawia ją jako edytowalną wartość początkową,
 - formularz nie zapisuje brakujących ani niepoprawnych danych,
 - walidacja domenowa chroni bazę niezależnie od interfejsu,
 - zapis agregatu jest atomowy,

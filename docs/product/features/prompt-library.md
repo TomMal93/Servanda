@@ -10,9 +10,18 @@ Biblioteka przechowuje wielokrotnego użytku instrukcje, a Prompt Studio zamieni
 
 - Prompty należą do jednej hierarchicznej kategorii.
 - Widok udostępnia filtry: wszystkie, ulubione, ostatnio używane i wybrana kategoria.
+- Kategorie oraz pozostałe filtry są wybierane w panelu bocznym. Główna część widoku pozostaje przeznaczona dla kart promptów, wyszukiwania i informacji o aktywnym filtrze.
 - Wspólną semantykę zapytania, zakres indeksowanych pól, polskich znaków, prefiksów, rankingu, stronicowania i skrótów definiuje [search.md](search.md).
 - Zapytanie działa łącznie z aktywnym filtrem.
 - Aktywny filtr może być zapisany w parametrze zapytania lokalnego URL, aby odświeżenie zachowało widok.
+
+## Siatka i dodawanie
+
+- Prompty są prezentowane jako kafle w siatce po trzy na wiersz we wspieranym widoku komputerowym. Reflow i powiększenie mogą zmniejszyć liczbę kolumn, aby nie powodować poziomego przewijania ani ucinania treści.
+- Stała akcja „Dodaj prompt” ma postać pływającego przycisku w prawym dolnym rogu obszaru treści. Przycisk nie może zasłaniać kart, komunikatów ani fokusowanych kontrolek.
+- „Dodaj prompt” otwiera modalny edytor zawierający wybór kategorii oraz wszystkie pola wymagane do utworzenia promptu, jego wariantów i zmiennych.
+- Jeżeli użytkownik otwiera edytor z widoku wybranej kategorii, ta kategoria jest wstępnie wybrana. Z widoku wszystkich promptów albo filtra przekrojowego użytkownik wybiera kategorię w dialogu.
+- Wstępny wybór jest edytowalny przed zapisem i nie zmienia aktywnego filtra listy.
 
 ## Karta promptu
 
@@ -45,6 +54,9 @@ Brak pasujących promptów pokazuje komunikat i możliwość wyczyszczenia wyszu
 
 ## Kryteria akceptacji
 
+- przy standardowej szerokości wspieranego widoku główna lista prezentuje trzy karty w wierszu,
+- pływający przycisk otwiera modalny formularz, a zamknięcie dialogu zwraca fokus do przycisku,
+- aktywna kategoria jest wstępnie wybrana przy tworzeniu promptu z jej widoku,
 - filtry ulubionych i ostatnio używanych odzwierciedlają aktualne dane,
 - kategoria obejmuje prompty ze swoich podkategorii,
 - zmiana wariantu przebudowuje pola i podgląd,

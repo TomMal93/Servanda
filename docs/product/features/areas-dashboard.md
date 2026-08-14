@@ -11,6 +11,7 @@ Ekran główny jest punktem wejścia do różnych zagadnień codzienności przec
 ## Ekran główny
 
 - Główna część ekranu MUSI prezentować centralnie umieszczoną, responsywną siatkę kafli obszarów.
+- Obszary pełnią na ekranie głównym rolę głównych kategorii produktu. Interfejs może opisywać je użytkownikowi jako kategorie, ale model danych i dokumentacja techniczna zachowują nazwę „obszar”, aby nie mylić ich z kategoriami porządkującymi elementy wewnątrz modułu.
 - Każdy kafel MUSI mieć nazwę, krótki opis i rozpoznawalną ikonę lub akcent wizualny. Kafel aktywny prowadzi do modułu, a planowany komunikuje swój status bez udawania działającej funkcji.
 - Kafel MUSI pozostawać zrozumiały bez polegania wyłącznie na kolorze lub ikonie.
 - Układ POWINIEN eksponować zagadnienia, a nie szczegóły ich wewnętrznej struktury. Kategorie, filtry i elementy treści pojawiają się dopiero po wejściu do obszaru.
@@ -37,6 +38,7 @@ W v1 wszystkie kafle mają status „Planowane” i nie prowadzą do pustego wid
 - Panel boczny MUSI umożliwiać przejście do ekranu głównego oraz między dostępnymi obszarami.
 - W v1 panel pokazuje statyczny zestaw planowanych obszarów i nie zawiera akcji „Zarządzaj obszarami”.
 - Od v2 panel boczny MUSI zawierać jawne wejście „Zarządzaj obszarami”.
+- Od v2 „Zarządzaj obszarami” nie jest pozycją głównej nawigacji. Jest dostępne w trybie „Ustawienia”, otwieranym stałym przyciskiem z ikoną ustawień umieszczonym na dole panelu bocznego.
 - Zarządzanie obszarami od v2 MUSI obejmować dodawanie i edycję obszaru, zmianę kolejności, kontrolę widoczności oraz archiwizację.
 - Archiwizacja ukrywa obszar z głównej nawigacji, lecz zachowuje jego dane i umożliwia przywrócenie.
 - Trwałe usunięcie obszaru i jego zawartości nie należy do v2.
@@ -50,6 +52,7 @@ W v1 wszystkie kafle mają status „Planowane” i nie prowadzą do pustego wid
 4. W v1 z panelu bocznego można wrócić do ekranu głównego; od v2 można również przejść do aktywnego obszaru i otworzyć zarządzanie obszarami.
 5. Układ pozostaje użyteczny z klawiaturą oraz we wszystkich wspieranych szerokościach widoku komputerowego.
 6. Od v2 zarządzanie obszarami nie usuwa danych bez jednoznacznego ostrzeżenia i odzyskiwalnego mechanizmu ochronnego.
+7. Funkcje administracyjne nie konkurują w panelu bocznym z wyborem obszaru i kategorii; „Zarządzaj obszarami” jest dostępne w trybie „Ustawienia”.
 
 ## Poza tym kontraktem
 

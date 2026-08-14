@@ -17,9 +17,18 @@ Katalog umożliwia szybkie znalezienie sprawdzonego narzędzia i przejście do j
 
 - Startowy widok pokazuje wszystkie narzędzia.
 - Wybranie kategorii pokazuje narzędzia należące do niej lub jej potomków.
+- Kategorie są wybierane w panelu bocznym. Główna część widoku pozostaje przeznaczona dla kart narzędzi, wyszukiwania i informacji o aktywnym filtrze.
 - Identyfikator wybranej kategorii może być zapisany w parametrze zapytania lokalnego URL, aby odświeżenie zachowało widok.
 - Nieznany albo należący do innego obszaru identyfikator wraca do widoku wszystkich narzędzi i nie ujawnia danych innego modułu.
 - Drzewo kategorii można zwijać niezależnie od aktywnego filtra.
+
+## Siatka i dodawanie
+
+- Narzędzia są prezentowane jako kafle w siatce po trzy na wiersz we wspieranym widoku komputerowym. Reflow i powiększenie mogą zmniejszyć liczbę kolumn, aby nie powodować poziomego przewijania ani ucinania treści.
+- Stała akcja „Dodaj narzędzie” ma postać pływającego przycisku w prawym dolnym rogu obszaru treści. Przycisk nie może zasłaniać kart, komunikatów ani fokusowanych kontrolek.
+- „Dodaj narzędzie” otwiera modalny edytor zawierający wybór kategorii oraz wszystkie pola wymagane do utworzenia narzędzia.
+- Jeżeli użytkownik otwiera edytor z widoku wybranej kategorii, ta kategoria jest wstępnie wybrana. Z widoku wszystkich narzędzi użytkownik wybiera kategorię w dialogu.
+- Wstępny wybór jest edytowalny przed zapisem i nie zmienia aktywnego filtra listy.
 
 ## Wyszukiwanie
 
@@ -43,6 +52,9 @@ Gdy filtr i wyszukiwanie nie dają wyników, aplikacja pokazuje komunikat i przy
 
 ## Kryteria akceptacji
 
+- przy standardowej szerokości wspieranego widoku główna lista prezentuje trzy karty w wierszu,
+- pływający przycisk otwiera modalny formularz, a zamknięcie dialogu zwraca fokus do przycisku,
+- aktywna kategoria jest wstępnie wybrana przy tworzeniu narzędzia z jej widoku,
 - licznik widocznych narzędzi odpowiada kartom po zastosowaniu obu kryteriów,
 - puste grupy, sekcje i kategorie główne nie zajmują miejsca w wynikach,
 - filtr kategorii uwzględnia jej potomków,
