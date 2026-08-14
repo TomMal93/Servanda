@@ -60,7 +60,24 @@ public sealed record DeleteCategoryCommand(
     string Id,
     long ExpectedRevision,
     long ExpectedScopeRevision,
-    string ContentEpoch);
+    string ContentEpoch,
+    int ExpectedDescendantCategories = 0,
+    int ExpectedTools = 0,
+    int ExpectedPrompts = 0,
+    bool Confirmed = false);
+
+public sealed record CategoryDeletePreview(
+    string Id,
+    string Name,
+    int DescendantCategories,
+    int Tools,
+    int Prompts,
+    long Revision,
+    long ParentScopeRevision,
+    string ContentEpoch)
+{
+    public bool RequiresProtectionBackup => DescendantCategories + Tools + Prompts > 0;
+}
 
 public sealed record CategoryResult(
     WriteStatus Status,
@@ -87,6 +104,8 @@ public interface ICategoryService
     Task<CategoryResult> UpdateAsync(UpdateCategoryCommand command, CancellationToken cancellationToken = default);
 
     Task<CategoryResult> MoveAsync(MoveCategoryCommand command, CancellationToken cancellationToken = default);
+
+    Task<CategoryDeletePreview?> PreviewDeleteAsync(string id, CancellationToken cancellationToken = default);
 
     Task<CategoryResult> DeleteAsync(DeleteCategoryCommand command, CancellationToken cancellationToken = default);
 }

@@ -126,6 +126,7 @@ public class Program
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
             builder.Services.AddScoped<AreaChangeNotifier>();
+            builder.Services.AddSingleton<CollectionChangeNotifier>();
             builder.Services.AddSingleton(paths);
             builder.Services.AddServandaDatabase(paths, GetApplicationVersion());
             builder.Services.AddSingleton<InstanceRuntimeState>();

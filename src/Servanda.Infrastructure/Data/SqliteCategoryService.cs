@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Servanda.Application.Catalog;
 using Servanda.Application.Common;
+using Servanda.Application.DataProtection;
 using Servanda.Domain.Areas;
 using Servanda.Domain.Catalog;
 using Servanda.Infrastructure.Data.Search;
@@ -10,7 +11,8 @@ namespace Servanda.Infrastructure.Data;
 
 internal sealed class SqliteCategoryService(
     IDbContextFactory<ServandaDbContext> contextFactory,
-    TimeProvider timeProvider) : ICategoryService
+    TimeProvider timeProvider,
+    IBackupService backupService) : ICategoryService
 {
     public async Task<CategoryTree> GetTreeAsync(string areaId, CancellationToken cancellationToken = default)
     {
@@ -301,55 +303,74 @@ internal sealed class SqliteCategoryService(
         return new CategoryResult(WriteStatus.Success, ToItem(category));
     }
 
+    public async Task<CategoryDeletePreview?> PreviewDeleteAsync(
+        string id,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        await using var database = await contextFactory.CreateDbContextAsync(cancellationToken);
+        return await ReadDeletePreviewAsync(database, id, cancellationToken);
+    }
+
     public async Task<CategoryResult> DeleteAsync(
         DeleteCategoryCommand command,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
-
-        await using var database = await contextFactory.CreateDbContextAsync(cancellationToken);
-        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
-        var epoch = await CollectionState.ReadEpochAsync(database, cancellationToken);
-        if (!string.Equals(epoch, command.ContentEpoch, StringComparison.Ordinal))
-        {
-            return new CategoryResult(WriteStatus.Conflict);
-        }
-
-        var category = await database.Categories.SingleOrDefaultAsync(
-            item => item.Id == command.Id,
-            cancellationToken);
-        if (category is null)
-        {
-            return new CategoryResult(WriteStatus.NotFound);
-        }
-
-        if (category.Revision != command.ExpectedRevision)
-        {
-            return new CategoryResult(WriteStatus.Conflict);
-        }
-
-        var hasChildren = await database.Categories.AnyAsync(
-            item => item.ParentId == command.Id,
-            cancellationToken);
-        var hasTools = await database.Tools.AnyAsync(item => item.CategoryId == command.Id, cancellationToken);
-        var hasPrompts = await database.Prompts.AnyAsync(item => item.CategoryId == command.Id, cancellationToken);
-        if (hasChildren || hasTools || hasPrompts)
+        if (!command.Confirmed)
         {
             return new CategoryResult(
                 WriteStatus.ValidationFailed,
                 Errors: new Dictionary<string, string[]>
                 {
-                    [nameof(Category.Name)] =
-                        ["Usuń albo przenieś zawartość kategorii, zanim ją usuniesz."],
+                    [nameof(DeleteCategoryCommand.Confirmed)] = ["Usunięcie kategorii wymaga jawnego potwierdzenia."],
                 });
         }
 
-        var timestamp = timeProvider.GetUtcNow();
-        var parentScopeKey = OrderingScopeKeys.Categories(category.AreaId, category.ParentId);
-        var moduleKey = await ReadModuleKeyAsync(database, category.AreaId, cancellationToken);
+        var preview = await PreviewDeleteAsync(command.Id, cancellationToken);
+        if (preview is null)
+        {
+            return new CategoryResult(WriteStatus.NotFound);
+        }
 
+        if (!Matches(command, preview))
+        {
+            return new CategoryResult(WriteStatus.Conflict);
+        }
+
+        var protectedOperation = preview.RequiresProtectionBackup;
+        if (protectedOperation)
+        {
+            var backup = await backupService.CreateAsync(BackupReason.BulkDataOperation, cancellationToken);
+            var verification = await backupService.VerifyAsync(backup.Id, cancellationToken);
+            if (verification.Status != BackupVerificationStatus.Verified)
+            {
+                return new CategoryResult(
+                    WriteStatus.ValidationFailed,
+                    Errors: new Dictionary<string, string[]>
+                    {
+                        ["Backup"] = ["Kopia ochronna nie przeszła weryfikacji; dane nie zostały usunięte."],
+                    });
+            }
+        }
+
+        await using var database = await contextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await database.Database.BeginTransactionAsync(cancellationToken);
         try
         {
+            preview = await ReadDeletePreviewAsync(database, command.Id, cancellationToken);
+            if (preview is null || !Matches(command, preview))
+            {
+                return new CategoryResult(WriteStatus.Conflict);
+            }
+
+            var category = await database.Categories.SingleAsync(item => item.Id == command.Id, cancellationToken);
+            var subtreeIds = await ReadSubtreeIdsAsync(database, command.Id, cancellationToken);
+            var tools = await database.Tools.Where(item => subtreeIds.Contains(item.CategoryId)).ToListAsync(cancellationToken);
+            var prompts = await database.Prompts.Where(item => subtreeIds.Contains(item.CategoryId)).ToListAsync(cancellationToken);
+            var categories = await database.Categories.Where(item => subtreeIds.Contains(item.Id)).ToListAsync(cancellationToken);
+            var timestamp = timeProvider.GetUtcNow();
+            var parentScopeKey = OrderingScopeKeys.Categories(category.AreaId, category.ParentId);
             if (!await CollectionState.TryAdvanceScopeAsync(
                     database,
                     parentScopeKey,
@@ -360,12 +381,29 @@ internal sealed class SqliteCategoryService(
                 return new CategoryResult(WriteStatus.Conflict);
             }
 
-            database.Categories.Remove(category);
+            foreach (var tool in tools)
+            {
+                await SearchIndexWriter.RemoveToolAsync(database, tool.Id, cancellationToken);
+            }
+
+            foreach (var prompt in prompts)
+            {
+                await SearchIndexWriter.RemovePromptAsync(database, prompt.Id, cancellationToken);
+            }
+
+            database.Tools.RemoveRange(tools);
+            database.Prompts.RemoveRange(prompts);
+            database.Categories.RemoveRange(categories);
             await database.SaveChangesAsync(cancellationToken);
-            await CollectionState.RemoveScopesAsync(
-                database,
-                ChildScopeKeys(category.AreaId, category.Id, moduleKey),
-                cancellationToken);
+
+            var scopeKeys = subtreeIds.SelectMany(categoryId => new[]
+            {
+                OrderingScopeKeys.Categories(category.AreaId, categoryId),
+                OrderingScopeKeys.Tools(categoryId, Domain.Tools.Tool.FeaturedGroup),
+                OrderingScopeKeys.Tools(categoryId, Domain.Tools.Tool.RegularGroup),
+                OrderingScopeKeys.Prompts(categoryId),
+            }).ToList();
+            await CollectionState.RemoveScopesAsync(database, scopeKeys, cancellationToken);
             await RenumberSiblingsAsync(database, category.AreaId, category.ParentId, null, null, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -374,7 +412,57 @@ internal sealed class SqliteCategoryService(
             return new CategoryResult(WriteStatus.Conflict);
         }
 
+        catch (SqliteException exception) when (exception.SqliteErrorCode is 5 or 6 or 19)
+        {
+            return new CategoryResult(WriteStatus.Conflict);
+        }
+
+        if (protectedOperation)
+        {
+            await backupService.ApplyRetentionAsync(cancellationToken);
+        }
+
         return new CategoryResult(WriteStatus.Success);
+    }
+
+    private static bool Matches(DeleteCategoryCommand command, CategoryDeletePreview preview) =>
+        string.Equals(command.ContentEpoch, preview.ContentEpoch, StringComparison.Ordinal)
+        && command.ExpectedRevision == preview.Revision
+        && command.ExpectedScopeRevision == preview.ParentScopeRevision
+        && command.ExpectedDescendantCategories == preview.DescendantCategories
+        && command.ExpectedTools == preview.Tools
+        && command.ExpectedPrompts == preview.Prompts;
+
+    private static async Task<CategoryDeletePreview?> ReadDeletePreviewAsync(
+        ServandaDbContext database,
+        string id,
+        CancellationToken cancellationToken)
+    {
+        var category = await database.Categories.AsNoTracking().SingleOrDefaultAsync(
+            item => item.Id == id,
+            cancellationToken);
+        if (category is null)
+        {
+            return null;
+        }
+
+        var subtreeIds = await ReadSubtreeIdsAsync(database, id, cancellationToken);
+        var tools = await database.Tools.CountAsync(item => subtreeIds.Contains(item.CategoryId), cancellationToken);
+        var prompts = await database.Prompts.CountAsync(item => subtreeIds.Contains(item.CategoryId), cancellationToken);
+        var scopeKey = OrderingScopeKeys.Categories(category.AreaId, category.ParentId);
+        var scopeRevision = await database.OrderingScopes.AsNoTracking()
+            .Where(scope => scope.ScopeKey == scopeKey)
+            .Select(scope => scope.Revision)
+            .SingleAsync(cancellationToken);
+        return new CategoryDeletePreview(
+            category.Id,
+            category.Name,
+            subtreeIds.Count - 1,
+            tools,
+            prompts,
+            category.Revision,
+            scopeRevision,
+            await CollectionState.ReadEpochAsync(database, cancellationToken));
     }
 
     private static List<CategoryNode> BuildNodes(

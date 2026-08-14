@@ -2,6 +2,7 @@
 @using Servanda.Application.DataTransfer
 @inject ICollectionExportService ExportService
 @inject ICollectionImportService ImportService
+@inject CollectionChangeNotifier CollectionChanges
 
 <PageTitle>Dane kolekcji — Servanda</PageTitle>
 
@@ -90,11 +91,17 @@
                     </tbody>
                 </table>
 
+                <label class="module-editor__confirm">
+                    <input type="checkbox" @bind="_importConfirmed" />
+                    Rozumiem, że import zastąpi całą kolekcję, usunie nieobecne dane i unieważni otwarte edytory
+                </label>
+
                 <div class="module-editor__actions">
-                    <button class="button button--primary" type="button" @onclick="ApplyAsync" disabled="@_busy">
+                    <button class="button button--primary" type="button" @onclick="ApplyAsync"
+                            disabled="@(_busy || !_importConfirmed)">
                         Zastąp całą kolekcję
                     </button>
-                    <button type="button" @onclick="() => _preview = null" disabled="@_busy">Anuluj import</button>
+                    <button type="button" @onclick="DiscardAsync" disabled="@_busy">Anuluj import</button>
                 </div>
             }
         }
@@ -126,6 +133,7 @@
     private ImportPreview? _preview;
     private ImportResult? _result;
     private bool _busy;
+    private bool _importConfirmed;
 
     private async Task ExportAsync()
     {
@@ -138,6 +146,12 @@
     {
         _busy = true;
         _result = null;
+        if (_preview?.Token is { } previousToken)
+        {
+            await ImportService.DiscardAsync(previousToken);
+        }
+
+        _importConfirmed = false;
         await using var stream = args.File.OpenReadStream(MaximumDocumentSize);
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer);
@@ -156,6 +170,23 @@
         _busy = true;
         _result = await ImportService.ApplyAsync(_preview.Token);
         _preview = null;
+        _importConfirmed = false;
+        if (_result.Status == ImportApplyStatus.Applied)
+        {
+            await CollectionChanges.NotifyAsync();
+        }
+
         _busy = false;
+    }
+
+    private async Task DiscardAsync()
+    {
+        if (_preview?.Token is { } token)
+        {
+            await ImportService.DiscardAsync(token);
+        }
+
+        _preview = null;
+        _importConfirmed = false;
     }
 }

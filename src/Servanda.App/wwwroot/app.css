@@ -518,12 +518,31 @@ code {
     gap: var(--space-2);
 }
 
+.module-editor__status {
+    margin-block-end: var(--space-0);
+    color: var(--muted-light);
+    font-size: var(--font-size-sm);
+}
+
+.module-editor__order-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
 .module-editor__conflict {
     margin-block-end: var(--space-0);
     padding: var(--space-3);
     border: var(--border-width) solid var(--warning);
     border-radius: var(--radius-md);
     background: var(--warning-soft);
+}
+
+.module-editor__confirmation {
+    padding: var(--space-3);
+    border: var(--border-width) solid var(--danger);
+    border-radius: var(--radius-md);
+    background: var(--panel-soft);
 }
 
 .field {

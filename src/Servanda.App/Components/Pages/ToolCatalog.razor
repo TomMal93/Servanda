@@ -1,8 +1,10 @@
 @page "/narzedzia"
+@implements IDisposable
 @inject IAreaService AreaService
 @inject ICategoryService CategoryService
 @inject IToolCatalogService Catalog
 @inject NavigationManager Navigation
+@inject CollectionChangeNotifier CollectionChanges
 
 <PageTitle>Przechowalnia narzędzi — Servanda</PageTitle>
 
@@ -74,6 +76,11 @@ else
                                 Cancelled="() => { _editor = null; return Task.CompletedTask; }" />
                 }
 
+                @if (_operationStatus is not null)
+                {
+                    <p class="module-editor__status" role="status" aria-live="polite">@_operationStatus</p>
+                }
+
                 @if (_items.Count == 0 && !_loading)
                 {
                     <div class="module-page__empty">
@@ -121,6 +128,17 @@ else
                                             <button type="button" @onclick="() => BeginEditAsync(tool.Id)">
                                                 Edytuj
                                             </button>
+                                            @if (CanReorder())
+                                            {
+                                                <button type="button"
+                                                        aria-label="Przenieś narzędzie wyżej: @tool.Name"
+                                                        @onclick="() => MoveByOffsetAsync(tool, -1)"
+                                                        disabled="@IsFirstInScope(tool)">Wyżej</button>
+                                                <button type="button"
+                                                        aria-label="Przenieś narzędzie niżej: @tool.Name"
+                                                        @onclick="() => MoveByOffsetAsync(tool, 1)"
+                                                        disabled="@IsLastInScope(tool)">Niżej</button>
+                                            }
                                         </div>
                                     </article>
                                 }
@@ -134,6 +152,13 @@ else
                             Pokaż więcej
                         </button>
                     }
+                }
+
+                @if (_moveConflict)
+                {
+                    <p class="module-editor__conflict" role="alert">
+                        Kolejność narzędzi zmieniła się w innej karcie. Wczytano aktualny układ.
+                    </p>
                 }
             </section>
         </div>
@@ -150,14 +175,20 @@ else
     private bool _hasMore;
     private bool _loading;
     private bool _queryTooShort;
+    private bool _moveConflict;
+    private CancellationTokenSource? _searchCancellation;
+    private long _searchGeneration;
     private string? _loadedCategoryId;
     private string? _loadedText;
+    private string? _operationStatus;
 
     [SupplyParameterFromQuery(Name = "kategoria")]
     public string? CategoryId { get; set; }
 
     [SupplyParameterFromQuery(Name = "q")]
     public string? Text { get; set; }
+
+    protected override void OnInitialized() => CollectionChanges.Changed += HandleCollectionChangedAsync;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -185,24 +216,51 @@ else
             return;
         }
 
+        if (reset)
+        {
+            _searchCancellation?.Cancel();
+            _searchCancellation?.Dispose();
+            _searchCancellation = new CancellationTokenSource();
+            _searchGeneration++;
+        }
+        else
+        {
+            _searchCancellation ??= new CancellationTokenSource();
+        }
+
+        var generation = _searchGeneration;
+        var cancellationToken = _searchCancellation.Token;
+        var categoryId = CategoryId;
+        var text = Text;
+        var skip = reset ? 0 : _items.Count;
         _loading = true;
         if (reset)
         {
             _items.Clear();
         }
 
-        var page = await Catalog.SearchAsync(new ToolQuery(
-            _area.Id,
-            CategoryId,
-            Text,
-            _items.Count));
+        ToolPage page;
+        try
+        {
+            page = await Catalog.SearchAsync(new ToolQuery(_area.Id, categoryId, text, skip), cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (generation != _searchGeneration)
+        {
+            return;
+        }
+
         _items.AddRange(page.Items);
         _total = page.TotalCount;
         _hasMore = page.HasMore;
         _queryTooShort = page.QueryTooShort;
-        _loadedCategoryId = CategoryId;
-        _loadedText = Text;
-        if (CategoryId is null && string.IsNullOrEmpty(Text))
+        _loadedCategoryId = categoryId;
+        _loadedText = text;
+        if (categoryId is null && string.IsNullOrEmpty(text))
         {
             _allCount = page.TotalCount;
         }
@@ -245,6 +303,7 @@ else
 
     private void BeginCreate()
     {
+        _operationStatus = null;
         var categoryId = CategoryId ?? _tree?.Roots.FirstOrDefault()?.Category.Id;
         if (categoryId is null)
         {
@@ -256,6 +315,7 @@ else
 
     private async Task BeginEditAsync(string toolId)
     {
+        _operationStatus = null;
         var model = await Catalog.GetForEditAsync(toolId);
         if (model is not null)
         {
@@ -266,6 +326,7 @@ else
     private async Task OnEditorSavedAsync()
     {
         _editor = null;
+        _operationStatus = "Zapisano zmianę narzędzia.";
         await ReloadAllAsync();
     }
 
@@ -286,4 +347,67 @@ else
 
     private static string GroupTitle(string groupKey) =>
         groupKey == "featured" ? "Lubię i szanuję" : "Fajne";
+
+    private bool CanReorder() => string.IsNullOrEmpty(Text) && !_hasMore;
+
+    private List<ToolCard> ScopeItems(ToolCard tool) =>
+        [.. _items
+            .Where(item => item.CategoryId == tool.CategoryId && item.GroupKey == tool.GroupKey)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)];
+
+    private bool IsFirstInScope(ToolCard tool) => ScopeItems(tool).FirstOrDefault()?.Id == tool.Id;
+
+    private bool IsLastInScope(ToolCard tool) => ScopeItems(tool).LastOrDefault()?.Id == tool.Id;
+
+    private async Task MoveByOffsetAsync(ToolCard tool, int offset)
+    {
+        var siblings = ScopeItems(tool);
+        if (!OrderingPlacement.TryMoveByOffset(
+                siblings.Select(item => item.Id).ToList(),
+                tool.Id,
+                offset,
+                out var beforeId))
+        {
+            return;
+        }
+
+        _moveConflict = false;
+        var scope = await Catalog.GetScopeAsync(tool.CategoryId, tool.GroupKey);
+        var result = await Catalog.MoveAsync(new MoveToolCommand(
+            tool.Id,
+            tool.CategoryId,
+            tool.GroupKey,
+            beforeId,
+            tool.Revision,
+            scope.Revision,
+            scope.Revision,
+            _tree!.ContentEpoch));
+        if (result.Status != WriteStatus.Success)
+        {
+            _moveConflict = true;
+        }
+
+        await ReloadAllAsync();
+    }
+
+    public void Dispose()
+    {
+        CollectionChanges.Changed -= HandleCollectionChangedAsync;
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+    }
+
+    private Task HandleCollectionChangedAsync() => InvokeAsync(async () =>
+    {
+        if (_editor is not null)
+        {
+            return;
+        }
+
+        _area = await ModuleArea.FindAsync(AreaService, ModuleArea.ToolsModuleKey);
+        _tree = _area is null ? null : await CategoryService.GetTreeAsync(_area.Id);
+        await LoadPageAsync(reset: true);
+        StateHasChanged();
+    });
 }

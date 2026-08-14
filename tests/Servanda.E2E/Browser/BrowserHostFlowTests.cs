@@ -894,7 +894,7 @@ public sealed class BrowserHostFlowTests
         Directory.CreateDirectory(shimDirectory, PrivateDirectoryMode);
         await CreateXdgOpenShimAsync(shimDirectory);
         var paths = new ServandaPaths(Path.Combine(runtimeBase, "servanda"), Path.Combine(stateBase, "servanda"));
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
         Process? host = null;
 
         try
@@ -961,6 +961,23 @@ public sealed class BrowserHostFlowTests
                 await page.GetByRole(AriaRole.Button, new() { Name = "Zapisz", Exact = true }).ClickAsync();
                 await page.GetByRole(AriaRole.Heading, new() { Name = "Kalkulator Łódź", Level = 4 }).WaitForAsync();
 
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj narzędzie", Exact = true }).ClickAsync();
+                await page.GetByLabel("Nazwa *", new() { Exact = true }).FillAsync("Analizator");
+                await page.GetByLabel("Opis *", new() { Exact = true }).FillAsync("Analiza tekstu");
+                await page.GetByLabel("Adres *", new() { Exact = true }).FillAsync("https://example.com/analizator");
+                await page.GetByRole(AriaRole.Button, new() { Name = "Zapisz", Exact = true }).ClickAsync();
+                await page.GetByRole(
+                    AriaRole.Button,
+                    new() { Name = "Przenieś narzędzie wyżej: Analizator", Exact = true }).ClickAsync();
+                await page.WaitForFunctionAsync(
+                    """
+                    () => Array.from(document.querySelectorAll('.tool-card h4'))
+                        .map(element => element.textContent?.trim())[0] === 'Analizator'
+                    """);
+                Assert.Equal(
+                    ["Analizator", "Kalkulator Łódź"],
+                    await page.Locator(".tool-card h4").AllTextContentsAsync());
+
                 var searchField = page.GetByLabel("Szukaj narzędzia", new() { Exact = true });
                 await searchField.FillAsync("lodz");
                 await page.GetByText("Widoczne narzędzia: 1 z 1.", new() { Exact = true }).WaitForAsync();
@@ -977,6 +994,14 @@ public sealed class BrowserHostFlowTests
                 await page.GetByText("Brak narzędzi spełniających kryteria.", new() { Exact = true }).WaitForAsync();
                 await searchField.PressAsync("Escape");
                 await page.GetByRole(AriaRole.Heading, new() { Name = "Kalkulator Łódź", Level = 4 }).WaitForAsync();
+                var analyzerCard = page.Locator(".tool-card").Filter(new() { HasText = "Analizator" });
+                await analyzerCard.GetByRole(AriaRole.Button, new() { Name = "Edytuj", Exact = true }).ClickAsync();
+                await page.GetByRole(AriaRole.Button, new() { Name = "Usuń narzędzie", Exact = true }).ClickAsync();
+                await page.GetByLabel(
+                    "Potwierdzam usunięcie tego narzędzia",
+                    new() { Exact = true }).CheckAsync();
+                await page.GetByRole(AriaRole.Button, new() { Name = "Usuń trwale", Exact = true }).ClickAsync();
+                await analyzerCard.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Detached });
                 await AssertNoAxeViolationsAsync(page, "katalog narzędzi");
 
                 // Biblioteka promptów i Prompt Studio.
@@ -998,7 +1023,21 @@ public sealed class BrowserHostFlowTests
                 await page.GetByLabel("Tytuł *", new() { Exact = true }).FillAsync("Streszczenie");
                 await page.GetByLabel("Opis *", new() { Exact = true }).FillAsync("Streszcza wskazany tekst");
                 await page.GetByLabel("Treść", new() { Exact = true }).FillAsync("Streść {{temat}} w trzech zdaniach.");
+                await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj wariant", Exact = true }).ClickAsync();
+                await page.WaitForFunctionAsync(
+                    "() => document.querySelectorAll('[id^=\"variant-name-\"]').length === 2");
+                await page.GetByLabel("Nazwa wariantu", new() { Exact = true }).Last.FillAsync("Alternatywny");
+                await page.GetByLabel("Treść", new() { Exact = true }).Last.FillAsync("Podsumuj {{temat}}.");
+                var moveVariantUp = page.GetByRole(
+                    AriaRole.Button,
+                    new() { Name = "Przenieś wariant wyżej: Alternatywny", Exact = true });
+                if (await moveVariantUp.IsEnabledAsync())
+                {
+                    await moveVariantUp.ClickAsync();
+                }
                 await page.GetByRole(AriaRole.Button, new() { Name = "Dodaj zmienną", Exact = true }).ClickAsync();
+                await page.WaitForFunctionAsync(
+                    "() => document.querySelectorAll('[id^=\"variable-name-\"]').length === 1");
                 await page.GetByLabel("Nazwa", new() { Exact = true }).Last.FillAsync("temat");
                 await page.GetByLabel("Etykieta", new() { Exact = true }).Last.FillAsync("Temat");
                 await page.GetByLabel("Wymagana", new() { Exact = true }).CheckAsync();
@@ -1018,7 +1057,7 @@ public sealed class BrowserHostFlowTests
                     copyButton);
                 Assert.False(await copyButton.IsDisabledAsync());
                 Assert.Equal(
-                    "Streść Servandzie w trzech zdaniach.",
+                    "Podsumuj Servandzie.",
                     await page.GetByLabel("Gotowa treść", new() { Exact = true }).InputValueAsync());
 
                 await copyButton.ClickAsync();
@@ -1044,6 +1083,60 @@ public sealed class BrowserHostFlowTests
                         await page.Locator("html").EvaluateAsync<bool>(
                             "element => element.scrollWidth <= element.clientWidth"),
                         $"Prompt Studio przewija się poziomo przy szerokości {viewportWidth}px.");
+                }
+
+                // Import zastępujący kolekcję unieważnia edytor otwarty w innej karcie.
+                await using var stalePage = await context.NewPageAsync();
+                stalePage.SetDefaultTimeout(15_000);
+                await stalePage.GotoAsync(descriptor.Origin + "/prompty");
+                await stalePage.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Streszczenie", Level = 3 }).WaitForAsync();
+                await stalePage.GetByRole(AriaRole.Button, new() { Name = "Edytuj", Exact = true }).ClickAsync();
+                await stalePage.GetByLabel("Opis *", new() { Exact = true }).FillAsync("Niezapisana zmiana");
+                await stalePage.GetByText("Niezapisane zmiany.", new() { Exact = true }).WaitForAsync();
+
+                circuit.Reset();
+                await page.GotoAsync(descriptor.Origin + "/dane");
+                await circuit.WaitAsync(timeout.Token);
+                await page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Eksport i import danych", Level = 1 }).WaitForAsync();
+                await page.GetByRole(
+                    AriaRole.Button,
+                    new() { Name = "Eksportuj kolekcję", Exact = true }).ClickAsync();
+                await page.GetByText("Zapisano dokument", new() { Exact = false }).WaitForAsync();
+                var exportPath = Assert.Single(Directory.GetFiles(
+                    Path.Combine(homeDirectory, ".local", "share", "servanda", "exports"),
+                    "*.json"));
+                await page.GetByLabel("Dokument eksportu (JSON)", new() { Exact = true })
+                    .SetInputFilesAsync(exportPath);
+                await page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Podgląd skutków", Level = 3 }).WaitForAsync();
+                await page.GetByLabel(
+                    "Rozumiem, że import zastąpi całą kolekcję, usunie nieobecne dane i unieważni otwarte edytory",
+                    new() { Exact = true }).CheckAsync();
+                await page.GetByRole(
+                    AriaRole.Button,
+                    new() { Name = "Zastąp całą kolekcję", Exact = true }).ClickAsync();
+                await page.GetByText("Kolekcja została zastąpiona.", new() { Exact = false }).WaitForAsync();
+
+                await stalePage.GetByRole(
+                    AriaRole.Button,
+                    new() { Name = "Zapisz", Exact = true }).ClickAsync();
+                await stalePage.GetByText(
+                    "Prompt został zmieniony w innej karcie. Odśwież widok i wprowadź zmianę ponownie.",
+                    new() { Exact = true }).WaitForAsync();
+                await AssertNoAxeViolationsAsync(page, "import kolekcji");
+
+                foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
+                {
+                    await page.SetViewportSizeAsync(viewportWidth, 768);
+                    Assert.True(
+                        await page.Locator("html").EvaluateAsync<bool>(
+                            "element => element.scrollWidth <= element.clientWidth"),
+                        $"Import kolekcji przewija się poziomo przy szerokości {viewportWidth}px.");
                 }
             }
             catch (Exception exception)

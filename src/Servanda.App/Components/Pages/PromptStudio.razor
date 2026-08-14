@@ -207,8 +207,10 @@ else
         _manualCopy = !copied;
         if (copied)
         {
-            await Library.RecordUsageAsync(new RecordPromptUsageCommand(_model.Id, _variantId));
-            _status = "Skopiowano gotowy prompt i zapisano wpis historii użycia.";
+            var usageStatus = await Library.RecordUsageAsync(new RecordPromptUsageCommand(_model.Id, _variantId));
+            _status = usageStatus == WriteStatus.Success
+                ? "Skopiowano gotowy prompt i zapisano wpis historii użycia."
+                : "Skopiowano gotowy prompt, ale nie udało się zapisać historii użycia. Otwórz prompt ponownie.";
         }
         else
         {

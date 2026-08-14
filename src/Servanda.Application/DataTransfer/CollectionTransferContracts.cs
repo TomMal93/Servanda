@@ -54,4 +54,7 @@ public interface ICollectionImportService
 
     /// <summary>Stosuje zatwierdzony podgląd: tworzy kopię ochronną i zastępuje całą kolekcję.</summary>
     Task<ImportResult> ApplyAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>Odrzuca podgląd i usuwa prywatną bazę stagingową.</summary>
+    Task DiscardAsync(string token, CancellationToken cancellationToken = default);
 }

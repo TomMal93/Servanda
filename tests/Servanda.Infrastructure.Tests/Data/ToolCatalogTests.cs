@@ -219,23 +219,46 @@ public sealed class ToolCatalogTests
     }
 
     [Fact]
-    public async Task CategoryWithContentCannotBeDeleted()
+    public async Task ConfirmedCategorySubtreeDeletionCreatesBackupAndRemovesContent()
     {
         using var temporaryDirectory = new TemporaryDirectory();
         await using var services = await TestDatabase.InitializeAsync(temporaryDirectory.Path);
         var context = await ModuleContext.CreateAsync(services);
-        await context.CreateToolAsync("Narzędzie");
+        var child = await context.CreateCategoryAsync("Podkategoria", context.CategoryId);
+        await context.CreateToolAsync("Narzędzie", categoryId: child.Id);
         var tree = await context.Categories.GetTreeAsync(ToolAreaId);
         var node = Assert.Single(tree.Roots);
+        var preview = await context.Categories.PreviewDeleteAsync(node.Category.Id);
 
+        var unconfirmed = await context.Categories.DeleteAsync(new DeleteCategoryCommand(
+            preview!.Id,
+            preview.Revision,
+            preview.ParentScopeRevision,
+            preview.ContentEpoch,
+            preview.DescendantCategories,
+            preview.Tools,
+            preview.Prompts));
         var result = await context.Categories.DeleteAsync(new DeleteCategoryCommand(
-            node.Category.Id,
-            node.Category.Revision,
-            tree.ScopeRevisionFor(null),
-            tree.ContentEpoch));
+            preview.Id,
+            preview.Revision,
+            preview.ParentScopeRevision,
+            preview.ContentEpoch,
+            preview.DescendantCategories,
+            preview.Tools,
+            preview.Prompts,
+            Confirmed: true));
+        var after = await context.Categories.GetTreeAsync(ToolAreaId);
+        var tools = await context.Tools.SearchAsync(new ToolQuery(ToolAreaId));
+        var backupDirectories = Directory.GetDirectories(
+            Path.Combine(temporaryDirectory.Path, "data", "backups"));
 
-        Assert.Equal(WriteStatus.ValidationFailed, result.Status);
-        Assert.Equal(1, node.TotalItemCount);
+        Assert.Equal(1, preview.DescendantCategories);
+        Assert.Equal(1, preview.Tools);
+        Assert.Equal(WriteStatus.ValidationFailed, unconfirmed.Status);
+        Assert.Equal(WriteStatus.Success, result.Status);
+        Assert.Empty(after.Roots);
+        Assert.Empty(tools.Items);
+        Assert.Single(backupDirectories);
     }
 
     private sealed class ModuleContext(

@@ -1,9 +1,15 @@
+@implements IAsyncDisposable
 @inject IPromptLibraryService Library
+@inject IJSRuntime JavaScript
 
 <section class="module-editor" aria-labelledby="prompt-editor-heading">
     <h3 id="prompt-editor-heading">@(Model.IsNew ? "Nowy prompt" : "Edycja promptu")</h3>
 
-    <EditForm Model="Model" OnValidSubmit="SaveAsync" FormName="prompt-editor">
+    <EditForm EditContext="_editContext"
+              OnValidSubmit="SaveAsync"
+              FormName="prompt-editor"
+              @oninput="_ => MarkDirty()"
+              @onchange="_ => MarkDirty()">
         <div class="field">
             <label for="prompt-title">Tytuł <span aria-hidden="true">*</span></label>
             <InputText id="prompt-title" @bind-Value="Model.Title" maxlength="100" required />
@@ -32,17 +38,25 @@
             }
         </div>
 
-        @if (Model.IsNew)
+        <div class="field">
+            <label for="prompt-category">Kategoria</label>
+            <InputSelect id="prompt-category" @bind-Value="Model.CategoryId">
+                @foreach (var option in CategoryOptions.Flatten(Tree.Roots))
+                {
+                    <option value="@option.Id">@option.Label</option>
+                }
+            </InputSelect>
+        </div>
+
+        @if (!Model.IsNew && CategoryChanged())
         {
-            <div class="field">
-                <label for="prompt-category">Kategoria</label>
-                <InputSelect id="prompt-category" @bind-Value="Model.CategoryId">
-                    @foreach (var option in CategoryOptions.Flatten(Tree.Roots))
-                    {
-                        <option value="@option.Id">@option.Label</option>
-                    }
-                </InputSelect>
-            </div>
+            <p class="field__hint">
+                Zmiana kategorii jest osobną operacją i umieści prompt na końcu wybranej listy.
+                @if (Model.ContentChanged())
+                {
+                    @: Najpierw zapisz treść, a następnie ponownie otwórz edytor, aby przenieść prompt.
+                }
+            </p>
         }
 
         <fieldset class="module-editor__group">
@@ -56,7 +70,7 @@
                                type="text"
                                maxlength="80"
                                value="@variant.Name"
-                               @oninput="args => variant.Name = args.Value?.ToString() ?? string.Empty" />
+                               @oninput="args => { variant.Name = args.Value?.ToString() ?? string.Empty; MarkDirty(); }" />
                     </div>
                     <div class="field">
                         <label for="@($"variant-target-{variant.Key}")">Przeznaczenie</label>
@@ -64,20 +78,30 @@
                                type="text"
                                maxlength="80"
                                value="@variant.Target"
-                               @oninput="args => variant.Target = args.Value?.ToString() ?? string.Empty" />
+                               @oninput="args => { variant.Target = args.Value?.ToString() ?? string.Empty; MarkDirty(); }" />
                     </div>
                     <div class="field">
                         <label for="@($"variant-content-{variant.Key}")">Treść</label>
                         <textarea id="@($"variant-content-{variant.Key}")"
                                   rows="6"
                                   maxlength="30000"
-                                  @oninput="args => variant.Content = args.Value?.ToString() ?? string.Empty">@variant.Content</textarea>
+                                  @oninput="args => { variant.Content = args.Value?.ToString() ?? string.Empty; MarkDirty(); }">@variant.Content</textarea>
                     </div>
                     <button type="button"
-                            @onclick="() => Model.Variants.Remove(variant)"
+                            @onclick="() => RemoveVariant(variant)"
                             disabled="@(Model.Variants.Count == 1)">
                         Usuń wariant
                     </button>
+                    <div class="module-editor__order-actions">
+                        <button type="button"
+                                aria-label="Przenieś wariant wyżej: @variant.Name"
+                                @onclick="() => MoveVariant(variant, -1)"
+                                disabled="@(Model.Variants.IndexOf(variant) == 0)">Wyżej</button>
+                        <button type="button"
+                                aria-label="Przenieś wariant niżej: @variant.Name"
+                                @onclick="() => MoveVariant(variant, 1)"
+                                disabled="@(Model.Variants.IndexOf(variant) == Model.Variants.Count - 1)">Niżej</button>
+                    </div>
                 </div>
             }
             <button type="button" @onclick="AddVariant" disabled="@(Model.Variants.Count >= 20)">
@@ -100,7 +124,7 @@
                                type="text"
                                maxlength="50"
                                value="@variable.Name"
-                               @oninput="args => variable.Name = args.Value?.ToString() ?? string.Empty" />
+                               @oninput="args => { variable.Name = args.Value?.ToString() ?? string.Empty; MarkDirty(); }" />
                     </div>
                     <div class="field">
                         <label for="@($"variable-label-{variable.Key}")">Etykieta</label>
@@ -108,7 +132,7 @@
                                type="text"
                                maxlength="80"
                                value="@variable.Label"
-                               @oninput="args => variable.Label = args.Value?.ToString() ?? string.Empty" />
+                               @oninput="args => { variable.Label = args.Value?.ToString() ?? string.Empty; MarkDirty(); }" />
                     </div>
                     <div class="field">
                         <label for="@($"variable-default-{variable.Key}")">Wartość domyślna</label>
@@ -116,23 +140,33 @@
                                type="text"
                                maxlength="4000"
                                value="@variable.DefaultValue"
-                               @oninput="args => variable.DefaultValue = args.Value?.ToString() ?? string.Empty" />
+                               @oninput="args => { variable.DefaultValue = args.Value?.ToString() ?? string.Empty; MarkDirty(); }" />
                     </div>
                     <div class="field field--inline">
                         <label>
                             <input type="checkbox"
                                    checked="@variable.IsRequired"
-                                   @onchange="args => variable.IsRequired = (bool?)args.Value ?? false" />
+                                   @onchange="args => { variable.IsRequired = (bool?)args.Value ?? false; MarkDirty(); }" />
                             Wymagana
                         </label>
                         <label>
                             <input type="checkbox"
                                    checked="@variable.IsMultiline"
-                                   @onchange="args => variable.IsMultiline = (bool?)args.Value ?? false" />
+                                   @onchange="args => { variable.IsMultiline = (bool?)args.Value ?? false; MarkDirty(); }" />
                             Wielowierszowa
                         </label>
                     </div>
-                    <button type="button" @onclick="() => Model.Variables.Remove(variable)">Usuń zmienną</button>
+                    <button type="button" @onclick="() => RemoveVariable(variable)">Usuń zmienną</button>
+                    <div class="module-editor__order-actions">
+                        <button type="button"
+                                aria-label="Przenieś zmienną wyżej: @variable.Name"
+                                @onclick="() => MoveVariable(variable, -1)"
+                                disabled="@(Model.Variables.IndexOf(variable) == 0)">Wyżej</button>
+                        <button type="button"
+                                aria-label="Przenieś zmienną niżej: @variable.Name"
+                                @onclick="() => MoveVariable(variable, 1)"
+                                disabled="@(Model.Variables.IndexOf(variable) == Model.Variables.Count - 1)">Niżej</button>
+                    </div>
                 </div>
             }
             <button type="button" @onclick="AddVariable" disabled="@(Model.Variables.Count >= 50)">
@@ -141,7 +175,7 @@
             <label class="module-editor__confirm">
                 <input type="checkbox"
                        checked="@Model.AllowUnusedVariables"
-                       @onchange="args => Model.AllowUnusedVariables = (bool?)args.Value ?? false" />
+                       @onchange="args => { Model.AllowUnusedVariables = (bool?)args.Value ?? false; MarkDirty(); }" />
                 Zapisz również zmienne nieużywane w żadnym wariancie
             </label>
             @foreach (var error in ErrorsFor("Variables"))
@@ -161,14 +195,39 @@
             <button class="button button--primary" type="submit" disabled="@_saving">
                 @(_saving ? "Zapisywanie…" : "Zapisz")
             </button>
-            <button type="button" @onclick="Cancelled" disabled="@_saving">Anuluj</button>
+            <button type="button" @onclick="CancelAsync" disabled="@_saving">Anuluj</button>
+            @if (!Model.IsNew && CategoryChanged())
+            {
+                <button type="button" @onclick="MoveAsync" disabled="@(_saving || Model.ContentChanged())">
+                    Przenieś prompt
+                </button>
+            }
             @if (!Model.IsNew)
             {
-                <button type="button" class="module-editor__danger" @onclick="DeleteAsync" disabled="@_saving">
+                <button type="button" class="module-editor__danger" @onclick="() => _deleteRequested = true" disabled="@_saving">
                     Usuń prompt
                 </button>
             }
         </div>
+
+        <p class="module-editor__status" role="status" aria-live="polite">@_status</p>
+
+        @if (_deleteRequested)
+        {
+            <div class="module-editor__confirmation" role="group" aria-labelledby="prompt-delete-heading">
+                <h4 id="prompt-delete-heading">Usuń prompt „@Model.Title”?</h4>
+                <p>Prompt, jego warianty, zmienne i zapisane wersje zostaną trwale usunięte.</p>
+                <label class="module-editor__confirm">
+                    <input type="checkbox" @bind="_deleteConfirmed" @onchange:stopPropagation />
+                    Potwierdzam usunięcie tego promptu
+                </label>
+                <div class="module-editor__actions">
+                    <button type="button" class="module-editor__danger" @onclick="DeleteAsync"
+                            disabled="@(_saving || !_deleteConfirmed)">Usuń trwale</button>
+                    <button type="button" @onclick="CancelDelete" disabled="@_saving">Anuluj</button>
+                </div>
+            </div>
+        }
     </EditForm>
 
     @if (!Model.IsNew)
@@ -205,8 +264,16 @@
 @code {
     private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
     private IReadOnlyList<PromptVersionItem> _versions = [];
+    private EditContext? _editContext;
+    private PromptEditorState? _editContextModel;
+    private IJSObjectReference? _unsavedChanges;
     private bool _saving;
     private bool _conflict;
+    private bool _dirty;
+    private bool _guardEnabled;
+    private string _status = "Edytor gotowy. Brak niezapisanych zmian.";
+    private bool _deleteRequested;
+    private bool _deleteConfirmed;
 
     [Parameter, EditorRequired]
     public required PromptEditorState Model { get; set; }
@@ -222,19 +289,103 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!ReferenceEquals(_editContextModel, Model))
+        {
+            if (_editContext is not null)
+            {
+                _editContext.OnFieldChanged -= OnFieldChanged;
+            }
+
+            _editContextModel = Model;
+            _editContext = new EditContext(Model);
+            _editContext.OnFieldChanged += OnFieldChanged;
+        }
+
         _versions = Model.IsNew ? [] : await Library.ListVersionsAsync(Model.Id!);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _unsavedChanges = await JavaScript.InvokeAsync<IJSObjectReference>("import", "/unsaved-changes.js");
+        }
+
+        if (_unsavedChanges is not null && _guardEnabled != _dirty)
+        {
+            await _unsavedChanges.InvokeVoidAsync(_dirty ? "enable" : "disable");
+            _guardEnabled = _dirty;
+        }
+    }
+
+    private void OnFieldChanged(object? sender, FieldChangedEventArgs args) => MarkDirty();
+
+    private void MarkDirty()
+    {
+        _dirty = true;
+        _status = "Niezapisane zmiany.";
     }
 
     private IEnumerable<string> ErrorsFor(string field) =>
         _errors.TryGetValue(field, out var messages) ? messages : [];
 
-    private void AddVariant() => Model.Variants.Add(new PromptEditorState.VariantRow());
+    private void AddVariant()
+    {
+        Model.Variants.Add(new PromptEditorState.VariantRow());
+        MarkDirty();
+    }
 
-    private void AddVariable() => Model.Variables.Add(new PromptEditorState.VariableRow());
+    private void AddVariable()
+    {
+        Model.Variables.Add(new PromptEditorState.VariableRow());
+        MarkDirty();
+    }
+
+    private void RemoveVariant(PromptEditorState.VariantRow row)
+    {
+        Model.Variants.Remove(row);
+        MarkDirty();
+    }
+
+    private void RemoveVariable(PromptEditorState.VariableRow row)
+    {
+        Model.Variables.Remove(row);
+        MarkDirty();
+    }
+
+    private bool CategoryChanged() =>
+        !string.Equals(Model.CategoryId, Model.OriginalCategoryId, StringComparison.Ordinal);
+
+    private void MoveVariant(PromptEditorState.VariantRow row, int offset)
+    {
+        MoveRow(Model.Variants, row, offset);
+        MarkDirty();
+    }
+
+    private void MoveVariable(PromptEditorState.VariableRow row, int offset)
+    {
+        MoveRow(Model.Variables, row, offset);
+        MarkDirty();
+    }
+
+    private static void MoveRow<T>(List<T> rows, T row, int offset)
+    {
+        var source = rows.IndexOf(row);
+        var target = source + offset;
+        if (source < 0 || target < 0 || target >= rows.Count)
+        {
+            return;
+        }
+
+        rows.RemoveAt(source);
+        rows.Insert(target, row);
+        // Kolejność jest częścią agregatu promptu i zostanie zapisana wraz z pozostałą treścią.
+    }
 
     private async Task SaveAsync()
     {
         _saving = true;
+        _status = "Zapisywanie…";
         _conflict = false;
         _errors = new Dictionary<string, string[]>();
 
@@ -275,6 +426,7 @@
     private async Task RestoreAsync(string versionId)
     {
         _saving = true;
+        _status = "Przywracanie wersji…";
         var result = await Library.RestoreVersionAsync(new RestorePromptVersionCommand(
             Model.Id!,
             versionId,
@@ -287,11 +439,41 @@
     private async Task DeleteAsync()
     {
         _saving = true;
-        var scope = await Library.GetScopeAsync(Model.CategoryId);
+        _status = "Zapisywanie zmiany położenia…";
+        var scope = await Library.GetScopeAsync(Model.OriginalCategoryId);
         var result = await Library.DeleteAsync(new DeletePromptCommand(
             Model.Id!,
             Model.Revision,
             scope.Revision,
+            Model.ContentEpoch));
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private void CancelDelete()
+    {
+        _deleteRequested = false;
+        _deleteConfirmed = false;
+    }
+
+    private async Task MoveAsync()
+    {
+        if (Model.IsNew || !CategoryChanged())
+        {
+            return;
+        }
+
+        _saving = true;
+        _conflict = false;
+        var source = await Library.GetScopeAsync(Model.OriginalCategoryId);
+        var target = await Library.GetScopeAsync(Model.CategoryId);
+        var result = await Library.MoveAsync(new MovePromptCommand(
+            Model.Id!,
+            Model.CategoryId,
+            null,
+            Model.Revision,
+            source.Revision,
+            target.Revision,
             Model.ContentEpoch));
         _saving = false;
         await HandleAsync(result);
@@ -302,14 +484,55 @@
         switch (result.Status)
         {
             case WriteStatus.Success:
+                _dirty = false;
+                _status = "Zapisano.";
+                await DisableGuardAsync();
                 await Saved.InvokeAsync();
                 break;
             case WriteStatus.ValidationFailed:
                 _errors = result.Errors ?? new Dictionary<string, string[]>();
+                _status = "Błąd. Popraw wskazane pola.";
                 break;
             default:
                 _conflict = true;
+                _status = "Konflikt. Dane zmieniły się w innej karcie.";
                 break;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        _dirty = false;
+        await DisableGuardAsync();
+        await Cancelled.InvokeAsync();
+    }
+
+    private async Task DisableGuardAsync()
+    {
+        if (_unsavedChanges is not null && _guardEnabled)
+        {
+            await _unsavedChanges.InvokeVoidAsync("disable");
+            _guardEnabled = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_editContext is not null)
+        {
+            _editContext.OnFieldChanged -= OnFieldChanged;
+        }
+
+        if (_unsavedChanges is not null)
+        {
+            try
+            {
+                await DisableGuardAsync();
+                await _unsavedChanges.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
         }
     }
 }

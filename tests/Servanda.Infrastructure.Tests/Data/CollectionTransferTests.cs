@@ -127,6 +127,25 @@ public sealed class CollectionTransferTests
     }
 
     [Fact]
+    public async Task DiscardingPreviewRemovesStagingDatabaseWithoutChangingCollection()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        await using var services = await TestDatabase.InitializeAsync(temporaryDirectory.Path);
+        await SeedAsync(services);
+        var export = await services.GetRequiredService<ICollectionExportService>().ExportAsync();
+        var import = services.GetRequiredService<ICollectionImportService>();
+        await using var stream = File.OpenRead(export.FilePath);
+        var preview = await import.PrepareAsync(stream);
+
+        await import.DiscardAsync(preview.Token!);
+
+        Assert.Empty(Directory.GetDirectories(Path.Combine(temporaryDirectory.Path, "data"), "import-*"));
+        Assert.Equal(2, (await services.GetRequiredService<IToolCatalogService>()
+            .SearchAsync(new ToolQuery(ToolAreaId))).TotalCount);
+        Assert.Equal(ImportApplyStatus.Expired, (await import.ApplyAsync(preview.Token!)).Status);
+    }
+
+    [Fact]
     public async Task ExportedFileIsPrivateAndUsesApplicationGeneratedName()
     {
         using var temporaryDirectory = new TemporaryDirectory();

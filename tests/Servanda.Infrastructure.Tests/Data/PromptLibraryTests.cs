@@ -126,6 +126,63 @@ public sealed class PromptLibraryTests
     }
 
     [Fact]
+    public async Task ReorderingPromptAndOwnedRowsPersistsDenseOrder()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        await using var services = await TestDatabase.InitializeAsync(temporaryDirectory.Path);
+        var context = await LibraryContext.CreateAsync(services);
+        var first = (await context.CreatePromptAsync("Pierwszy")).Prompt!;
+        var second = (await context.CreatePromptAsync(
+            "Drugi",
+            variants:
+            [
+                new PromptVariantDraft(null, "A", null, "{{pierwsza}}"),
+                new PromptVariantDraft(null, "B", null, "{{druga}}"),
+            ],
+            variables:
+            [
+                new PromptVariableDraft(null, "pierwsza", "Pierwsza", "", false, false),
+                new PromptVariableDraft(null, "druga", "Druga", "", false, false),
+            ])).Prompt!;
+        var scope = await context.Prompts.GetScopeAsync(context.CategoryId);
+        var page = await context.Prompts.SearchAsync(new PromptQuery(PromptAreaId));
+
+        var moved = await context.Prompts.MoveAsync(new MovePromptCommand(
+            second.Id,
+            context.CategoryId,
+            first.Id,
+            second.Revision,
+            scope.Revision,
+            scope.Revision,
+            page.ContentEpoch));
+        var editor = await context.Prompts.GetForEditAsync(second.Id);
+        var updated = await context.Prompts.UpdateAsync(new UpdatePromptCommand(
+            second.Id,
+            second.Title,
+            second.Description,
+            [],
+            [
+                new PromptVariantDraft(editor!.Variants[1].Id, "B", null, "{{druga}}"),
+                new PromptVariantDraft(editor.Variants[0].Id, "A", null, "{{pierwsza}}"),
+            ],
+            [
+                new PromptVariableDraft(editor.Variables[1].Id, "druga", "Druga", "", false, false),
+                new PromptVariableDraft(editor.Variables[0].Id, "pierwsza", "Pierwsza", "", false, false),
+            ],
+            false,
+            editor.Revision,
+            editor.ContentEpoch));
+        var reordered = await context.Prompts.SearchAsync(new PromptQuery(PromptAreaId));
+        var after = await context.Prompts.GetForEditAsync(second.Id);
+
+        Assert.Equal(WriteStatus.Success, moved.Status);
+        Assert.Equal(WriteStatus.Success, updated.Status);
+        Assert.Equal(["Drugi", "Pierwszy"], reordered.Items.Select(item => item.Title));
+        Assert.Equal(["B", "A"], after!.Variants.Select(item => item.Name));
+        Assert.Equal(["druga", "pierwsza"], after.Variables.Select(item => item.Name));
+    }
+
+    [Fact]
     public async Task RecordingUsageFillsHistoryAndRecentlyUsedFilter()
     {
         using var temporaryDirectory = new TemporaryDirectory();

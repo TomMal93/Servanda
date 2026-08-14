@@ -308,6 +308,7 @@ internal sealed class SqlitePromptLibraryService(
 
         try
         {
+            await StageChildOrderAsync(database, prompt.Id, cancellationToken);
             await SaveWithVersionAsync(database, prompt, previous, timestamp, cancellationToken);
             await SearchIndexWriter.UpdatePromptAsync(database, prompt.Id, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -318,6 +319,43 @@ internal sealed class SqlitePromptLibraryService(
         }
 
         return new PromptResult(WriteStatus.Success, await ReadCardAsync(database, prompt.Id, cancellationToken));
+    }
+
+    /// <summary>
+    /// Odsuwa istniejące pozycje poza nieujemny zakres docelowy, aby zamiana dwóch wartości
+    /// nie naruszyła przejściowo unikalnych indeksów kolejności.
+    /// </summary>
+    private static async Task StageChildOrderAsync(
+        ServandaDbContext database,
+        string promptId,
+        CancellationToken cancellationToken)
+    {
+        await database.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE prompt_variants SET sort_order = sort_order + 1000000 WHERE prompt_id = {promptId};",
+            cancellationToken);
+        await database.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE prompt_variables SET sort_order = sort_order + 1000000 WHERE prompt_id = {promptId};",
+            cancellationToken);
+
+        foreach (var entry in database.ChangeTracker.Entries<PromptVariant>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Deleted))
+            {
+                var property = entry.Property(item => item.SortOrder);
+                property.OriginalValue += 1_000_000;
+                property.IsModified = true;
+            }
+        }
+
+        foreach (var entry in database.ChangeTracker.Entries<PromptVariable>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Deleted))
+            {
+                var property = entry.Property(item => item.SortOrder);
+                property.OriginalValue += 1_000_000;
+                property.IsModified = true;
+            }
+        }
     }
 
     public async Task<PromptResult> SetFavoriteAsync(

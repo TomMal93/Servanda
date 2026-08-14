@@ -1,8 +1,10 @@
 @page "/prompty"
+@implements IDisposable
 @inject IAreaService AreaService
 @inject ICategoryService CategoryService
 @inject IPromptLibraryService Library
 @inject NavigationManager Navigation
+@inject CollectionChangeNotifier CollectionChanges
 
 <PageTitle>Skarbiec promptów — Servanda</PageTitle>
 
@@ -86,6 +88,11 @@ else
                                   Cancelled="() => { _editor = null; return Task.CompletedTask; }" />
                 }
 
+                @if (_operationStatus is not null)
+                {
+                    <p class="module-editor__status" role="status" aria-live="polite">@_operationStatus</p>
+                }
+
                 @if (_items.Count == 0 && !_loading)
                 {
                     <div class="module-page__empty">
@@ -134,6 +141,17 @@ else
                                 <div class="prompt-card__actions">
                                     <a href="@($"/prompty/studio/{prompt.Id}")">Otwórz Prompt Studio</a>
                                     <button type="button" @onclick="() => BeginEditAsync(prompt.Id)">Edytuj</button>
+                                    @if (CanReorder())
+                                    {
+                                        <button type="button"
+                                                aria-label="Przenieś prompt wyżej: @prompt.Title"
+                                                @onclick="() => MoveByOffsetAsync(prompt, -1)"
+                                                disabled="@IsFirstInScope(prompt)">Wyżej</button>
+                                        <button type="button"
+                                                aria-label="Przenieś prompt niżej: @prompt.Title"
+                                                @onclick="() => MoveByOffsetAsync(prompt, 1)"
+                                                disabled="@IsLastInScope(prompt)">Niżej</button>
+                                    }
                                 </div>
                             </article>
                         }
@@ -175,7 +193,10 @@ else
     private bool _loading;
     private bool _queryTooShort;
     private bool _conflict;
+    private CancellationTokenSource? _searchCancellation;
+    private long _searchGeneration;
     private string? _loadedKey;
+    private string? _operationStatus;
 
     [SupplyParameterFromQuery(Name = "kategoria")]
     public string? CategoryId { get; set; }
@@ -185,6 +206,8 @@ else
 
     [SupplyParameterFromQuery(Name = "q")]
     public string? Text { get; set; }
+
+    protected override void OnInitialized() => CollectionChanges.Changed += HandleCollectionChangedAsync;
 
     private string CurrentFilter => Filter is "ulubione" or "ostatnie" ? Filter : "wszystkie";
 
@@ -214,29 +237,61 @@ else
             return;
         }
 
+        if (reset)
+        {
+            _searchCancellation?.Cancel();
+            _searchCancellation?.Dispose();
+            _searchCancellation = new CancellationTokenSource();
+            _searchGeneration++;
+        }
+        else
+        {
+            _searchCancellation ??= new CancellationTokenSource();
+        }
+
+        var generation = _searchGeneration;
+        var cancellationToken = _searchCancellation.Token;
+        var categoryId = CategoryId;
+        var text = Text;
+        var filter = CurrentFilter;
+        var skip = reset ? 0 : _items.Count;
         _loading = true;
         if (reset)
         {
             _items.Clear();
         }
 
-        var page = await Library.SearchAsync(new PromptQuery(
+        PromptPage page;
+        try
+        {
+            page = await Library.SearchAsync(new PromptQuery(
             _area.Id,
-            CurrentFilter switch
+            filter switch
             {
                 "ulubione" => PromptFilter.Favorites,
                 "ostatnie" => PromptFilter.RecentlyUsed,
                 _ => PromptFilter.All,
             },
-            CategoryId,
-            Text,
-            _items.Count));
+            categoryId,
+            text,
+            skip), cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (generation != _searchGeneration)
+        {
+            return;
+        }
+
         _items.AddRange(page.Items);
         _total = page.TotalCount;
         _hasMore = page.HasMore;
         _queryTooShort = page.QueryTooShort;
         _contentEpoch = page.ContentEpoch;
-        if (CategoryId is null && string.IsNullOrEmpty(Text) && CurrentFilter == "wszystkie")
+        if (categoryId is null && string.IsNullOrEmpty(text) && filter == "wszystkie")
         {
             _allCount = page.TotalCount;
         }
@@ -282,6 +337,7 @@ else
 
     private void BeginCreate()
     {
+        _operationStatus = null;
         var categoryId = CategoryId ?? _tree?.Roots.FirstOrDefault()?.Category.Id;
         if (categoryId is not null)
         {
@@ -291,6 +347,7 @@ else
 
     private async Task BeginEditAsync(string promptId)
     {
+        _operationStatus = null;
         var model = await Library.GetForEditAsync(promptId);
         if (model is not null)
         {
@@ -301,6 +358,7 @@ else
     private async Task OnEditorSavedAsync()
     {
         _editor = null;
+        _operationStatus = "Zapisano zmianę promptu.";
         await ReloadAllAsync();
     }
 
@@ -325,4 +383,67 @@ else
             _conflict = true;
         }
     }
+
+    private bool CanReorder() =>
+        string.IsNullOrEmpty(Text) && CurrentFilter == "wszystkie" && !_hasMore;
+
+    private List<PromptCard> ScopeItems(PromptCard prompt) =>
+        [.. _items
+            .Where(item => item.CategoryId == prompt.CategoryId)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Id)];
+
+    private bool IsFirstInScope(PromptCard prompt) => ScopeItems(prompt).FirstOrDefault()?.Id == prompt.Id;
+
+    private bool IsLastInScope(PromptCard prompt) => ScopeItems(prompt).LastOrDefault()?.Id == prompt.Id;
+
+    private async Task MoveByOffsetAsync(PromptCard prompt, int offset)
+    {
+        var siblings = ScopeItems(prompt);
+        if (!OrderingPlacement.TryMoveByOffset(
+                siblings.Select(item => item.Id).ToList(),
+                prompt.Id,
+                offset,
+                out var beforeId))
+        {
+            return;
+        }
+
+        _conflict = false;
+        var scope = await Library.GetScopeAsync(prompt.CategoryId);
+        var result = await Library.MoveAsync(new MovePromptCommand(
+            prompt.Id,
+            prompt.CategoryId,
+            beforeId,
+            prompt.Revision,
+            scope.Revision,
+            scope.Revision,
+            _contentEpoch));
+        if (result.Status != WriteStatus.Success)
+        {
+            _conflict = true;
+        }
+
+        await ReloadAllAsync();
+    }
+
+    public void Dispose()
+    {
+        CollectionChanges.Changed -= HandleCollectionChangedAsync;
+        _searchCancellation?.Cancel();
+        _searchCancellation?.Dispose();
+    }
+
+    private Task HandleCollectionChangedAsync() => InvokeAsync(async () =>
+    {
+        if (_editor is not null)
+        {
+            return;
+        }
+
+        _area = await ModuleArea.FindAsync(AreaService, ModuleArea.PromptsModuleKey);
+        _tree = _area is null ? null : await CategoryService.GetTreeAsync(_area.Id);
+        await LoadPageAsync(reset: true);
+        StateHasChanged();
+    });
 }

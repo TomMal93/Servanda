@@ -131,6 +131,14 @@ internal sealed class SqliteCollectionImportService(
         }
     }
 
+    public Task DiscardAsync(string token, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        cancellationToken.ThrowIfCancellationRequested();
+        stagingStore.Discard(token);
+        return Task.CompletedTask;
+    }
+
     private static ImportPreview Rejected(IReadOnlyList<string> problems) =>
         new(ImportPreviewStatus.Rejected, null, null, [], problems);
 

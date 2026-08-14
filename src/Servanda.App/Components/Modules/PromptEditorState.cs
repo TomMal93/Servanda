@@ -14,13 +14,23 @@ public sealed class PromptEditorState
 
     public string CategoryId { get; set; } = string.Empty;
 
+    public string OriginalCategoryId { get; init; } = string.Empty;
+
     public string Title { get; set; } = string.Empty;
+
+    public string OriginalTitle { get; init; } = string.Empty;
 
     public string Description { get; set; } = string.Empty;
 
+    public string OriginalDescription { get; init; } = string.Empty;
+
     public string Tags { get; set; } = string.Empty;
 
+    public string OriginalTags { get; init; } = string.Empty;
+
     public bool AllowUnusedVariables { get; set; }
+
+    public bool OriginalAllowUnusedVariables { get; init; }
 
     public long Revision { get; init; }
 
@@ -46,12 +56,25 @@ public sealed class PromptEditorState
             row.IsRequired,
             row.IsMultiline))];
 
+    public bool ContentChanged() => IsNew
+        || !string.Equals(Title, OriginalTitle, StringComparison.Ordinal)
+        || !string.Equals(Description, OriginalDescription, StringComparison.Ordinal)
+        || !string.Equals(Tags, OriginalTags, StringComparison.Ordinal)
+        || AllowUnusedVariables != OriginalAllowUnusedVariables
+        || !VariantDrafts().SequenceEqual(OriginalVariants)
+        || !VariableDrafts().SequenceEqual(OriginalVariables);
+
+    private IReadOnlyList<PromptVariantDraft> OriginalVariants { get; init; } = [];
+
+    private IReadOnlyList<PromptVariableDraft> OriginalVariables { get; init; } = [];
+
     public static PromptEditorState ForCreate(string areaId, string categoryId, string contentEpoch)
     {
         var state = new PromptEditorState
         {
             AreaId = areaId,
             CategoryId = categoryId,
+            OriginalCategoryId = categoryId,
             ContentEpoch = contentEpoch,
         };
         state.Variants.Add(new VariantRow { Name = "Podstawowy" });
@@ -65,9 +88,25 @@ public sealed class PromptEditorState
             Id = model.Id,
             AreaId = model.AreaId,
             CategoryId = model.CategoryId,
+            OriginalCategoryId = model.CategoryId,
             Title = model.Title,
+            OriginalTitle = model.Title,
             Description = model.Description,
+            OriginalDescription = model.Description,
             Tags = TagList.Format(model.TagNames),
+            OriginalTags = TagList.Format(model.TagNames),
+            OriginalVariants = [.. model.Variants.Select(variant => new PromptVariantDraft(
+                variant.Id,
+                variant.Name,
+                variant.Target,
+                variant.Content))],
+            OriginalVariables = [.. model.Variables.Select(variable => new PromptVariableDraft(
+                variable.Id,
+                variable.Name,
+                variable.Label,
+                variable.DefaultValue,
+                variable.IsRequired,
+                variable.IsMultiline))],
             Revision = model.Revision,
             ContentEpoch = model.ContentEpoch,
         };

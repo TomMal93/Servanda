@@ -1,9 +1,15 @@
+@implements IAsyncDisposable
 @inject IToolCatalogService Catalog
+@inject IJSRuntime JavaScript
 
 <section class="module-editor" aria-labelledby="tool-editor-heading">
     <h3 id="tool-editor-heading">@(Model.IsNew ? "Nowe narzędzie" : "Edycja narzędzia")</h3>
 
-    <EditForm Model="Model" OnValidSubmit="SaveAsync" FormName="tool-editor">
+    <EditForm EditContext="_editContext"
+              OnValidSubmit="SaveAsync"
+              FormName="tool-editor"
+              @oninput="_ => MarkDirty()"
+              @onchange="_ => MarkDirty()">
         <div class="field">
             <label for="tool-name">Nazwa <span aria-hidden="true">*</span></label>
             <InputText id="tool-name" @bind-Value="Model.Name" maxlength="70" required />
@@ -43,25 +49,33 @@
             }
         </div>
 
-        @if (Model.IsNew)
-        {
-            <div class="field">
-                <label for="tool-category">Kategoria</label>
-                <InputSelect id="tool-category" @bind-Value="Model.CategoryId">
-                    @foreach (var option in CategoryOptions.Flatten(Tree.Roots))
-                    {
-                        <option value="@option.Id">@option.Label</option>
-                    }
-                </InputSelect>
-            </div>
+        <div class="field">
+            <label for="tool-category">Kategoria</label>
+            <InputSelect id="tool-category" @bind-Value="Model.CategoryId">
+                @foreach (var option in CategoryOptions.Flatten(Tree.Roots))
+                {
+                    <option value="@option.Id">@option.Label</option>
+                }
+            </InputSelect>
+        </div>
 
-            <div class="field">
-                <label for="tool-group">Grupa</label>
-                <InputSelect id="tool-group" @bind-Value="Model.GroupKey">
-                    <option value="featured">Lubię i szanuję</option>
-                    <option value="regular">Fajne</option>
-                </InputSelect>
-            </div>
+        <div class="field">
+            <label for="tool-group">Grupa</label>
+            <InputSelect id="tool-group" @bind-Value="Model.GroupKey">
+                <option value="featured">Lubię i szanuję</option>
+                <option value="regular">Fajne</option>
+            </InputSelect>
+        </div>
+
+        @if (!Model.IsNew && MembershipChanged())
+        {
+            <p class="field__hint">
+                Zmiana kategorii lub grupy jest osobną operacją i umieści narzędzie na końcu wybranej listy.
+                @if (Model.ContentChanged())
+                {
+                    @: Najpierw zapisz treść, a następnie ponownie otwórz edytor, aby przenieść narzędzie.
+                }
+            </p>
         }
 
         @if (_conflict)
@@ -75,21 +89,54 @@
             <button class="button button--primary" type="submit" disabled="@_saving">
                 @(_saving ? "Zapisywanie…" : "Zapisz")
             </button>
-            <button type="button" @onclick="Cancelled" disabled="@_saving">Anuluj</button>
+            <button type="button" @onclick="CancelAsync" disabled="@_saving">Anuluj</button>
+            @if (!Model.IsNew && MembershipChanged())
+            {
+                <button type="button" @onclick="MoveAsync" disabled="@(_saving || Model.ContentChanged())">
+                    Przenieś narzędzie
+                </button>
+            }
             @if (!Model.IsNew)
             {
-                <button type="button" class="module-editor__danger" @onclick="DeleteAsync" disabled="@_saving">
+                <button type="button" class="module-editor__danger" @onclick="() => _deleteRequested = true" disabled="@_saving">
                     Usuń narzędzie
                 </button>
             }
         </div>
+
+        <p class="module-editor__status" role="status" aria-live="polite">@_status</p>
+
+        @if (_deleteRequested)
+        {
+            <div class="module-editor__confirmation" role="group" aria-labelledby="tool-delete-heading">
+                <h4 id="tool-delete-heading">Usuń narzędzie „@Model.Name”?</h4>
+                <p>Narzędzie i jego przypisania tagów zostaną trwale usunięte.</p>
+                <label class="module-editor__confirm">
+                    <input type="checkbox" @bind="_deleteConfirmed" @onchange:stopPropagation />
+                    Potwierdzam usunięcie tego narzędzia
+                </label>
+                <div class="module-editor__actions">
+                    <button type="button" class="module-editor__danger" @onclick="DeleteAsync"
+                            disabled="@(_saving || !_deleteConfirmed)">Usuń trwale</button>
+                    <button type="button" @onclick="CancelDelete" disabled="@_saving">Anuluj</button>
+                </div>
+            </div>
+        }
     </EditForm>
 </section>
 
 @code {
     private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private EditContext? _editContext;
+    private ToolEditorState? _editContextModel;
+    private IJSObjectReference? _unsavedChanges;
     private bool _saving;
     private bool _conflict;
+    private bool _dirty;
+    private bool _guardEnabled;
+    private string _status = "Edytor gotowy. Brak niezapisanych zmian.";
+    private bool _deleteRequested;
+    private bool _deleteConfirmed;
 
     [Parameter, EditorRequired]
     public required ToolEditorState Model { get; set; }
@@ -103,12 +150,56 @@
     [Parameter]
     public EventCallback Cancelled { get; set; }
 
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_editContextModel, Model))
+        {
+            return;
+        }
+
+        if (_editContext is not null)
+        {
+            _editContext.OnFieldChanged -= OnFieldChanged;
+        }
+
+        _editContextModel = Model;
+        _editContext = new EditContext(Model);
+        _editContext.OnFieldChanged += OnFieldChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _unsavedChanges = await JavaScript.InvokeAsync<IJSObjectReference>("import", "/unsaved-changes.js");
+        }
+
+        if (_unsavedChanges is not null && _guardEnabled != _dirty)
+        {
+            await _unsavedChanges.InvokeVoidAsync(_dirty ? "enable" : "disable");
+            _guardEnabled = _dirty;
+        }
+    }
+
+    private void OnFieldChanged(object? sender, FieldChangedEventArgs args) => MarkDirty();
+
+    private void MarkDirty()
+    {
+        _dirty = true;
+        _status = "Niezapisane zmiany.";
+    }
+
     private IEnumerable<string> ErrorsFor(string field) =>
         _errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private bool MembershipChanged() =>
+        !string.Equals(Model.CategoryId, Model.OriginalCategoryId, StringComparison.Ordinal)
+        || !string.Equals(Model.GroupKey, Model.OriginalGroupKey, StringComparison.Ordinal);
 
     private async Task SaveAsync()
     {
         _saving = true;
+        _status = "Zapisywanie…";
         _conflict = false;
         _errors = new Dictionary<string, string[]>();
 
@@ -147,11 +238,42 @@
     {
         _saving = true;
         _conflict = false;
-        var scope = await Catalog.GetScopeAsync(Model.CategoryId, Model.GroupKey);
+        var scope = await Catalog.GetScopeAsync(Model.OriginalCategoryId, Model.OriginalGroupKey);
         var result = await Catalog.DeleteAsync(new DeleteToolCommand(
             Model.Id!,
             Model.Revision,
             scope.Revision,
+            Model.ContentEpoch));
+        _saving = false;
+        await HandleAsync(result);
+    }
+
+    private void CancelDelete()
+    {
+        _deleteRequested = false;
+        _deleteConfirmed = false;
+    }
+
+    private async Task MoveAsync()
+    {
+        if (Model.IsNew || !MembershipChanged())
+        {
+            return;
+        }
+
+        _saving = true;
+        _status = "Zapisywanie zmiany położenia…";
+        _conflict = false;
+        var source = await Catalog.GetScopeAsync(Model.OriginalCategoryId, Model.OriginalGroupKey);
+        var target = await Catalog.GetScopeAsync(Model.CategoryId, Model.GroupKey);
+        var result = await Catalog.MoveAsync(new MoveToolCommand(
+            Model.Id!,
+            Model.CategoryId,
+            Model.GroupKey,
+            null,
+            Model.Revision,
+            source.Revision,
+            target.Revision,
             Model.ContentEpoch));
         _saving = false;
         await HandleAsync(result);
@@ -162,14 +284,55 @@
         switch (result.Status)
         {
             case WriteStatus.Success:
+                _dirty = false;
+                _status = "Zapisano.";
+                await DisableGuardAsync();
                 await Saved.InvokeAsync();
                 break;
             case WriteStatus.ValidationFailed:
                 _errors = result.Errors ?? new Dictionary<string, string[]>();
+                _status = "Błąd. Popraw wskazane pola.";
                 break;
             default:
                 _conflict = true;
+                _status = "Konflikt. Dane zmieniły się w innej karcie.";
                 break;
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        _dirty = false;
+        await DisableGuardAsync();
+        await Cancelled.InvokeAsync();
+    }
+
+    private async Task DisableGuardAsync()
+    {
+        if (_unsavedChanges is not null && _guardEnabled)
+        {
+            await _unsavedChanges.InvokeVoidAsync("disable");
+            _guardEnabled = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_editContext is not null)
+        {
+            _editContext.OnFieldChanged -= OnFieldChanged;
+        }
+
+        if (_unsavedChanges is not null)
+        {
+            try
+            {
+                await DisableGuardAsync();
+                await _unsavedChanges.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
         }
     }
 }

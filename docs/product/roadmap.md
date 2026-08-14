@@ -68,7 +68,7 @@
 
 ## P4 — pierwsze moduły v2
 
-**Status:** aktywny
+**Status:** ukończony
 **Wersja:** v2  
 **Rezultat:** katalog narzędzi oraz biblioteka promptów stają się pierwszymi aktywnymi obszarami opartymi na fundamencie danych v2.
 
