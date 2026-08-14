@@ -8,7 +8,7 @@ public sealed class AreaTests
     public void UpdateContentNormalizesValuesAndIncrementsRevision()
     {
         var created = new DateTimeOffset(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
-        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", 0, created);
+        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", Area.PlannedAvailability, 0, created);
 
         var errors = area.UpdateContent("  Mój dom  ", "  Nowy opis  ", created.AddMinutes(1));
 
@@ -24,7 +24,7 @@ public sealed class AreaTests
     {
         var created = new DateTimeOffset(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
         var changed = created.AddMinutes(1);
-        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", 0, created);
+        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", Area.PlannedAvailability, 0, created);
 
         area.SetVisibility(true, changed);
 
@@ -39,7 +39,7 @@ public sealed class AreaTests
         var created = new DateTimeOffset(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
         var archived = created.AddMinutes(1);
         var restored = created.AddMinutes(2);
-        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", 0, created);
+        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", Area.PlannedAvailability, 0, created);
         area.SetVisibility(true, created.AddSeconds(30));
 
         area.SetArchived(true, archived);
@@ -63,7 +63,7 @@ public sealed class AreaTests
     public void UpdateContentRejectsEmptyName(string name)
     {
         var timestamp = DateTimeOffset.UtcNow;
-        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", 0, timestamp);
+        var area = Area.CreateSeed("area-1", "Dom", "Opis", "home", "accent-0", "home", Area.PlannedAvailability, 0, timestamp);
 
         var errors = area.UpdateContent(name, "Nowy opis", timestamp.AddMinutes(1));
 

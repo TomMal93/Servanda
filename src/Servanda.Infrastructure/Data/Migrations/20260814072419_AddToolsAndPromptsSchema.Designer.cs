@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Servanda.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using Servanda.Infrastructure.Data;
 namespace Servanda.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ServandaDbContext))]
-    partial class ServandaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814072419_AddToolsAndPromptsSchema")]
+    partial class AddToolsAndPromptsSchema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.10");

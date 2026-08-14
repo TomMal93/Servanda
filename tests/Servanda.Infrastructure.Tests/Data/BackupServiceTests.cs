@@ -37,7 +37,7 @@ public sealed class BackupServiceTests
         Assert.Equal(BackupVerificationStatus.Verified, verification.Status);
         Assert.Equal(backup, verification.Backup);
         Assert.Equal(BackupReason.Migration, backup.Reason);
-        Assert.Equal("20260813120000_AddAreaVisibilityIndex", backup.SchemaVersion);
+        Assert.Equal("20260814072419_AddToolsAndPromptsSchema", backup.SchemaVersion);
         Assert.NotEqual(default, backup.CreatedAt);
         Assert.Equal(TimeSpan.Zero, backup.CreatedAt.Offset);
         Assert.Equal("test-version", backup.ApplicationVersion);

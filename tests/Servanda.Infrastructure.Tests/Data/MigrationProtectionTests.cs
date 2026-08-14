@@ -15,6 +15,7 @@ public sealed class MigrationProtectionTests
 {
     private const string InitialMigration = "20260812211246_InitialAreas";
     private const string VisibilityIndexMigration = "20260813120000_AddAreaVisibilityIndex";
+    private const string SchemaMigration = "20260814072419_AddToolsAndPromptsSchema";
     private const string VisibilityIndex = "IX_areas_archived_at_is_hidden_sort_order";
 
     [Fact]
@@ -29,7 +30,7 @@ public sealed class MigrationProtectionTests
         await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
 
         Assert.Equal(
-            new[] { InitialMigration, VisibilityIndexMigration },
+            new[] { InitialMigration, VisibilityIndexMigration, SchemaMigration },
             await ReadAppliedMigrationsAsync(paths.DatabasePath));
         Assert.True(await IndexExistsAsync(paths.DatabasePath, VisibilityIndex));
         Assert.Equal("Stan przed migracją", await ReadHomeAreaNameAsync(paths.DatabasePath));
@@ -98,7 +99,7 @@ public sealed class MigrationProtectionTests
         await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
 
         Assert.Equal(
-            new[] { InitialMigration, VisibilityIndexMigration },
+            new[] { InitialMigration, VisibilityIndexMigration, SchemaMigration },
             await ReadAppliedMigrationsAsync(paths.DatabasePath));
         Assert.False(Directory.Exists(paths.BackupsDirectory));
         var factory = services.GetRequiredService<IDbContextFactory<ServandaDbContext>>();

@@ -62,6 +62,7 @@ public static class ServandaDatabase
             var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ServandaDbContext>>();
             var backupService = scope.ServiceProvider.GetRequiredService<IBackupService>();
             await using var database = await factory.CreateDbContextAsync(cancellationToken);
+            await VerifyFullTextSearchAsync(database, cancellationToken);
             var appliedMigrations = (await database.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
             var pendingMigrations = (await database.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
             if (appliedMigrations.Count > 0 && pendingMigrations.Count > 0)
@@ -95,6 +96,32 @@ public static class ServandaDatabase
         catch (Exception exception)
         {
             throw new DatabaseInitializationException(failure, backupState, exception);
+        }
+    }
+
+    /// <summary>
+    /// Brak FTS5 jest błędem niezgodnego artefaktu, a nie powodem cichego przejścia na pełny skan.
+    /// </summary>
+    private static async Task VerifyFullTextSearchAsync(
+        ServandaDbContext database,
+        CancellationToken cancellationToken)
+    {
+        var connection = database.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT COUNT(*) FROM pragma_compile_options WHERE compile_options = 'ENABLE_FTS5';";
+        var enabled = Convert.ToInt64(
+            await command.ExecuteScalarAsync(cancellationToken),
+            System.Globalization.CultureInfo.InvariantCulture);
+        if (enabled == 0)
+        {
+            throw new InvalidOperationException(
+                "Artefakt aplikacji nie zawiera modułu SQLite FTS5 wymaganego przez wyszukiwanie.");
         }
     }
 

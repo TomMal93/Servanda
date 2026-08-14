@@ -21,6 +21,7 @@ public sealed class Area
         string iconKey,
         string accentKey,
         string moduleKey,
+        string availability,
         int sortOrder,
         DateTimeOffset timestamp)
     {
@@ -30,7 +31,7 @@ public sealed class Area
         IconKey = iconKey;
         AccentKey = accentKey;
         ModuleKey = moduleKey;
-        Availability = "planned";
+        Availability = availability;
         SortOrder = sortOrder;
         CreatedAt = timestamp;
         UpdatedAt = timestamp;
@@ -63,6 +64,9 @@ public sealed class Area
 
     public long Revision { get; private set; }
 
+    public const string ActiveAvailability = "active";
+    public const string PlannedAvailability = "planned";
+
     public static Area CreateSeed(
         string id,
         string name,
@@ -70,9 +74,17 @@ public sealed class Area
         string iconKey,
         string accentKey,
         string moduleKey,
+        string availability,
         int sortOrder,
-        DateTimeOffset timestamp) =>
-        new(id, name, description, iconKey, accentKey, moduleKey, sortOrder, timestamp);
+        DateTimeOffset timestamp)
+    {
+        if (availability is not (ActiveAvailability or PlannedAvailability))
+        {
+            throw new ArgumentOutOfRangeException(nameof(availability));
+        }
+
+        return new Area(id, name, description, iconKey, accentKey, moduleKey, availability, sortOrder, timestamp);
+    }
 
     public static Area? CreatePlanned(
         string id,
@@ -93,6 +105,7 @@ public sealed class Area
                 iconKey,
                 accentKey,
                 "custom",
+                PlannedAvailability,
                 sortOrder,
                 timestamp)
             : null;
