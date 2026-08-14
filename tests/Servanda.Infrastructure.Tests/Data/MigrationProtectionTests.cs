@@ -65,8 +65,11 @@ public sealed class MigrationProtectionTests
         await UpdateAreaNameAsync(paths.DatabasePath, "Dane chronione przed awarią");
         await using var failingServices = CreateServices(paths, new FailVisibilityIndexInterceptor());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        var exception = await Assert.ThrowsAsync<DatabaseInitializationException>(
             () => ServandaDatabase.InitializeAsync(failingServices, paths, TimeProvider.System));
+        Assert.Equal(DatabaseInitializationFailure.Migration, exception.Failure);
+        Assert.Equal(ProtectionBackupState.Verified, exception.BackupState);
+        Assert.IsType<InvalidOperationException>(exception.InnerException);
 
         Assert.Equal(new[] { InitialMigration }, await ReadAppliedMigrationsAsync(paths.DatabasePath));
         Assert.False(await IndexExistsAsync(paths.DatabasePath, VisibilityIndex));

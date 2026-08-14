@@ -13,7 +13,7 @@ public sealed class LocalHostSecurityMiddleware
 
     public async Task InvokeAsync(HttpContext context, InstanceRuntimeState runtimeState)
     {
-        if (!runtimeState.IsReady)
+        if (!runtimeState.HasOrigin)
         {
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             return;

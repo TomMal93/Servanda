@@ -47,9 +47,11 @@ public sealed class InstanceLifecyclePublisher : IHostedLifecycleService
             origin.GetLeftPart(UriPartial.Authority));
 
         await _descriptorStore.PublishAsync(starting, cancellationToken);
-        await _technicalLog.WriteAsync(TechnicalEvent.HostReady, cancellationToken);
-        _runtimeState.MarkReady(origin);
-        await _descriptorStore.PublishAsync(starting.Ready(), cancellationToken);
+        _runtimeState.AttachOrigin(origin);
+        await _technicalLog.WriteAsync(
+            _runtimeState.IsReady ? TechnicalEvent.HostReady : TechnicalEvent.HostRecovery,
+            cancellationToken);
+        await _descriptorStore.PublishAsync(_runtimeState.CreateDescriptor(), cancellationToken);
     }
 
     public Task StoppingAsync(CancellationToken cancellationToken) => Task.CompletedTask;

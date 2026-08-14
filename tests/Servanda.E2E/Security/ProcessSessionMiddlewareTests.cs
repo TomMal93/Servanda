@@ -195,7 +195,8 @@ public sealed class ProcessSessionMiddlewareTests
     private static InstanceRuntimeState CreateRuntimeState()
     {
         var state = new InstanceRuntimeState();
-        state.MarkReady(Origin);
+        state.MarkDatabaseReady();
+        state.AttachOrigin(Origin);
         return state;
     }
 

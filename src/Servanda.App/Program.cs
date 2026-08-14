@@ -130,11 +130,13 @@ public class Program
             builder.Services.AddServandaDatabase(paths, GetApplicationVersion());
             builder.Services.AddSingleton<InstanceRuntimeState>();
             builder.Services.AddSingleton(new AtomicInstanceDescriptorStore(paths.DescriptorPath));
+            builder.Services.AddSingleton<DatabaseRecoveryCoordinator>();
             builder.Services.AddHostedService<InstanceLifecyclePublisher>();
 
             var app = builder.Build();
 
-            await ServandaDatabase.InitializeAsync(app.Services, paths, TimeProvider.System);
+            var recoveryCoordinator = app.Services.GetRequiredService<DatabaseRecoveryCoordinator>();
+            await recoveryCoordinator.InitializeAsync();
 
             if (!app.Environment.IsDevelopment())
             {
@@ -144,13 +146,14 @@ public class Program
             app.UseMiddleware<LocalHostSecurityMiddleware>();
             app.UseRouting();
             app.UseMiddleware<ProcessSessionMiddleware>();
+            app.UseMiddleware<RecoveryModeMiddleware>();
             app.UseAntiforgery();
 
             app.MapGet("/instance", (InstanceRuntimeState state) => Results.Json(new
             {
                 formatVersion = InstanceDescriptor.CurrentFormatVersion,
                 instanceId = state.InstanceId,
-                state = "ready",
+                state = state.DescriptorState,
             }));
 
             app.MapPost("/launcher/ticket", (
@@ -226,6 +229,7 @@ public class Program
                 .WithMetadata(new RequestSizeLimitAttribute(1024));
 
             app.MapStaticAssets();
+            app.MapRecoveryRetry();
             app.MapShutdown();
             app.MapRazorComponents<Servanda.App.Components.App>()
                 .AddInteractiveServerRenderMode();

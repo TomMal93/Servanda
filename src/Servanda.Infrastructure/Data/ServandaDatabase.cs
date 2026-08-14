@@ -47,27 +47,49 @@ public static class ServandaDatabase
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        PreparePrivateDatabaseFile(paths.DatabasePath);
-
-        await using var scope = services.CreateAsyncScope();
-        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ServandaDbContext>>();
-        var backupService = scope.ServiceProvider.GetRequiredService<IBackupService>();
-        await using var database = await factory.CreateDbContextAsync(cancellationToken);
-        var appliedMigrations = (await database.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
-        var pendingMigrations = (await database.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
-        if (appliedMigrations.Count > 0 && pendingMigrations.Count > 0)
+        var failure = DatabaseInitializationFailure.DatabaseAccess;
+        var backupState = ProtectionBackupState.NotCreated;
+        try
         {
-            var backup = await backupService.CreateAsync(BackupReason.Migration, cancellationToken);
-            var verification = await backupService.VerifyAsync(backup.Id, cancellationToken);
-            if (verification.Status != BackupVerificationStatus.Verified)
-            {
-                throw new InvalidDataException("Kopia ochronna przed migracją nie przeszła weryfikacji.");
-            }
-        }
+            PreparePrivateDatabaseFile(paths.DatabasePath);
 
-        await database.Database.MigrateAsync(cancellationToken);
-        await InitialAreaSeed.ApplyAsync(database, timeProvider, cancellationToken);
-        PrivateFileSystem.VerifyPrivateFile(paths.DatabasePath, LinuxIdentity.GetEffectiveUserId());
+            await using var scope = services.CreateAsyncScope();
+            var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<ServandaDbContext>>();
+            var backupService = scope.ServiceProvider.GetRequiredService<IBackupService>();
+            await using var database = await factory.CreateDbContextAsync(cancellationToken);
+            var appliedMigrations = (await database.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
+            var pendingMigrations = (await database.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
+            if (appliedMigrations.Count > 0 && pendingMigrations.Count > 0)
+            {
+                failure = DatabaseInitializationFailure.ProtectionBackup;
+                var backup = await backupService.CreateAsync(BackupReason.Migration, cancellationToken);
+                var verification = await backupService.VerifyAsync(backup.Id, cancellationToken);
+                if (verification.Status != BackupVerificationStatus.Verified)
+                {
+                    throw new InvalidDataException("Kopia ochronna przed migracją nie przeszła weryfikacji.");
+                }
+
+                backupState = ProtectionBackupState.Verified;
+            }
+
+            failure = DatabaseInitializationFailure.Migration;
+            await database.Database.MigrateAsync(cancellationToken);
+            failure = DatabaseInitializationFailure.DatabaseAccess;
+            await InitialAreaSeed.ApplyAsync(database, timeProvider, cancellationToken);
+            PrivateFileSystem.VerifyPrivateFile(paths.DatabasePath, LinuxIdentity.GetEffectiveUserId());
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (DatabaseInitializationException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new DatabaseInitializationException(failure, backupState, exception);
+        }
     }
 
     private static void PreparePrivateDatabaseFile(string path)

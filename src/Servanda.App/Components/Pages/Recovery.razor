@@ -1,0 +1,63 @@
+@page "/recovery"
+@layout RecoveryLayout
+@using Servanda.Infrastructure.Data
+@inject DatabaseRecoveryCoordinator RecoveryCoordinator
+
+<PageTitle>Odzyskiwanie — Servanda</PageTitle>
+
+<section class="system-message system-message--warning" aria-labelledby="recovery-heading">
+    <p class="eyebrow">Tryb odzyskiwania</p>
+    <h1 id="recovery-heading">Servanda nie może otworzyć magazynu danych</h1>
+    <p>
+        Zwykłe obszary i operacje zapisu są tymczasowo niedostępne. Dane nie zostały zastąpione
+        pustą kolekcją.
+    </p>
+
+    <dl class="recovery-status">
+        <div>
+            <dt>Kategoria problemu</dt>
+            <dd>@FailureDescription</dd>
+        </div>
+        <div>
+            <dt>Kopia ochronna</dt>
+            <dd>@BackupDescription</dd>
+        </div>
+    </dl>
+
+    <p id="recovery-retry-failure"
+       class="recovery-error"
+       role="alert"
+       hidden="@(Retry != "failed")">
+        Ponowna próba nie powiodła się. Baza i istniejąca kopia pozostały zachowane.
+    </p>
+
+    <form id="recovery-retry" method="post" action="@RecoveryEndpoint.RetryPath">
+        <AntiforgeryToken />
+        <button type="button">Ponów przygotowanie magazynu</button>
+    </form>
+
+    <p class="system-message__detail">
+        Jeżeli problem się powtarza, zamknij Servandę i zachowaj katalog danych do diagnostyki.
+        Szczegóły techniczne nie są wyświetlane w przeglądarce.
+    </p>
+</section>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? Retry { get; set; }
+
+    private RecoverySnapshot Snapshot => RecoveryCoordinator.Snapshot;
+
+    private string FailureDescription => Snapshot.Failure switch
+    {
+        DatabaseInitializationFailure.ProtectionBackup => "Nie udało się utworzyć lub zweryfikować kopii ochronnej.",
+        DatabaseInitializationFailure.Migration => "Nie udało się bezpiecznie zaktualizować schematu bazy.",
+        _ => "Nie udało się otworzyć lub sprawdzić lokalnej bazy.",
+    };
+
+    private string BackupDescription => Snapshot.BackupState switch
+    {
+        ProtectionBackupState.Verified => "Utworzona i zweryfikowana przed próbą aktualizacji.",
+        _ => "Nie została utworzona; operacja nie przeszła do chronionej aktualizacji.",
+    };
+}

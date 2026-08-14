@@ -13,4 +13,6 @@ public sealed record InstanceDescriptor(
         new(CurrentFormatVersion, instanceId, processId, origin, "starting");
 
     public InstanceDescriptor Ready() => this with { State = "ready" };
+
+    public InstanceDescriptor Recovery() => this with { State = "recovery" };
 }

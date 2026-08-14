@@ -47,6 +47,23 @@ public sealed class RuntimeFilesTests
     }
 
     [Fact]
+    public async Task AvailableReaderAcceptsRecoveryButReadyReaderDoesNot()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var descriptorPath = Path.Combine(temporaryDirectory.Path, "instance.json");
+        var store = new AtomicInstanceDescriptorStore(descriptorPath);
+        var reader = new InstanceDescriptorReader(descriptorPath);
+        var recovery = InstanceDescriptor
+            .Starting("instance-1", 123, "http://127.0.0.1:43210")
+            .Recovery();
+
+        await store.PublishAsync(recovery);
+
+        Assert.Equal(recovery, await reader.TryReadAvailableAsync());
+        Assert.Null(await reader.TryReadReadyAsync());
+    }
+
+    [Fact]
     public async Task CreateAndPublishAsyncWritesPrivate256BitSecret()
     {
         using var temporaryDirectory = new TemporaryDirectory();

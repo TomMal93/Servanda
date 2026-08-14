@@ -19,7 +19,15 @@ if (!ticket) {
             throw new Error("bootstrap rejected");
         }
 
-        window.location.replace("/");
+        const instanceResponse = await fetch("/instance", {
+            credentials: "same-origin"
+        });
+        if (!instanceResponse.ok) {
+            throw new Error("instance state unavailable");
+        }
+
+        const instance = await instanceResponse.json();
+        window.location.replace(instance.state === "recovery" ? "/recovery" : "/");
     } catch {
         statusElement.textContent = "Nie udało się potwierdzić sesji. Otwórz Servandę ponownie z menu aplikacji.";
     }

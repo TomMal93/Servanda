@@ -17,6 +17,12 @@ public sealed class InstanceDescriptorReader
 
     public async Task<InstanceDescriptor?> TryReadReadyAsync(CancellationToken cancellationToken = default)
     {
+        var descriptor = await TryReadAvailableAsync(cancellationToken);
+        return descriptor is { State: "ready" } ? descriptor : null;
+    }
+
+    public async Task<InstanceDescriptor?> TryReadAvailableAsync(CancellationToken cancellationToken = default)
+    {
         try
         {
             if (!File.Exists(_path))
@@ -41,7 +47,7 @@ public sealed class InstanceDescriptorReader
                 stream,
                 SerializerOptions,
                 cancellationToken);
-            return IsValidReadyDescriptor(descriptor) ? descriptor : null;
+            return IsValidAvailableDescriptor(descriptor) ? descriptor : null;
         }
         catch (JsonException)
         {
@@ -53,13 +59,13 @@ public sealed class InstanceDescriptorReader
         }
     }
 
-    private static bool IsValidReadyDescriptor(InstanceDescriptor? descriptor) =>
+    private static bool IsValidAvailableDescriptor(InstanceDescriptor? descriptor) =>
         descriptor is
         {
             FormatVersion: InstanceDescriptor.CurrentFormatVersion,
-            State: "ready",
             ProcessId: > 0,
         }
+        && descriptor.State is "ready" or "recovery"
         && descriptor.InstanceId.Length is > 0 and <= 128
         && Uri.TryCreate(descriptor.Origin, UriKind.Absolute, out var origin)
         && origin.IsLoopback

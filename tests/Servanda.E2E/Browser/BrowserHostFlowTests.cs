@@ -15,6 +15,125 @@ public sealed class BrowserHostFlowTests
     [Trait("Category", "Browser")]
     [InlineData("chromium")]
     [InlineData("firefox")]
+    public async Task PublishedHostShowsRestrictedAccessibleRecovery(string browserName)
+    {
+        var artifactDirectory = Environment.GetEnvironmentVariable("SERVANDA_BROWSER_E2E_ARTIFACT");
+        Assert.False(
+            string.IsNullOrWhiteSpace(artifactDirectory),
+            "Ustaw SERVANDA_BROWSER_E2E_ARTIFACT albo uruchom tests/Servanda.E2E/run-browser-tests.sh.");
+
+        var executablePath = Path.Combine(Path.GetFullPath(artifactDirectory!), "Servanda");
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"servanda-recovery-browser-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(temporaryPath, PrivateDirectoryMode);
+        var runtimeBase = Path.Combine(temporaryPath, "runtime");
+        var stateBase = Path.Combine(temporaryPath, "state");
+        var homeDirectory = Path.Combine(temporaryPath, "home");
+        var shimDirectory = Path.Combine(temporaryPath, "bin");
+        var openedAddressesPath = Path.Combine(temporaryPath, "opened-addresses.txt");
+        Directory.CreateDirectory(homeDirectory, PrivateDirectoryMode);
+        Directory.CreateDirectory(shimDirectory, PrivateDirectoryMode);
+        await CreateXdgOpenShimAsync(shimDirectory);
+        var applicationData = Path.Combine(homeDirectory, ".local", "share", "servanda");
+        Directory.CreateDirectory(applicationData, PrivateDirectoryMode);
+        var databasePath = Path.Combine(applicationData, "servanda.db");
+        await File.WriteAllBytesAsync(databasePath, new byte[128]);
+        File.SetUnixFileMode(databasePath, PrivateFileMode);
+        var paths = new ServandaPaths(Path.Combine(runtimeBase, "servanda"), Path.Combine(stateBase, "servanda"));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Process? host = null;
+
+        try
+        {
+            var launcherResult = await RunLauncherAsync(
+                executablePath,
+                runtimeBase,
+                stateBase,
+                homeDirectory,
+                shimDirectory,
+                openedAddressesPath,
+                timeout.Token);
+            Assert.Equal(0, launcherResult);
+            var descriptor = await WaitForAvailableDescriptorAsync(paths.DescriptorPath, timeout.Token);
+            Assert.Equal("recovery", descriptor.State);
+            host = Process.GetProcessById(descriptor.ProcessId);
+            var bootstrapAddress = Assert.Single(
+                await WaitForOpenedAddressesAsync(openedAddressesPath, 1, timeout.Token));
+
+            using var playwright = await Playwright.CreateAsync();
+            await using var browser = await LaunchBrowserAsync(playwright, browserName);
+            await using var context = await browser.NewContextAsync();
+            var page = await context.NewPageAsync();
+            var retryScriptResponse = new TaskCompletionSource<IResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var recoveryConsoleErrors = new ConcurrentBag<string>();
+            page.Response += (_, response) =>
+            {
+                if (response.Url.Contains("recovery-retry", StringComparison.Ordinal))
+                {
+                    retryScriptResponse.TrySetResult(response);
+                }
+            };
+            page.Console += (_, message) =>
+            {
+                if (message.Type == "error")
+                {
+                    recoveryConsoleErrors.Add(message.Text);
+                }
+            };
+            await page.GotoAsync(bootstrapAddress, new PageGotoOptions
+            {
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+            });
+            await page.WaitForURLAsync($"{descriptor.Origin}/recovery");
+            await page.GetByRole(
+                AriaRole.Heading,
+                new() { Name = "Servanda nie może otworzyć magazynu danych", Level = 1 }).WaitForAsync();
+
+            Assert.Equal("Odzyskiwanie — Servanda", await page.TitleAsync());
+            Assert.Equal(1, await page.GetByRole(AriaRole.Main).CountAsync());
+            Assert.Equal(0, await page.GetByRole(AriaRole.Complementary).CountAsync());
+            Assert.Equal(0, await page.GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
+            foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
+            {
+                await page.SetViewportSizeAsync(viewportWidth, 768);
+                Assert.True(
+                    await page.Locator("html").EvaluateAsync<bool>(
+                        "element => element.scrollWidth <= element.clientWidth"),
+                    $"Recovery przewija się poziomo przy szerokości {viewportWidth}px.");
+            }
+
+            var retry = page.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Ponów przygotowanie magazynu", Exact = true });
+            var scriptResponse = await retryScriptResponse.Task.WaitAsync(timeout.Token);
+            Assert.True(
+                scriptResponse.Status == 200,
+                $"Moduł recovery zwrócił {scriptResponse.Status}: {scriptResponse.Url}.");
+            Assert.Empty(recoveryConsoleErrors);
+            await page.Locator("html[data-recovery-retry-ready='true']").WaitForAsync();
+            await retry.FocusAsync();
+            Assert.True(await retry.EvaluateAsync<bool>("element => element === document.activeElement"));
+            await page.Keyboard.PressAsync("Enter");
+            await page.GetByRole(AriaRole.Alert).WaitForAsync();
+            Assert.Equal($"{descriptor.Origin}/recovery", page.Url);
+            Assert.Empty(recoveryConsoleErrors);
+            await AssertNoAxeViolationsAsync(page, "tryb odzyskiwania");
+        }
+        finally
+        {
+            if (host is not null)
+            {
+                await StopProcessAsync(host);
+                host.Dispose();
+            }
+
+            Directory.Delete(temporaryPath, recursive: true);
+        }
+    }
+
+    [Theory]
+    [Trait("Category", "Browser")]
+    [InlineData("chromium")]
+    [InlineData("firefox")]
     public async Task PublishedHostCompletesProtectedBrowserFlow(string browserName)
     {
         var artifactDirectory = Environment.GetEnvironmentVariable("SERVANDA_BROWSER_E2E_ARTIFACT");
@@ -771,6 +890,24 @@ public sealed class BrowserHostFlowTests
         }
     }
 
+    private static async Task<InstanceDescriptor> WaitForAvailableDescriptorAsync(
+        string descriptorPath,
+        CancellationToken cancellationToken)
+    {
+        var reader = new InstanceDescriptorReader(descriptorPath);
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var descriptor = await reader.TryReadAvailableAsync(cancellationToken);
+            if (descriptor is not null)
+            {
+                return descriptor;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+        }
+    }
+
     private static void AssertAllowedAddress(string address, string origin)
     {
         var uri = new Uri(address, UriKind.Absolute);
@@ -794,5 +931,9 @@ public sealed class BrowserHostFlowTests
             await process.WaitForExitAsync();
         }
     }
+
+    private const UnixFileMode PrivateDirectoryMode =
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+    private const UnixFileMode PrivateFileMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
 }

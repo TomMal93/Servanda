@@ -77,7 +77,7 @@ public sealed class Launcher
         var deadline = TimeProvider.System.GetUtcNow().Add(timeout);
         do
         {
-            var descriptor = await _descriptorReader.TryReadReadyAsync(cancellationToken);
+            var descriptor = await _descriptorReader.TryReadAvailableAsync(cancellationToken);
             if (descriptor is not null && await ConfirmInstanceAsync(descriptor, cancellationToken))
             {
                 return descriptor;
