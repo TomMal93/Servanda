@@ -2,8 +2,11 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Deque.AxeCore.Playwright;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
+using Servanda.Application.DataProtection;
 using Servanda.App.Security;
+using Servanda.Infrastructure.Data;
 using Servanda.Infrastructure.Runtime;
 
 namespace Servanda.E2E.Browser;
@@ -35,6 +38,20 @@ public sealed class BrowserHostFlowTests
         await CreateXdgOpenShimAsync(shimDirectory);
         var applicationData = Path.Combine(homeDirectory, ".local", "share", "servanda");
         Directory.CreateDirectory(applicationData, PrivateDirectoryMode);
+        var databasePaths = new ServandaPaths(
+            Path.Combine(runtimeBase, "servanda"),
+            Path.Combine(stateBase, "servanda"),
+            applicationData);
+        var services = new ServiceCollection();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(databasePaths);
+        services.AddServandaDatabase(databasePaths, "browser-recovery-test");
+        await using (var provider = services.BuildServiceProvider())
+        {
+            await ServandaDatabase.InitializeAsync(provider, databasePaths, TimeProvider.System);
+            await provider.GetRequiredService<IBackupService>().CreateAsync(BackupReason.Manual);
+        }
+
         var databasePath = Path.Combine(applicationData, "servanda.db");
         await File.WriteAllBytesAsync(databasePath, new byte[128]);
         File.SetUnixFileMode(databasePath, PrivateFileMode);
@@ -92,6 +109,9 @@ public sealed class BrowserHostFlowTests
             Assert.Equal(1, await page.GetByRole(AriaRole.Main).CountAsync());
             Assert.Equal(0, await page.GetByRole(AriaRole.Complementary).CountAsync());
             Assert.Equal(0, await page.GetByText("Zarządzaj obszarami", new() { Exact = true }).CountAsync());
+            await page.GetByRole(
+                AriaRole.Heading,
+                new() { Name = "Odtwórz zweryfikowaną kopię", Level = 2 }).WaitForAsync();
             foreach (var viewportWidth in new[] { 1024, 1280, 1440, 1920 })
             {
                 await page.SetViewportSizeAsync(viewportWidth, 768);
@@ -117,6 +137,25 @@ public sealed class BrowserHostFlowTests
             Assert.Equal($"{descriptor.Origin}/recovery", page.Url);
             Assert.Empty(recoveryConsoleErrors);
             await AssertNoAxeViolationsAsync(page, "tryb odzyskiwania");
+
+            var restore = page.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Odtwórz kopię i uruchom ponownie", Exact = true });
+            var confirmation = page.GetByLabel(
+                "Rozumiem, że bieżąca baza zostanie zastąpiona zweryfikowaną kopią.",
+                new() { Exact = true });
+            Assert.True(await restore.IsDisabledAsync());
+            await confirmation.CheckAsync();
+            Assert.False(await restore.IsDisabledAsync());
+            await restore.FocusAsync();
+            await page.Keyboard.PressAsync("Enter");
+            await page.WaitForURLAsync($"{descriptor.Origin}/");
+            await page.GetByRole(
+                AriaRole.Heading,
+                new() { Name = "Twoje obszary", Exact = true, Level = 1 }).WaitForAsync();
+            Assert.NotNull(await new InstanceDescriptorReader(paths.DescriptorPath).TryReadReadyAsync(timeout.Token));
+            Assert.Single(Directory.EnumerateDirectories(databasePaths.RecoveryArtifactsDirectory));
+            Assert.Empty(recoveryConsoleErrors);
         }
         finally
         {

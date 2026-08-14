@@ -7,6 +7,8 @@ public enum TechnicalEvent
     HostRecovery,
     RecoveryRetrySucceeded,
     RecoveryRetryFailed,
+    RecoveryRestoreSucceeded,
+    RecoveryRestoreFailed,
     HostStartFailed,
     HostStopped,
 }

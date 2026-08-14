@@ -30,10 +30,15 @@ public static class ServandaDatabase
 
         services.AddDbContextFactory<ServandaDbContext>(options => options.UseSqlite(connectionString));
         services.AddTransient<IAreaService, SqliteAreaService>();
-        services.AddSingleton<IBackupService>(provider => new SqliteBackupService(
+        services.AddSingleton(provider => new SqliteBackupService(
             paths,
             provider.GetRequiredService<TimeProvider>(),
             applicationVersion));
+        services.AddSingleton<IBackupService>(provider => provider.GetRequiredService<SqliteBackupService>());
+        services.AddSingleton<IDatabaseRecoveryService>(provider => new SqliteRecoveryService(
+            paths,
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetRequiredService<SqliteBackupService>()));
         return services;
     }
 

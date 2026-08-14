@@ -33,7 +33,7 @@ Jeżeli host nie potwierdzi gotowości albo launcher nie utworzy bezpiecznej ses
 
 | Rodzaj | Zmienna i domyślny katalog | Zawartość |
 |---|---|---|
-| dane, od v2 | `XDG_DATA_HOME`, domyślnie `~/.local/share/servanda` | baza, blokada bazy, kopie i eksporty; v1 nie tworzy tego magazynu |
+| dane, od v2 | `XDG_DATA_HOME`, domyślnie `~/.local/share/servanda` | baza, blokada bazy, kopie, artefakty recovery i eksporty; v1 nie tworzy tego magazynu |
 | konfiguracja | `XDG_CONFIG_HOME`, domyślnie `~/.config/servanda` | zarezerwowane; v1 i zatwierdzony zakres v2 nie tworzą katalogu ani pliku bez zdefiniowanego ustawienia |
 | stan | `XDG_STATE_HOME`, domyślnie `~/.local/state/servanda` | diagnostyka i logi o ograniczonej retencji |
 | cache | `XDG_CACHE_HOME`, domyślnie `~/.cache/servanda` | dane odtwarzalne, które można bezpiecznie usunąć |
@@ -174,6 +174,8 @@ Oczekiwany wynik:
 4. akcja „Ponów przygotowanie magazynu” ponawia inicjalizację; dla celowo niepoprawnego pliku pokazuje bezpieczny komunikat o niepowodzeniu,
 5. ścieżka bazy, surowy wyjątek i stack trace nie pojawiają się w przeglądarce.
 
+Ten ręczny wariant nie tworzy kopii, dlatego ekran poprawnie informuje o braku kopii możliwej do odtworzenia. Pełny scenariusz utworzenia kopii, uszkodzenia bazy, potwierdzonego odtworzenia, zachowania artefaktu diagnostycznego i przejścia do `ready` wykonuje powyższy skrypt przeglądarkowy na danych tymczasowych.
+
 Po teście zatrzymaj host przez `Ctrl+C` w pierwszym terminalu. Dopiero po jego zakończeniu można usunąć cały jednorazowy katalog `.servanda-recovery-dev`. Nie kopiuj znajdującej się w nim niepoprawnej bazy do żadnego innego profilu Servandy.
 
 ## Aktualizacja i odinstalowanie
@@ -186,5 +188,6 @@ Po teście zatrzymaj host przez `Ctrl+C` w pierwszym terminalu. Dopiero po jego 
 
 - Logi nie zawierają treści promptów, notatek, danych rodzinnych, zdrowotnych ani finansowych.
 - Zdarzenia v1 mają stabilne identyfikatory `HOST_STARTING`, `HOST_READY`, `HOST_START_FAILED` i `HOST_STOPPED`; brak `HOST_STOPPED` po `HOST_READY` może wskazywać nagłe zakończenie procesu.
+- V2 dodaje `HOST_RECOVERY`, `RECOVERY_RETRY_SUCCEEDED`, `RECOVERY_RETRY_FAILED`, `RECOVERY_RESTORE_SUCCEEDED` i `RECOVERY_RESTORE_FAILED`; identyfikatory nie zawierają ścieżki, identyfikatora kopii ani opisu wyjątku.
 - Komunikat startowy wskazuje kategorię problemu i bezpieczną drogę naprawy.
 - Tryb diagnostyczny jest jawny i czasowy; nie zmienia zakresu nasłuchu.

@@ -230,6 +230,7 @@ public class Program
 
             app.MapStaticAssets();
             app.MapRecoveryRetry();
+            app.MapRecoveryRestore();
             app.MapShutdown();
             app.MapRazorComponents<Servanda.App.Components.App>()
                 .AddInteractiveServerRenderMode();

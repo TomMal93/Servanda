@@ -58,6 +58,8 @@ public sealed partial class RecoveryHostProcessTests
             Assert.Contains("Tryb odzyskiwania", recoveryHtml, StringComparison.Ordinal);
             Assert.Contains("Servanda nie może otworzyć magazynu danych", recoveryHtml, StringComparison.Ordinal);
             Assert.Contains("recovery-retry", recoveryHtml, StringComparison.Ordinal);
+            Assert.Contains("Nie znaleziono zgodnej, zweryfikowanej kopii", recoveryHtml, StringComparison.Ordinal);
+            Assert.DoesNotContain("Odtwórz kopię i uruchom ponownie", recoveryHtml, StringComparison.Ordinal);
             Assert.DoesNotContain("sidebar", recoveryHtml, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(databasePath, recoveryHtml, StringComparison.Ordinal);
             Assert.DoesNotContain("stack trace", recoveryHtml, StringComparison.OrdinalIgnoreCase);
@@ -65,6 +67,21 @@ public sealed partial class RecoveryHostProcessTests
 
             var antiforgeryToken = AntiforgeryTokenPattern().Match(recoveryHtml).Groups[1].Value;
             Assert.False(string.IsNullOrWhiteSpace(antiforgeryToken));
+            using var unconfirmedRestoreRequest = new HttpRequestMessage(HttpMethod.Post, "recovery/restore")
+            {
+                Content = new FormUrlEncodedContent(
+                [
+                    new KeyValuePair<string, string>("__RequestVerificationToken", antiforgeryToken),
+                ]),
+            };
+            unconfirmedRestoreRequest.Headers.TryAddWithoutValidation(
+                "Origin",
+                origin.GetLeftPart(UriPartial.Authority));
+            using var unconfirmedRestoreResponse = await client.SendAsync(
+                unconfirmedRestoreRequest,
+                timeout.Token);
+            Assert.Equal(HttpStatusCode.BadRequest, unconfirmedRestoreResponse.StatusCode);
+
             using var retryRequest = new HttpRequestMessage(HttpMethod.Post, "recovery/retry")
             {
                 Content = new FormUrlEncodedContent(

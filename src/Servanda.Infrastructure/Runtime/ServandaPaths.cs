@@ -21,5 +21,7 @@ public sealed record ServandaPaths(string RuntimeDirectory, string StateDirector
 
     public string BackupsDirectory => Path.Combine(DataDirectory, "backups");
 
+    public string RecoveryArtifactsDirectory => Path.Combine(DataDirectory, "recovery");
+
     public string ExportsDirectory => Path.Combine(DataDirectory, "exports");
 }

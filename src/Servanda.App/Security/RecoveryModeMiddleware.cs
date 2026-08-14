@@ -49,10 +49,11 @@ public sealed class RecoveryModeMiddleware(RequestDelegate next)
 
         var isRecoveryPage = context.Request.Path == "/recovery"
             && (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method));
-        var isRecoveryRetry = context.Request.Path == RecoveryEndpoint.RetryPath
-            && HttpMethods.IsPost(context.Request.Method);
+        var isRecoveryAction = HttpMethods.IsPost(context.Request.Method)
+            && (context.Request.Path == RecoveryEndpoint.RetryPath
+                || context.Request.Path == RecoveryEndpoint.RestorePath);
         if (isRecoveryPage
-            || isRecoveryRetry
+            || isRecoveryAction
             || IsAllowedStaticAsset(context.Request)
             || AllowedPrefixes.Any(prefix => context.Request.Path.StartsWithSegments(prefix)))
         {

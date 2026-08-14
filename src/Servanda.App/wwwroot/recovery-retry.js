@@ -1,22 +1,36 @@
-const form = document.getElementById("recovery-retry");
-document.documentElement.dataset.recoveryRetryReady = form ? "true" : "false";
+const retryForm = document.getElementById("recovery-retry");
+document.documentElement.dataset.recoveryRetryReady = retryForm ? "true" : "false";
+
+document.addEventListener("change", event => {
+    if (event.target instanceof HTMLInputElement && event.target.id === "confirm-recovery-restore") {
+        syncRestoreButton();
+    }
+});
 
 document.addEventListener("keydown", event => {
-    const retryButton = findRetryButton(event.target);
-    if (retryButton && event.key === "Enter") {
+    const actionButton = findActionButton(event.target);
+    if (actionButton && event.key === "Enter") {
         event.preventDefault();
-        retryButton.click();
+        actionButton.click();
     }
 });
 
 document.addEventListener("click", async event => {
-    const retryButton = findRetryButton(event.target);
-    const currentForm = retryButton?.closest("form");
-    if (!retryButton || !currentForm) {
+    const actionButton = findActionButton(event.target);
+    const currentForm = actionButton?.closest("form");
+    if (!actionButton || !currentForm) {
         return;
     }
 
-    retryButton.setAttribute("disabled", "");
+    if (currentForm.id === "recovery-restore"
+        && !document.getElementById("confirm-recovery-restore")?.checked) {
+        return;
+    }
+
+    actionButton.setAttribute("disabled", "");
+    const failureId = currentForm.id === "recovery-restore"
+        ? "recovery-restore-failure"
+        : "recovery-retry-failure";
 
     try {
         const response = await fetch(currentForm.action, {
@@ -27,36 +41,47 @@ document.addEventListener("click", async event => {
         });
 
         if (!response.ok) {
-            throw new Error("recovery retry rejected");
+            throw new Error("recovery action rejected");
         }
 
         const result = await response.json();
         if (typeof result.redirectTo !== "string" || !result.redirectTo.startsWith("/")) {
-            throw new Error("recovery retry returned an invalid destination");
+            throw new Error("recovery action returned an invalid destination");
         }
 
-        if (result.redirectTo === "/recovery?retry=failed") {
-            showFailure(retryButton);
+        if (result.redirectTo !== "/") {
+            showFailure(failureId, actionButton);
             return;
         }
 
         window.location.replace(result.redirectTo);
     } catch {
-        showFailure(retryButton);
+        showFailure(failureId, actionButton);
     }
 });
 
-function findRetryButton(target) {
+window.addEventListener("pageshow", syncRestoreButton);
+syncRestoreButton();
+
+function findActionButton(target) {
     return target instanceof Element
-        ? target.closest("#recovery-retry button[type='button']")
+        ? target.closest("#recovery-retry button[type='button'], #recovery-restore button[type='button']")
         : null;
 }
 
-function showFailure(submitButton) {
-    const currentFailureMessage = document.getElementById("recovery-retry-failure");
-    if (currentFailureMessage) {
-        currentFailureMessage.hidden = false;
+function syncRestoreButton() {
+    const confirmation = document.getElementById("confirm-recovery-restore");
+    const restoreButton = document.querySelector("#recovery-restore button[type='button']");
+    if (confirmation instanceof HTMLInputElement && restoreButton instanceof HTMLButtonElement) {
+        restoreButton.disabled = !confirmation.checked;
+    }
+}
+
+function showFailure(failureId, actionButton) {
+    const failureMessage = document.getElementById(failureId);
+    if (failureMessage) {
+        failureMessage.hidden = false;
     }
 
-    submitButton?.removeAttribute("disabled");
+    actionButton?.removeAttribute("disabled");
 }

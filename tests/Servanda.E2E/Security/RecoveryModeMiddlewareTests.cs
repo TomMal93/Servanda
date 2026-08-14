@@ -44,6 +44,7 @@ public sealed class RecoveryModeMiddlewareTests
     [Theory]
     [InlineData("/recovery")]
     [InlineData("/recovery/retry")]
+    [InlineData("/recovery/restore")]
     [InlineData("/_blazor")]
     [InlineData("/instance")]
     public async Task RecoveryAllowsOnlyRecoveryInfrastructure(string path)
@@ -55,7 +56,9 @@ public sealed class RecoveryModeMiddlewareTests
             return Task.CompletedTask;
         });
         var context = new DefaultHttpContext();
-        context.Request.Method = path == "/recovery/retry" ? HttpMethods.Post : HttpMethods.Get;
+        context.Request.Method = path is "/recovery/retry" or "/recovery/restore"
+            ? HttpMethods.Post
+            : HttpMethods.Get;
         context.Request.Path = path;
 
         await middleware.InvokeAsync(context, CreateRecoveryState());

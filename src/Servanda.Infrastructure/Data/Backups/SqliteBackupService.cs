@@ -103,6 +103,55 @@ internal sealed class SqliteBackupService(
         return VerifyDirectoryAsync(backupDirectory, backupId, cancellationToken);
     }
 
+    internal string GetBackupDatabasePath(string backupId)
+    {
+        if (!IsValidBackupId(backupId))
+        {
+            throw new ArgumentException("Identyfikator kopii jest nieprawidłowy.", nameof(backupId));
+        }
+
+        return Path.Combine(GetBackupDirectory(backupId), DatabaseFileName);
+    }
+
+    internal async Task<bool> VerifyRestoredDatabaseAsync(
+        string databasePath,
+        BackupInfo expectedBackup,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            PrivateFileSystem.VerifyPrivateFile(databasePath, _effectiveUserId);
+            await using var connection = new SqliteConnection(
+                CreateConnectionString(databasePath, SqliteOpenMode.ReadOnly));
+            await connection.OpenAsync(cancellationToken);
+            if (!await HasValidIntegrityAsync(connection, cancellationToken)
+                || !await HasValidForeignKeysAsync(connection, cancellationToken))
+            {
+                return false;
+            }
+
+            var appliedMigrations = await ReadAppliedMigrationsAsync(connection, cancellationToken);
+            if (appliedMigrations.Count == 0
+                || !string.Equals(appliedMigrations[^1], expectedBackup.SchemaVersion, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var knownMigrations = await GetKnownMigrationsAsync(cancellationToken);
+            return appliedMigrations.Count <= knownMigrations.Count
+                && appliedMigrations.SequenceEqual(
+                    knownMigrations.Take(appliedMigrations.Count),
+                    StringComparer.Ordinal);
+        }
+        catch (Exception exception) when (exception is IOException
+            or UnauthorizedAccessException
+            or SqliteException
+            or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
     private async Task<string> CreateDatabaseSnapshotAsync(
         string destinationPath,
         CancellationToken cancellationToken)

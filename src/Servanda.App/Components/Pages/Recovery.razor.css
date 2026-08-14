@@ -51,3 +51,28 @@ form button {
     background: var(--acid);
     color: var(--acid-on);
 }
+
+.recovery-restore {
+    margin-block: var(--space-6);
+    padding-block-start: var(--space-5);
+    border-block-start: var(--border-width) solid var(--border);
+}
+
+.recovery-restore h2 {
+    margin-block-end: var(--space-3);
+    font-size: var(--font-size-lg);
+}
+
+.recovery-confirmation {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+    margin-block-end: var(--space-4);
+}
+
+.recovery-confirmation input {
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    margin: 0;
+}

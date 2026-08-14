@@ -31,10 +31,49 @@
         Ponowna próba nie powiodła się. Baza i istniejąca kopia pozostały zachowane.
     </p>
 
+    <p id="recovery-restore-failure"
+       class="recovery-error"
+       role="alert"
+       hidden="@(Restore != "failed")">
+        Nie udało się bezpiecznie odtworzyć kopii. Baza i zweryfikowana kopia nie zostały
+        celowo usunięte; jeżeli powstał artefakt diagnostyczny, również został zachowany.
+    </p>
+
     <form id="recovery-retry" method="post" action="@RecoveryEndpoint.RetryPath">
         <AntiforgeryToken />
         <button type="button">Ponów przygotowanie magazynu</button>
     </form>
+
+    @if (Snapshot.RestorableBackup is { } backup)
+    {
+        <section class="recovery-restore" aria-labelledby="recovery-restore-heading">
+            <h2 id="recovery-restore-heading">Odtwórz zweryfikowaną kopię</h2>
+            <p>
+                Dostępna jest zgodna kopia z @backup.CreatedAt.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'").
+                Odtworzenie zastąpi bieżącą bazę, ale najpierw zachowa ją jako osobny artefakt
+                diagnostyczny.
+            </p>
+            <form id="recovery-restore" method="post" action="@RecoveryEndpoint.RestorePath">
+                <AntiforgeryToken />
+                <div class="recovery-confirmation">
+                    <input id="confirm-recovery-restore"
+                           name="confirmRestore"
+                           type="checkbox"
+                           value="true" />
+                    <label for="confirm-recovery-restore">
+                        Rozumiem, że bieżąca baza zostanie zastąpiona zweryfikowaną kopią.
+                    </label>
+                </div>
+                <button type="button" disabled>Odtwórz kopię i uruchom ponownie</button>
+            </form>
+        </section>
+    }
+    else
+    {
+        <p class="system-message__detail">
+            Nie znaleziono zgodnej, zweryfikowanej kopii możliwej do odtworzenia.
+        </p>
+    }
 
     <p class="system-message__detail">
         Jeżeli problem się powtarza, zamknij Servandę i zachowaj katalog danych do diagnostyki.
@@ -45,6 +84,9 @@
 @code {
     [SupplyParameterFromQuery]
     public string? Retry { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Restore { get; set; }
 
     private RecoverySnapshot Snapshot => RecoveryCoordinator.Snapshot;
 

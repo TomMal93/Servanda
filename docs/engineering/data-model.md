@@ -41,10 +41,11 @@ Zakres powstaje wraz z właścicielem listy, również gdy lista jest pusta: `ar
 <XDG_DATA_HOME>/servanda/
 ├── servanda.db
 ├── backups/
+├── recovery/
 └── exports/
 ```
 
-Jeżeli `XDG_DATA_HOME` nie jest ustawione, aplikacja używa standardowego linuksowego katalogu `~/.local/share/servanda/`. Katalog aplikacji powinien mieć uprawnienia `0700`, a baza, kopie i eksporty zawierające dane prywatne — `0600`, o ile system plików obsługuje uprawnienia POSIX.
+Jeżeli `XDG_DATA_HOME` nie jest ustawione, aplikacja używa standardowego linuksowego katalogu `~/.local/share/servanda/`. Katalog aplikacji, katalogi kopii i katalogi artefaktów recovery powinny mieć uprawnienia `0700`, a baza, kopie, artefakty diagnostyczne i eksporty zawierające dane prywatne — `0600`, o ile system plików obsługuje uprawnienia POSIX. `recovery/failed-<id>/` przechowuje zachowany plik bazy oraz istniejące pliki poboczne SQLite z nieudanej instancji; nie jest źródłem automatycznie wybieranych kopii.
 
 ## Wersja schematu i migracje
 
@@ -220,6 +221,10 @@ Pełny protokół komendy reorderu i mapę agregatów definiuje [ADR 0004](adr/0
 - Obowiązkowa kopia powstaje przed migracją, importem, resetem kolekcji i operacją masowo archiwizującą lub usuwającą dane.
 - Kopia zawiera bazę oraz metadane: wersję schematu, wersję aplikacji, czas UTC i powód utworzenia.
 - Aplikacja weryfikuje możliwość otwarcia kopii przed wykonaniem operacji chronionej.
+- Recovery wybiera najnowszą kopię, której historia migracji jest zgodnym prefiksem migracji znanych bieżącej aplikacji. Kopia z nowszym albo nieznanym schematem nie może zostać automatycznie odtworzona.
+- Bezpośrednio przed odtworzeniem aplikacja ponownie weryfikuje źródłową kopię, tworzy z niej osobny kandydat SQLite i sprawdza jego integralność, klucze obce oraz historię migracji.
+- Przed zastąpieniem kanonicznej bazy aplikacja zamyka pule połączeń i zachowuje bieżącą bazę wraz z istniejącymi plikami `-wal`, `-shm` i `-journal` w prywatnym artefakcie diagnostycznym. Zgodność skopiowanych plików jest sprawdzana przed podmianą.
+- Zweryfikowany kandydat zastępuje główny plik przez atomową zmianę nazwy w tym samym systemie plików. Źródłowa kopia pozostaje niezmieniona, a zwykła inicjalizacja ponownie sprawdza i w razie potrzeby migruje odtworzoną bazę przed publikacją `ready`.
 - Polityka automatycznej retencji pozostaje decyzją otwartą; ręczna kopia i kopia ochronna nie mogą zostać usunięte w ramach tej samej operacji, którą chronią.
 
 ## Eksport i import

@@ -219,6 +219,101 @@ public sealed class BackupServiceTests
         Assert.Equal(BackupVerificationStatus.NotFound, verification.Status);
     }
 
+    [Fact]
+    public async Task RecoverySelectsLatestVerifiedCompatibleBackupAndSkipsInvalidCopy()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        await using var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var backupService = services.GetRequiredService<IBackupService>();
+        var recoveryService = services.GetRequiredService<IDatabaseRecoveryService>();
+        var validBackup = await backupService.CreateAsync(BackupReason.Manual);
+        var invalidBackup = await backupService.CreateAsync(BackupReason.Manual);
+        await File.WriteAllBytesAsync(
+            Path.Combine(paths.BackupsDirectory, invalidBackup.Id, "servanda.db"),
+            new byte[128]);
+
+        var candidate = await recoveryService.FindLatestVerifiedBackupAsync();
+
+        Assert.Equal(validBackup.Id, candidate?.Id);
+    }
+
+    [Fact]
+    public async Task RestoreReverifiesBackupBeforeChangingCanonicalDatabase()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        await using var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var backupService = services.GetRequiredService<IBackupService>();
+        var recoveryService = services.GetRequiredService<IDatabaseRecoveryService>();
+        var backup = await backupService.CreateAsync(BackupReason.Manual);
+        var originalDatabase = await File.ReadAllBytesAsync(paths.DatabasePath);
+        await File.WriteAllBytesAsync(
+            Path.Combine(paths.BackupsDirectory, backup.Id, "servanda.db"),
+            new byte[128]);
+
+        var result = await recoveryService.RestoreAsync(backup.Id);
+
+        Assert.Equal(DatabaseRestoreStatus.BackupInvalid, result.Status);
+        Assert.Equal(originalDatabase, await File.ReadAllBytesAsync(paths.DatabasePath));
+        Assert.False(Directory.Exists(paths.RecoveryArtifactsDirectory));
+    }
+
+    [Fact]
+    public async Task RestorePreservesFailedDatabaseAndSidecarBeforeReplacement()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        await using var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var backupService = services.GetRequiredService<IBackupService>();
+        var recoveryService = services.GetRequiredService<IDatabaseRecoveryService>();
+        var backup = await backupService.CreateAsync(BackupReason.Manual);
+        var failedDatabase = new byte[128];
+        var failedWal = new byte[] { 1, 2, 3, 4 };
+        await File.WriteAllBytesAsync(paths.DatabasePath, failedDatabase);
+        await File.WriteAllBytesAsync(paths.DatabasePath + "-wal", failedWal);
+        File.SetUnixFileMode(paths.DatabasePath + "-wal", PrivateFileMode);
+
+        var result = await recoveryService.RestoreAsync(backup.Id);
+
+        Assert.Equal(DatabaseRestoreStatus.Restored, result.Status);
+        var artifactDirectory = Assert.Single(Directory.EnumerateDirectories(paths.RecoveryArtifactsDirectory));
+        Assert.Equal(failedDatabase, await File.ReadAllBytesAsync(Path.Combine(artifactDirectory, "servanda.db")));
+        Assert.Equal(failedWal, await File.ReadAllBytesAsync(Path.Combine(artifactDirectory, "servanda.db-wal")));
+        Assert.False(File.Exists(paths.DatabasePath + "-wal"));
+        Assert.Equal(PrivateDirectoryMode, File.GetUnixFileMode(artifactDirectory));
+        Assert.All(
+            Directory.EnumerateFiles(artifactDirectory),
+            file => Assert.Equal(PrivateFileMode, File.GetUnixFileMode(file)));
+        Assert.Equal(BackupVerificationStatus.Verified, (await backupService.VerifyAsync(backup.Id)).Status);
+    }
+
+    [Fact]
+    public async Task RestoreDoesNotReplaceDatabaseWhenDiagnosticPreservationCannotBeVerified()
+    {
+        using var temporaryDirectory = new TemporaryDirectory();
+        var paths = CreatePaths(temporaryDirectory.Path);
+        await using var services = CreateServices(paths);
+        await ServandaDatabase.InitializeAsync(services, paths, TimeProvider.System);
+        var backupService = services.GetRequiredService<IBackupService>();
+        var recoveryService = services.GetRequiredService<IDatabaseRecoveryService>();
+        var backup = await backupService.CreateAsync(BackupReason.Manual);
+        var currentDatabase = await File.ReadAllBytesAsync(paths.DatabasePath);
+        Directory.CreateDirectory(paths.RecoveryArtifactsDirectory);
+        File.SetUnixFileMode(
+            paths.RecoveryArtifactsDirectory,
+            PrivateDirectoryMode | UnixFileMode.GroupRead);
+
+        var result = await recoveryService.RestoreAsync(backup.Id);
+
+        Assert.Equal(DatabaseRestoreStatus.Failed, result.Status);
+        Assert.Equal(currentDatabase, await File.ReadAllBytesAsync(paths.DatabasePath));
+        Assert.Equal(BackupVerificationStatus.Verified, (await backupService.VerifyAsync(backup.Id)).Status);
+    }
+
     private static ServiceProvider CreateServices(ServandaPaths paths)
     {
         var services = new ServiceCollection();

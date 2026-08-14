@@ -47,6 +47,8 @@ public sealed class TechnicalLogWriter : IDisposable
             TechnicalEvent.HostRecovery => "HOST_RECOVERY",
             TechnicalEvent.RecoveryRetrySucceeded => "RECOVERY_RETRY_SUCCEEDED",
             TechnicalEvent.RecoveryRetryFailed => "RECOVERY_RETRY_FAILED",
+            TechnicalEvent.RecoveryRestoreSucceeded => "RECOVERY_RESTORE_SUCCEEDED",
+            TechnicalEvent.RecoveryRestoreFailed => "RECOVERY_RESTORE_FAILED",
             TechnicalEvent.HostStartFailed => "HOST_START_FAILED",
             TechnicalEvent.HostStopped => "HOST_STOPPED",
             _ => throw new ArgumentOutOfRangeException(nameof(technicalEvent)),

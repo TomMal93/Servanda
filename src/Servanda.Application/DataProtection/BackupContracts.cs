@@ -38,3 +38,23 @@ public interface IBackupService
         string backupId,
         CancellationToken cancellationToken = default);
 }
+
+public enum DatabaseRestoreStatus
+{
+    Restored,
+    BackupNotFound,
+    BackupInvalid,
+    BackupIncompatible,
+    Failed,
+}
+
+public sealed record DatabaseRestoreResult(DatabaseRestoreStatus Status);
+
+public interface IDatabaseRecoveryService
+{
+    Task<BackupInfo?> FindLatestVerifiedBackupAsync(CancellationToken cancellationToken = default);
+
+    Task<DatabaseRestoreResult> RestoreAsync(
+        string backupId,
+        CancellationToken cancellationToken = default);
+}
