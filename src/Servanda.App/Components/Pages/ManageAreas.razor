@@ -617,6 +617,8 @@
 
     private async void HandleFieldChanged(object? sender, FieldChangedEventArgs args)
     {
+        _message = "Masz niezapisane zmiany.";
+        await InvokeAsync(StateHasChanged);
         await EnableUnsavedChangesAsync();
     }
 
@@ -628,8 +630,6 @@
                 "import",
                 "/unsaved-changes.js");
             await _unsavedChangesModule.InvokeVoidAsync("enable");
-            _message = "Masz niezapisane zmiany.";
-            await InvokeAsync(StateHasChanged);
         }
         catch (JSException)
         {

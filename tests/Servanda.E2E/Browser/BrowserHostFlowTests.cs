@@ -563,6 +563,41 @@ public sealed class BrowserHostFlowTests
             Assert.True(
                 sidebarAreaNames.ToList().IndexOf("Projekty") < sidebarAreaNames.ToList().IndexOf("Budżet domowy"),
                 "Panel boczny nie odświeżył zmienionej kolejności obszarów.");
+            var stalePage = await context.NewPageAsync();
+            stalePage.Request += (_, request) => requestedAddresses.Add(request.Url);
+            stalePage.Response += (_, response) =>
+            {
+                if (response.Status >= 400)
+                {
+                    failedResponses.Add($"{response.Status} {response.Url}");
+                }
+            };
+            stalePage.Console += (_, message) =>
+            {
+                if (message.Type == "error")
+                {
+                    browserErrors.Add(message.Text);
+                }
+            };
+            await stalePage.GotoAsync($"{descriptor.Origin}/manage-areas", new PageGotoOptions
+            {
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+            });
+            await stalePage.GetByRole(
+                AriaRole.Heading,
+                new() { Name = "Zarządzaj obszarami", Exact = true, Level = 1 }).WaitForAsync();
+            var staleHomeEditor = stalePage.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Dom", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::article");
+            await staleHomeEditor.GetByRole(AriaRole.Button, new() { Name = "Edytuj obszar" }).ClickAsync();
+            await staleHomeEditor.GetByRole(
+                AriaRole.Textbox,
+                new() { Name = "Nazwa", Exact = true }).FillAsync("Dom z drugiej karty");
+            await staleHomeEditor.GetByRole(
+                AriaRole.Textbox,
+                new() { Name = "Opis", Exact = true }).FillAsync("Ta zmiana nie może nadpisać nowszych danych.");
+
             var homeEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Dom", Exact = true, Level = 2 })
                 .Locator("xpath=ancestor::article");
             await homeEditor.GetByRole(AriaRole.Button, new() { Name = "Edytuj obszar" }).ClickAsync();
@@ -580,6 +615,39 @@ public sealed class BrowserHostFlowTests
                 await page.Locator("aside.sidebar .sidebar-content__area-name")
                     .GetByText("Mój dom", new() { Exact = true })
                     .CountAsync());
+            await staleHomeEditor.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Zapisz zmiany", Exact = true }).ClickAsync();
+            await stalePage.GetByText(
+                "Obszar zmienił się w innej karcie. Odśwież stronę i spróbuj ponownie.",
+                new() { Exact = true }).WaitForAsync();
+            Assert.Equal(
+                "Dom z drugiej karty",
+                await staleHomeEditor.GetByRole(
+                    AriaRole.Textbox,
+                    new() { Name = "Nazwa", Exact = true }).InputValueAsync());
+            Assert.Equal(
+                1,
+                await page.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Mój dom", Exact = true, Level = 2 }).CountAsync());
+            await staleHomeEditor.GetByRole(
+                AriaRole.Button,
+                new() { Name = "Anuluj", Exact = true }).ClickAsync();
+            await stalePage.ReloadAsync();
+            var refreshedHomeEditor = stalePage.GetByRole(
+                    AriaRole.Heading,
+                    new() { Name = "Mój dom", Exact = true, Level = 2 })
+                .Locator("xpath=ancestor::article");
+            await refreshedHomeEditor.WaitForAsync();
+            Assert.Equal(
+                "Własny opis zapisany w lokalnej bazie.",
+                await refreshedHomeEditor.Locator(".area-editor__description").TextContentAsync());
+            Assert.Equal(
+                0,
+                await stalePage.GetByText("Dom z drugiej karty", new() { Exact = true }).CountAsync());
+            await stalePage.CloseAsync();
+
             var projectEditor = page.GetByRole(AriaRole.Heading, new() { Name = "Projekty", Exact = true, Level = 2 })
                 .Locator("xpath=ancestor::article");
             await projectEditor.GetByRole(
