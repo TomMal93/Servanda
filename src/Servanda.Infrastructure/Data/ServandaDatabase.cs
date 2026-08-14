@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Servanda.Application.Areas;
 using Servanda.Application.Catalog;
+using Servanda.Application.Prompts;
 using Servanda.Application.Tools;
 using Servanda.Application.DataProtection;
 using Servanda.Infrastructure.Data.Backups;
@@ -35,6 +36,7 @@ public static class ServandaDatabase
         services.AddTransient<ICategoryService, SqliteCategoryService>();
         services.AddTransient<ITagService, SqliteTagService>();
         services.AddTransient<IToolCatalogService, SqliteToolCatalogService>();
+        services.AddTransient<IPromptLibraryService, SqlitePromptLibraryService>();
         services.AddSingleton(provider => new SqliteBackupService(
             paths,
             provider.GetRequiredService<TimeProvider>(),
