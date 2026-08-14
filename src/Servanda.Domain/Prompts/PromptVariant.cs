@@ -29,6 +29,20 @@ public sealed class PromptVariant
         UpdatedAt = timestamp;
     }
 
+    internal PromptVariant(
+        string id,
+        string promptId,
+        string name,
+        string? target,
+        string content,
+        int sortOrder,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt)
+        : this(id, promptId, name, target, content, sortOrder, createdAt)
+    {
+        UpdatedAt = updatedAt;
+    }
+
     public string Id { get; private set; } = string.Empty;
 
     public string PromptId { get; private set; } = string.Empty;

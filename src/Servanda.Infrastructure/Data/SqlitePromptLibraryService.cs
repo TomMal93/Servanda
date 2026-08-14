@@ -552,10 +552,15 @@ internal sealed class SqlitePromptLibraryService(
             prompt.Title,
             prompt.Description,
             tagIds,
-            [.. snapshot.Variants.Select(variant =>
-                new PromptVariantDraft(null, variant.Name, variant.Target, variant.Content))],
-            [.. snapshot.Variables.Select(variable => new PromptVariableDraft(
-                null,
+            [.. snapshot.Variants
+                .OrderBy(variant => variant.SortOrder)
+                .Select(variant => new PromptVariantDraft(
+                    variant.Id,
+                    variant.Name,
+                    variant.Target,
+                    variant.Content))],
+            [.. snapshot.Variables.OrderBy(variable => variable.SortOrder).Select(variable => new PromptVariableDraft(
+                variable.Id,
                 variable.Name,
                 variable.Label,
                 variable.DefaultValue,

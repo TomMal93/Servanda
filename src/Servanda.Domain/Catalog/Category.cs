@@ -64,6 +64,21 @@ public sealed class Category
             : null;
     }
 
+    /// <summary>Odtwarza kategorię z dokumentu importu z zachowaniem identyfikatora i pól audytowych.</summary>
+    public static Category Restore(
+        string id,
+        string areaId,
+        string? parentId,
+        string name,
+        string description,
+        int sortOrder,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt) =>
+        new(id, areaId, parentId, name, description, sortOrder, createdAt)
+        {
+            UpdatedAt = updatedAt,
+        };
+
     public IReadOnlyDictionary<string, string[]> UpdateContent(
         string name,
         string description,

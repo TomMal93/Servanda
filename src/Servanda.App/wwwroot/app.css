@@ -611,3 +611,23 @@ code {
     font-size: var(--font-size-sm);
     line-height: var(--line-height-sm);
 }
+
+.import-preview {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.import-preview caption {
+    margin-block-end: var(--space-2);
+    color: var(--muted-light);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-sm);
+    text-align: start;
+}
+
+.import-preview th,
+.import-preview td {
+    padding: var(--space-2);
+    border-block-end: var(--border-width) solid var(--border-soft);
+    text-align: start;
+}

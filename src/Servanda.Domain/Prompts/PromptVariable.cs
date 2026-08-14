@@ -35,6 +35,22 @@ public sealed partial class PromptVariable
         UpdatedAt = timestamp;
     }
 
+    internal PromptVariable(
+        string id,
+        string promptId,
+        string name,
+        string label,
+        string defaultValue,
+        bool isRequired,
+        bool isMultiline,
+        int sortOrder,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt)
+        : this(id, promptId, name, label, defaultValue, isRequired, isMultiline, sortOrder, createdAt)
+    {
+        UpdatedAt = updatedAt;
+    }
+
     public string Id { get; private set; } = string.Empty;
 
     public string PromptId { get; private set; } = string.Empty;

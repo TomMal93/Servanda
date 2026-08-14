@@ -14,8 +14,15 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- Import MUSI być walidowany bezpośrednio przez normatywny JSON Schema formatu eksportu 1. -->
+    <PackageReference Include="JsonSchema.Net" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\docs\engineering\schemas\servanda-export-v1.schema.json"
+                      LogicalName="Servanda.Infrastructure.Schemas.servanda-export-v1.schema.json" />
   </ItemGroup>
 
 </Project>

@@ -13,11 +13,18 @@ public sealed record PromptSnapshot(
     public bool IsSupported => SchemaVersion == CurrentSchemaVersion;
 }
 
-public sealed record PromptVariantSnapshot(string Name, string? Target, string Content);
+public sealed record PromptVariantSnapshot(
+    string Id,
+    string Name,
+    string? Target,
+    string Content,
+    int SortOrder);
 
 public sealed record PromptVariableSnapshot(
+    string Id,
     string Name,
     string Label,
     string DefaultValue,
     bool IsRequired,
-    bool IsMultiline);
+    bool IsMultiline,
+    int SortOrder);

@@ -48,6 +48,18 @@ public sealed class Tag
             : null;
     }
 
+    /// <summary>Odtwarza tag z dokumentu importu z zachowaniem identyfikatora i pól audytowych.</summary>
+    public static Tag Restore(
+        string id,
+        string areaId,
+        string name,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt) =>
+        new(id, areaId, name, createdAt)
+        {
+            UpdatedAt = updatedAt,
+        };
+
     public IReadOnlyDictionary<string, string[]> Rename(string name, DateTimeOffset timestamp)
     {
         var errors = ValidateName(name);

@@ -86,6 +86,29 @@ public sealed class Area
         return new Area(id, name, description, iconKey, accentKey, moduleKey, availability, sortOrder, timestamp);
     }
 
+    /// <summary>
+    /// Odtwarza obszar z dokumentu importu; identyfikatory i pola audytowe są zachowywane, a rewizja startuje od 1.
+    /// </summary>
+    public static Area Restore(
+        string id,
+        string name,
+        string description,
+        string iconKey,
+        string accentKey,
+        string moduleKey,
+        string availability,
+        int sortOrder,
+        bool isHidden,
+        DateTimeOffset? archivedAt,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt) =>
+        new(id, name, description, iconKey, accentKey, moduleKey, availability, sortOrder, createdAt)
+        {
+            IsHidden = isHidden,
+            ArchivedAt = archivedAt,
+            UpdatedAt = updatedAt,
+        };
+
     public static Area? CreatePlanned(
         string id,
         string name,

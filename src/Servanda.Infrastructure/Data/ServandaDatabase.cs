@@ -6,6 +6,8 @@ using Servanda.Application.Catalog;
 using Servanda.Application.Prompts;
 using Servanda.Application.Tools;
 using Servanda.Application.DataProtection;
+using Servanda.Application.DataTransfer;
+using Servanda.Infrastructure.Data.Transfer;
 using Servanda.Infrastructure.Data.Backups;
 using Servanda.Infrastructure.Runtime;
 using System.Runtime.Versioning;
@@ -42,6 +44,18 @@ public static class ServandaDatabase
             provider.GetRequiredService<TimeProvider>(),
             applicationVersion));
         services.AddSingleton<IBackupService>(provider => provider.GetRequiredService<SqliteBackupService>());
+        services.AddSingleton<ImportStagingStore>();
+        services.AddTransient<ICollectionExportService>(provider => new SqliteCollectionExportService(
+            provider.GetRequiredService<IDbContextFactory<ServandaDbContext>>(),
+            paths,
+            provider.GetRequiredService<TimeProvider>(),
+            applicationVersion));
+        services.AddTransient<ICollectionImportService>(provider => new SqliteCollectionImportService(
+            provider.GetRequiredService<IDbContextFactory<ServandaDbContext>>(),
+            paths,
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetRequiredService<IBackupService>(),
+            provider.GetRequiredService<ImportStagingStore>()));
         services.AddSingleton<IDatabaseRecoveryService>(provider => new SqliteRecoveryService(
             paths,
             provider.GetRequiredService<TimeProvider>(),

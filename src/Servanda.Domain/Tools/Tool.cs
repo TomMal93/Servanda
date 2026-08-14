@@ -117,6 +117,28 @@ public sealed class Tool
         return tool;
     }
 
+    /// <summary>Odtwarza narzędzie z dokumentu importu z zachowaniem identyfikatorów i pól audytowych.</summary>
+    public static Tool Restore(
+        string id,
+        string areaId,
+        string categoryId,
+        string name,
+        string description,
+        string url,
+        string groupKey,
+        int sortOrder,
+        IReadOnlyCollection<string> tagIds,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt)
+    {
+        var tool = new Tool(id, areaId, categoryId, name, description, url, groupKey, sortOrder, createdAt)
+        {
+            UpdatedAt = updatedAt,
+        };
+        tool.ReplaceTags(tagIds);
+        return tool;
+    }
+
     public IReadOnlyDictionary<string, string[]> UpdateContent(
         string name,
         string description,

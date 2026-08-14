@@ -10,6 +10,26 @@ public sealed record PromptVariableDraft(
     bool IsRequired,
     bool IsMultiline);
 
+public sealed record PromptVariantState(
+    string Id,
+    string Name,
+    string? Target,
+    string Content,
+    int SortOrder,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
+public sealed record PromptVariableState(
+    string Id,
+    string Name,
+    string Label,
+    string DefaultValue,
+    bool IsRequired,
+    bool IsMultiline,
+    int SortOrder,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
 public sealed class Prompt
 {
     public const int MaxTitleLength = 100;
@@ -109,6 +129,58 @@ public sealed class Prompt
         return prompt;
     }
 
+    /// <summary>Odtwarza prompt wraz z dziećmi z dokumentu importu; rewizja korzenia startuje od 1.</summary>
+    public static Prompt Restore(
+        string id,
+        string areaId,
+        string categoryId,
+        string title,
+        string description,
+        bool isFavorite,
+        int sortOrder,
+        IReadOnlyCollection<string> tagIds,
+        IReadOnlyList<PromptVariantState> variants,
+        IReadOnlyList<PromptVariableState> variables,
+        DateTimeOffset createdAt,
+        DateTimeOffset updatedAt)
+    {
+        var prompt = new Prompt(id, areaId, categoryId, title, description, sortOrder, createdAt)
+        {
+            IsFavorite = isFavorite,
+            UpdatedAt = updatedAt,
+        };
+        prompt.ReplaceTags(tagIds);
+        foreach (var variant in variants)
+        {
+            prompt._variants.Add(new PromptVariant(
+                variant.Id,
+                id,
+                variant.Name,
+                variant.Target,
+                variant.Content,
+                variant.SortOrder,
+                variant.CreatedAt,
+                variant.UpdatedAt));
+        }
+
+        foreach (var variable in variables)
+        {
+            prompt._variables.Add(new PromptVariable(
+                variable.Id,
+                id,
+                variable.Name,
+                variable.Label,
+                variable.DefaultValue,
+                variable.IsRequired,
+                variable.IsMultiline,
+                variable.SortOrder,
+                variable.CreatedAt,
+                variable.UpdatedAt));
+        }
+
+        return prompt;
+    }
+
     public IReadOnlyDictionary<string, string[]> UpdateContent(
         string title,
         string description,
@@ -156,16 +228,23 @@ public sealed class Prompt
             [.. _variants
                 .OrderBy(variant => variant.SortOrder)
                 .ThenBy(variant => variant.Id, StringComparer.Ordinal)
-                .Select(variant => new PromptVariantSnapshot(variant.Name, variant.Target, variant.Content))],
+                .Select(variant => new PromptVariantSnapshot(
+                    variant.Id,
+                    variant.Name,
+                    variant.Target,
+                    variant.Content,
+                    variant.SortOrder))],
             [.. _variables
                 .OrderBy(variable => variable.SortOrder)
                 .ThenBy(variable => variable.Id, StringComparer.Ordinal)
                 .Select(variable => new PromptVariableSnapshot(
+                    variable.Id,
                     variable.Name,
                     variable.Label,
                     variable.DefaultValue,
                     variable.IsRequired,
-                    variable.IsMultiline))]);
+                    variable.IsMultiline,
+                    variable.SortOrder))]);
 
     public static IReadOnlyDictionary<string, string[]> Validate(
         string title,
@@ -269,9 +348,9 @@ public sealed class Prompt
                 messages.Add($"Zmienna „{name}” została zdefiniowana dwa razy.");
             }
 
-            if ((variable.Label?.Trim().Length ?? 0) > PromptVariable.MaxLabelLength)
+            if ((variable.Label?.Trim().Length ?? 0) is < 1 or > PromptVariable.MaxLabelLength)
             {
-                messages.Add($"Etykieta zmiennej może mieć najwyżej {PromptVariable.MaxLabelLength} znaków.");
+                messages.Add($"Etykieta zmiennej musi mieć od 1 do {PromptVariable.MaxLabelLength} znaków.");
             }
 
             if ((variable.DefaultValue?.Length ?? 0) > PromptVariable.MaxDefaultValueLength)
