@@ -6,6 +6,7 @@ interface CategorySidebarProps {
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string | null) => void;
   onReorder: (sourceIndex: number, targetIndex: number) => void;
+  onNoteDrop?: (noteId: string, categoryId: string) => void;
   loading?: boolean;
   error?: string | null;
 }
@@ -189,11 +190,13 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   selectedCategoryId,
   onSelectCategory,
   onReorder,
+  onNoteDrop,
   loading,
   error,
 }) => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [noteDropTargetId, setNoteDropTargetId] = useState<string | null>(null);
 
   // References for FLIP smooth movement animation
   const itemRefs = useRef<Map<string, HTMLLIElement>>(new Map());
@@ -244,13 +247,20 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     setDraggedIndex(originalIndex);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', originalIndex.toString());
+    e.dataTransfer.setData('application/x-servanda-category', originalIndex.toString());
   }
 
-  function handleDragOver(e: React.DragEvent, originalIndex: number) {
+  function handleDragOver(e: React.DragEvent, category: Category, originalIndex: number) {
     e.preventDefault();
-    if (draggedIndex === null) return;
-
     e.dataTransfer.dropEffect = 'move';
+
+    // If dragging a note (not a category reorder)
+    if (draggedIndex === null) {
+      if (noteDropTargetId !== category.id) {
+        setNoteDropTargetId(category.id);
+      }
+      return;
+    }
 
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = (e.clientY - rect.top) / rect.height;
@@ -285,12 +295,21 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
       return;
     }
     setDropTarget(null);
+    setNoteDropTargetId(null);
   }
 
-  function handleDrop(e: React.DragEvent, targetIndex: number) {
+  function handleDrop(e: React.DragEvent, category: Category, targetIndex: number) {
     e.preventDefault();
+
+    // Check if dropping a note
     if (draggedIndex === null) {
-      setDropTarget(null);
+      const noteId =
+        e.dataTransfer.getData('application/x-servanda-note') ||
+        e.dataTransfer.getData('text/plain');
+      if (noteId && onNoteDrop) {
+        onNoteDrop(noteId, category.id);
+      }
+      setNoteDropTargetId(null);
       return;
     }
 
@@ -317,11 +336,13 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
     setDraggedIndex(null);
     setDropTarget(null);
+    setNoteDropTargetId(null);
   }
 
   function handleDragEnd() {
     setDraggedIndex(null);
     setDropTarget(null);
+    setNoteDropTargetId(null);
   }
 
   return (
@@ -355,6 +376,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
           {hierarchicalCategories.map(({ category, originalIndex, isSubcategory }) => {
             const isSelected = selectedCategoryId === category.id;
             const isDragging = draggedIndex === originalIndex;
+            const isNoteTarget = noteDropTargetId === category.id;
             const showLineBefore =
               dropTarget?.index === originalIndex && dropTarget?.position === 'before' && draggedIndex !== originalIndex;
             const showLineAfter =
@@ -380,17 +402,17 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
                 <div
                   className={`category-card ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${
-                    isSubcategory ? 'subcategory-card' : ''
-                  }`}
+                    isNoteTarget ? 'note-drop-target-active' : ''
+                  } ${isSubcategory ? 'subcategory-card' : ''}`}
                   style={{ '--cat-color': categoryColor } as React.CSSProperties}
                   draggable
                   onDragStart={(e) => handleDragStart(e, originalIndex)}
-                  onDragOver={(e) => handleDragOver(e, originalIndex)}
+                  onDragOver={(e) => handleDragOver(e, category, originalIndex)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, originalIndex)}
+                  onDrop={(e) => handleDrop(e, category, originalIndex)}
                   onDragEnd={handleDragEnd}
                   data-testid={`category-card-${category.id}`}
-                  title="Przeciągnij i upuść za inny kafel"
+                  title="Przeciągnij kategorię lub upuść tutaj notatkę"
                 >
                   <div className="category-card-content">
                     <div className="drag-handle" aria-hidden="true" title="Chwyć i przeciągnij">

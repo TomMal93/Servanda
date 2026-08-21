@@ -12,6 +12,7 @@ export interface Note {
   content: string;
   createdAt: string;
   updatedAt: string;
+  sortOrder: number;
   isPinned: boolean;
   isArchived: boolean;
 }
@@ -50,6 +51,49 @@ export async function createNote(payload: CreateNotePayload): Promise<Note> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);
     const message = errorData?.title || `Failed to create note: ${res.status}`;
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+export async function reorderNotes(
+  targetCategoryId: string | null,
+  orderedNoteIds: string[]
+): Promise<Note[]> {
+  const res = await fetch('/api/notes/reorder', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ targetCategoryId, orderedNoteIds }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    const message = errorData?.title || `Failed to reorder notes: ${res.status}`;
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+
+export async function moveNote(
+  noteId: string,
+  targetCategoryId: string | null,
+  newSortOrder?: number
+): Promise<Note[]> {
+  const res = await fetch(`/api/notes/${noteId}/move`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ targetCategoryId, newSortOrder }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    const message = errorData?.title || `Failed to move note: ${res.status}`;
     throw new Error(message);
   }
 

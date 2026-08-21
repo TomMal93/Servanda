@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Category, Note } from './api';
 
 interface NoteTilesBoardProps {
@@ -6,8 +6,17 @@ interface NoteTilesBoardProps {
   notes: Note[];
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string | null) => void;
+  onReorderNotes?: (targetCategoryId: string | null, orderedNoteIds: string[]) => void;
+  onNoteDragStart?: (noteId: string) => void;
+  onNoteDragEnd?: () => void;
   loading?: boolean;
   error?: string | null;
+}
+
+interface NoteDropTarget {
+  noteId: string;
+  position: 'before' | 'after';
+  categoryId: string | null;
 }
 
 export function getPreviewSnippet(content: string, maxWords = 15): string {
@@ -60,9 +69,16 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
   notes,
   selectedCategoryId,
   onSelectCategory,
+  onReorderNotes,
+  onNoteDragStart,
+  onNoteDragEnd,
   loading,
   error,
 }) => {
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [noteDropTarget, setNoteDropTarget] = useState<NoteDropTarget | null>(null);
+  const [activeCategoryDropTarget, setActiveCategoryDropTarget] = useState<string | null | 'uncategorized'>(null);
+
   if (loading) {
     return (
       <div className="board-loading-container" aria-live="polite">
@@ -101,9 +117,9 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
 
   // Find uncategorized notes (notes where categoryId is null or not in category list)
   const allCategoryIds = new Set(categories.map((c) => c.id));
-  const uncategorizedNotes = notes.filter(
-    (n) => !n.categoryId || !allCategoryIds.has(n.categoryId)
-  );
+  const uncategorizedNotes = notes
+    .filter((n) => !n.categoryId || !allCategoryIds.has(n.categoryId))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   // Filter root categories if a category is selected
   let visibleRootCategories = rootCategories;
@@ -124,6 +140,179 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
   }
 
   const selectedCategoryObj = categories.find((c) => c.id === selectedCategoryId);
+
+  function handleNoteDragStart(e: React.DragEvent, noteId: string) {
+    setDraggedNoteId(noteId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', noteId);
+    e.dataTransfer.setData('application/x-servanda-note', noteId);
+    onNoteDragStart?.(noteId);
+  }
+
+  function handleNoteDragOver(e: React.DragEvent, targetNote: Note, targetCategoryId: string | null) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedNoteId || draggedNoteId === targetNote.id) {
+      if (noteDropTarget !== null) setNoteDropTarget(null);
+      return;
+    }
+
+    e.dataTransfer.dropEffect = 'move';
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratioX = (e.clientX - rect.left) / rect.width;
+    const position: 'before' | 'after' = ratioX < 0.5 ? 'before' : 'after';
+
+    if (
+      noteDropTarget?.noteId !== targetNote.id ||
+      noteDropTarget?.position !== position ||
+      noteDropTarget?.categoryId !== targetCategoryId
+    ) {
+      setNoteDropTarget({
+        noteId: targetNote.id,
+        position,
+        categoryId: targetCategoryId,
+      });
+    }
+  }
+
+  function handleNoteDrop(e: React.DragEvent, targetNote: Note, targetCategoryId: string | null) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const noteIdToMove = draggedNoteId || e.dataTransfer.getData('application/x-servanda-note') || e.dataTransfer.getData('text/plain');
+    if (!noteIdToMove || !onReorderNotes) {
+      setDraggedNoteId(null);
+      setNoteDropTarget(null);
+      setActiveCategoryDropTarget(null);
+      return;
+    }
+
+    // Get current notes in the target category
+    const targetCategoryNotes = notes
+      .filter((n) => {
+        if (targetCategoryId === null) {
+          return !n.categoryId || !allCategoryIds.has(n.categoryId);
+        }
+        return n.categoryId === targetCategoryId;
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // List of note IDs in target category without the dragged note
+    const cleanList = targetCategoryNotes.filter((n) => n.id !== noteIdToMove).map((n) => n.id);
+    const targetIdx = cleanList.indexOf(targetNote.id);
+
+    const position = noteDropTarget?.position || 'after';
+    const insertIdx = targetIdx === -1 ? cleanList.length : position === 'after' ? targetIdx + 1 : targetIdx;
+
+    cleanList.splice(insertIdx, 0, noteIdToMove);
+
+    onReorderNotes(targetCategoryId, cleanList);
+
+    setDraggedNoteId(null);
+    setNoteDropTarget(null);
+    setActiveCategoryDropTarget(null);
+    onNoteDragEnd?.();
+  }
+
+  function handleCategorySectionDragOver(e: React.DragEvent, categoryId: string | null) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const catKey = categoryId === null ? 'uncategorized' : categoryId;
+    if (activeCategoryDropTarget !== catKey) {
+      setActiveCategoryDropTarget(catKey);
+    }
+  }
+
+  function handleCategorySectionDragLeave(e: React.DragEvent) {
+    const related = e.relatedTarget as Node | null;
+    if (e.currentTarget.contains(related)) return;
+    setActiveCategoryDropTarget(null);
+  }
+
+  function handleCategorySectionDrop(e: React.DragEvent, categoryId: string | null) {
+    e.preventDefault();
+    const noteIdToMove = draggedNoteId || e.dataTransfer.getData('application/x-servanda-note') || e.dataTransfer.getData('text/plain');
+    if (!noteIdToMove || !onReorderNotes) {
+      setDraggedNoteId(null);
+      setNoteDropTarget(null);
+      setActiveCategoryDropTarget(null);
+      return;
+    }
+
+    const targetCategoryNotes = notes
+      .filter((n) => {
+        if (categoryId === null) {
+          return !n.categoryId || !allCategoryIds.has(n.categoryId);
+        }
+        return n.categoryId === categoryId;
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const cleanList = targetCategoryNotes.filter((n) => n.id !== noteIdToMove).map((n) => n.id);
+    cleanList.push(noteIdToMove);
+
+    onReorderNotes(categoryId, cleanList);
+
+    setDraggedNoteId(null);
+    setNoteDropTarget(null);
+    setActiveCategoryDropTarget(null);
+    onNoteDragEnd?.();
+  }
+
+  function handleDragEnd() {
+    setDraggedNoteId(null);
+    setNoteDropTarget(null);
+    setActiveCategoryDropTarget(null);
+    onNoteDragEnd?.();
+  }
+
+  function renderNoteCard(note: Note, categoryColor: string, categoryId: string | null) {
+    const isDragging = draggedNoteId === note.id;
+    const isTarget = noteDropTarget?.noteId === note.id;
+    const showBefore = isTarget && noteDropTarget?.position === 'before';
+    const showAfter = isTarget && noteDropTarget?.position === 'after';
+
+    return (
+      <div key={note.id} className="note-tile-wrapper">
+        {showBefore && (
+          <div className="note-drop-indicator-vertical note-indicator-left" aria-hidden="true" />
+        )}
+        <article
+          className={`note-tile-card ${isDragging ? 'dragging' : ''} ${isTarget ? 'drop-target-active' : ''}`}
+          style={{ '--tile-border-color': categoryColor } as React.CSSProperties}
+          draggable
+          onDragStart={(e) => handleNoteDragStart(e, note.id)}
+          onDragOver={(e) => handleNoteDragOver(e, note, categoryId)}
+          onDrop={(e) => handleNoteDrop(e, note, categoryId)}
+          onDragEnd={handleDragEnd}
+          data-testid={`note-tile-${note.id}`}
+        >
+          <div className="note-tile-header">
+            <h4 className="note-tile-title">{note.title}</h4>
+            <div className="note-drag-handle" title="Przeciągnij notatkę" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="drag-icon">
+                <circle cx="9" cy="6" r="1.5" />
+                <circle cx="15" cy="6" r="1.5" />
+                <circle cx="9" cy="12" r="1.5" />
+                <circle cx="15" cy="12" r="1.5" />
+                <circle cx="9" cy="18" r="1.5" />
+                <circle cx="15" cy="18" r="1.5" />
+              </svg>
+            </div>
+          </div>
+          <p className="note-tile-snippet">{getPreviewSnippet(note.content)}</p>
+          <footer className="note-tile-meta">
+            <span>{new Date(note.createdAt).toLocaleDateString('pl-PL')}</span>
+          </footer>
+        </article>
+        {showAfter && (
+          <div className="note-drop-indicator-vertical note-indicator-right" aria-hidden="true" />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="note-tiles-board" data-testid="note-tiles-board">
@@ -149,7 +338,9 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
 
       {visibleRootCategories.map((rootCat, rootIdx) => {
         const rootColor = getCategoryColor(rootCat, rootIdx);
-        const rootNotes = notes.filter((n) => n.categoryId === rootCat.id);
+        const rootNotes = notes
+          .filter((n) => n.categoryId === rootCat.id)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
         const subcategories = subcategoriesMap.get(rootCat.id) || [];
         const visibleSubcategories = singleSelectedSubcategory
           ? subcategories.filter((s) => s.id === singleSelectedSubcategory?.id)
@@ -164,13 +355,17 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
 
         // If a subcategory is selected, we only show that subcategory's notes
         const showRootDirectNotes = !singleSelectedSubcategory;
+        const isCatActiveDrop = activeCategoryDropTarget === rootCat.id;
 
         return (
           <section
             key={rootCat.id}
-            className="category-section"
+            className={`category-section ${isCatActiveDrop ? 'category-drop-active' : ''}`}
             style={{ '--cat-color': rootColor } as React.CSSProperties}
             data-testid={`category-section-${rootCat.id}`}
+            onDragOver={(e) => handleCategorySectionDragOver(e, rootCat.id)}
+            onDragLeave={handleCategorySectionDragLeave}
+            onDrop={(e) => handleCategorySectionDrop(e, rootCat.id)}
           >
             {/* Category Header with colored line underneath */}
             <header className="category-header-group">
@@ -184,23 +379,25 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
             </header>
 
             {/* Direct notes belonging to this root category */}
-            {showRootDirectNotes && rootNotes.length > 0 && (
-              <div className="note-tiles-grid" data-testid={`notes-grid-${rootCat.id}`}>
-                {rootNotes.map((note) => (
-                  <article
-                    key={note.id}
-                    className="note-tile-card"
-                    style={{ '--tile-border-color': rootColor } as React.CSSProperties}
-                    data-testid={`note-tile-${note.id}`}
+            {showRootDirectNotes && (
+              <>
+                {rootNotes.length > 0 ? (
+                  <div className="note-tiles-grid" data-testid={`notes-grid-${rootCat.id}`}>
+                    {rootNotes.map((note) => renderNoteCard(note, rootColor, rootCat.id))}
+                  </div>
+                ) : (
+                  <div
+                    className="category-empty-dropzone"
+                    data-testid={`empty-dropzone-${rootCat.id}`}
+                    onDragOver={(e) => handleCategorySectionDragOver(e, rootCat.id)}
+                    onDrop={(e) => handleCategorySectionDrop(e, rootCat.id)}
                   >
-                    <h4 className="note-tile-title">{note.title}</h4>
-                    <p className="note-tile-snippet">{getPreviewSnippet(note.content)}</p>
-                    <footer className="note-tile-meta">
-                      <span>{new Date(note.createdAt).toLocaleDateString('pl-PL')}</span>
-                    </footer>
-                  </article>
-                ))}
-              </div>
+                    <p className="category-empty-notice">
+                      Brak notatek w kategorii {rootCat.name}. Przeciągnij tutaj notatkę, aby ją przypisać.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Subcategories */}
@@ -208,14 +405,20 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
               <div className="subcategories-container">
                 {visibleSubcategories.map((subCat, subIdx) => {
                   const subColor = getCategoryColor(subCat, subIdx + 5);
-                  const subNotes = notes.filter((n) => n.categoryId === subCat.id);
+                  const subNotes = notes
+                    .filter((n) => n.categoryId === subCat.id)
+                    .sort((a, b) => a.sortOrder - b.sortOrder);
+                  const isSubActiveDrop = activeCategoryDropTarget === subCat.id;
 
                   return (
                     <div
                       key={subCat.id}
-                      className="subcategory-section"
+                      className={`subcategory-section ${isSubActiveDrop ? 'subcategory-drop-active' : ''}`}
                       style={{ '--subcat-color': subColor } as React.CSSProperties}
                       data-testid={`subcategory-section-${subCat.id}`}
+                      onDragOver={(e) => handleCategorySectionDragOver(e, subCat.id)}
+                      onDragLeave={handleCategorySectionDragLeave}
+                      onDrop={(e) => handleCategorySectionDrop(e, subCat.id)}
                     >
                       {/* Subcategory Header with smaller font and colored line underneath */}
                       <header className="subcategory-header-group">
@@ -228,47 +431,43 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
                         <div className="subcategory-colored-line" aria-hidden="true" />
                       </header>
 
-                      {/* Subcategory notes grid with frames matching the subcategory's color */}
+                      {/* Subcategory notes grid */}
                       {subNotes.length > 0 ? (
                         <div className="note-tiles-grid" data-testid={`notes-grid-${subCat.id}`}>
-                          {subNotes.map((note) => (
-                            <article
-                              key={note.id}
-                              className="note-tile-card"
-                              style={{ '--tile-border-color': subColor } as React.CSSProperties}
-                              data-testid={`note-tile-${note.id}`}
-                            >
-                              <h4 className="note-tile-title">{note.title}</h4>
-                              <p className="note-tile-snippet">{getPreviewSnippet(note.content)}</p>
-                              <footer className="note-tile-meta">
-                                <span>{new Date(note.createdAt).toLocaleDateString('pl-PL')}</span>
-                              </footer>
-                            </article>
-                          ))}
+                          {subNotes.map((note) => renderNoteCard(note, subColor, subCat.id))}
                         </div>
                       ) : (
-                        <p className="subcategory-empty-notice">Brak notatek w podkategorii {subCat.name}.</p>
+                        <div
+                          className="subcategory-empty-dropzone"
+                          data-testid={`empty-dropzone-${subCat.id}`}
+                          onDragOver={(e) => handleCategorySectionDragOver(e, subCat.id)}
+                          onDrop={(e) => handleCategorySectionDrop(e, subCat.id)}
+                        >
+                          <p className="subcategory-empty-notice">
+                            Brak notatek w podkategorii {subCat.name}. Przeciągnij tutaj notatkę, aby ją przypisać.
+                          </p>
+                        </div>
                       )}
                     </div>
                   );
                 })}
               </div>
             )}
-
-            {/* If whole category and subcategories have 0 notes */}
-            {totalNotesInHierarchy === 0 && (
-              <p className="category-empty-notice">Brak notatek w kategorii {rootCat.name}.</p>
-            )}
           </section>
         );
       })}
 
       {/* Uncategorized notes section */}
-      {!selectedCategoryId && uncategorizedNotes.length > 0 && (
+      {!selectedCategoryId && (
         <section
-          className="category-section uncategorized-section"
+          className={`category-section uncategorized-section ${
+            activeCategoryDropTarget === 'uncategorized' ? 'category-drop-active' : ''
+          }`}
           style={{ '--cat-color': '#64748b' } as React.CSSProperties}
           data-testid="category-section-uncategorized"
+          onDragOver={(e) => handleCategorySectionDragOver(e, null)}
+          onDragLeave={handleCategorySectionDragLeave}
+          onDrop={(e) => handleCategorySectionDrop(e, null)}
         >
           <header className="category-header-group">
             <div className="category-header-title-row">
@@ -280,22 +479,22 @@ export const NoteTilesBoard: React.FC<NoteTilesBoardProps> = ({
             <div className="category-colored-line" aria-hidden="true" />
           </header>
 
-          <div className="note-tiles-grid" data-testid="notes-grid-uncategorized">
-            {uncategorizedNotes.map((note) => (
-              <article
-                key={note.id}
-                className="note-tile-card"
-                style={{ '--tile-border-color': '#64748b' } as React.CSSProperties}
-                data-testid={`note-tile-${note.id}`}
-              >
-                <h4 className="note-tile-title">{note.title}</h4>
-                <p className="note-tile-snippet">{getPreviewSnippet(note.content)}</p>
-                <footer className="note-tile-meta">
-                  <span>{new Date(note.createdAt).toLocaleDateString('pl-PL')}</span>
-                </footer>
-              </article>
-            ))}
-          </div>
+          {uncategorizedNotes.length > 0 ? (
+            <div className="note-tiles-grid" data-testid="notes-grid-uncategorized">
+              {uncategorizedNotes.map((note) => renderNoteCard(note, '#64748b', null))}
+            </div>
+          ) : (
+            <div
+              className="category-empty-dropzone"
+              data-testid="empty-dropzone-uncategorized"
+              onDragOver={(e) => handleCategorySectionDragOver(e, null)}
+              onDrop={(e) => handleCategorySectionDrop(e, null)}
+            >
+              <p className="category-empty-notice">
+                Brak notatek bez kategorii. Przeciągnij tutaj notatkę, aby usunąć jej przypisanie do kategorii.
+              </p>
+            </div>
+          )}
         </section>
       )}
     </div>

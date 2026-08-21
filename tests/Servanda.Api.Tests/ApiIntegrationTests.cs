@@ -124,6 +124,67 @@ public class ApiIntegrationTests : IDisposable
         Assert.Equal(lastRoot.Name, reorderedRoots[0].Name);
     }
 
+    [Fact]
+    public async Task NotesEndpoint_CanReorderAndMoveNotesBetweenCategories()
+    {
+        Guid catA = Guid.NewGuid();
+        Guid catB = Guid.NewGuid();
+        Guid note1Id = Guid.NewGuid();
+        Guid note2Id = Guid.NewGuid();
+        Guid note3Id = Guid.NewGuid();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Categories.AddRange(
+                new Servanda.Domain.Entities.Category { Id = catA, Name = "Kategoria A", SortOrder = 0 },
+                new Servanda.Domain.Entities.Category { Id = catB, Name = "Kategoria B", SortOrder = 1 }
+            );
+
+            db.Notes.AddRange(
+                new Servanda.Domain.Entities.Note { Id = note1Id, CategoryId = catA, Title = "Note 1", Content = "C1", SortOrder = 0 },
+                new Servanda.Domain.Entities.Note { Id = note2Id, CategoryId = catA, Title = "Note 2", Content = "C2", SortOrder = 1 },
+                new Servanda.Domain.Entities.Note { Id = note3Id, CategoryId = catB, Title = "Note 3", Content = "C3", SortOrder = 0 }
+            );
+
+            await db.SaveChangesAsync();
+        }
+
+        // 1. Reorder within Category A (reverse note1 and note2)
+        var reorderResponse = await _client.PutAsJsonAsync("/api/notes/reorder", new ReorderNotesRequest(catA, new List<Guid> { note2Id, note1Id }));
+        Assert.Equal(HttpStatusCode.OK, reorderResponse.StatusCode);
+
+        var notesAfterReorder = await reorderResponse.Content.ReadFromJsonAsync<List<NoteDto>>();
+        Assert.NotNull(notesAfterReorder);
+        var catANotes = notesAfterReorder.Where(n => n.CategoryId == catA).OrderBy(n => n.SortOrder).ToList();
+        Assert.Equal(note2Id, catANotes[0].Id);
+        Assert.Equal(0, catANotes[0].SortOrder);
+        Assert.Equal(note1Id, catANotes[1].Id);
+        Assert.Equal(1, catANotes[1].SortOrder);
+
+        // 2. Move note1 to Category B via reorder (inserting before note3)
+        var moveToBResponse = await _client.PutAsJsonAsync("/api/notes/reorder", new ReorderNotesRequest(catB, new List<Guid> { note1Id, note3Id }));
+        Assert.Equal(HttpStatusCode.OK, moveToBResponse.StatusCode);
+
+        var notesAfterMove = await moveToBResponse.Content.ReadFromJsonAsync<List<NoteDto>>();
+        Assert.NotNull(notesAfterMove);
+        var catBNotes = notesAfterMove.Where(n => n.CategoryId == catB).OrderBy(n => n.SortOrder).ToList();
+        Assert.Equal(2, catBNotes.Count);
+        Assert.Equal(note1Id, catBNotes[0].Id);
+        Assert.Equal(catB, catBNotes[0].CategoryId);
+        Assert.Equal(note3Id, catBNotes[1].Id);
+
+        // 3. Move note2 to uncategorized (null category) via move endpoint
+        var moveSingleResponse = await _client.PutAsJsonAsync($"/api/notes/{note2Id}/move", new MoveNoteRequest(null, 0));
+        Assert.Equal(HttpStatusCode.OK, moveSingleResponse.StatusCode);
+
+        var notesAfterSingleMove = await moveSingleResponse.Content.ReadFromJsonAsync<List<NoteDto>>();
+        Assert.NotNull(notesAfterSingleMove);
+        var movedNote2 = notesAfterSingleMove.FirstOrDefault(n => n.Id == note2Id);
+        Assert.NotNull(movedNote2);
+        Assert.Null(movedNote2.CategoryId);
+    }
+
     public void Dispose()
     {
         _client.Dispose();

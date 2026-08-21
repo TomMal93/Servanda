@@ -7,6 +7,8 @@ vi.mock('./api', () => ({
   fetchHealth: vi.fn(),
   fetchNotes: vi.fn(),
   createNote: vi.fn(),
+  reorderNotes: vi.fn(),
+  moveNote: vi.fn(),
   fetchCategories: vi.fn(),
   reorderCategories: vi.fn(),
 }));
@@ -36,6 +38,7 @@ describe('App Component', () => {
         content: 'Treść testowa',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        sortOrder: 0,
         isPinned: false,
         isArchived: false,
       },
@@ -163,6 +166,47 @@ describe('App Component', () => {
     expect(cardNotatki.style.getPropertyValue('--cat-color')).toBe('#38bdf8');
     expect(cardRodzina.style.getPropertyValue('--cat-color')).toBe('#f59e0b');
     expect(cardNarzedzia.style.getPropertyValue('--cat-color')).toBe('#10b981');
+  });
+
+  it('allows moving note to category by dropping onto sidebar category card', async () => {
+    vi.mocked(api.reorderNotes).mockResolvedValue([
+      {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        categoryId: 'cat-1',
+        title: 'Notatka testowa',
+        content: 'Treść testowa',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sortOrder: 0,
+        isPinned: false,
+        isArchived: false,
+      },
+    ]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('note-tile-123e4567-e89b-12d3-a456-426614174000')).toBeInTheDocument();
+    });
+
+    const noteTile = screen.getByTestId('note-tile-123e4567-e89b-12d3-a456-426614174000');
+    const cardPrompty = screen.getByTestId('category-card-cat-1');
+
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn((type) => (type === 'application/x-servanda-note' ? '123e4567-e89b-12d3-a456-426614174000' : '')),
+      effectAllowed: '',
+      dropEffect: '',
+    };
+
+    fireEvent.dragStart(noteTile, { dataTransfer });
+    fireEvent.dragOver(cardPrompty, { dataTransfer });
+    fireEvent.drop(cardPrompty, { dataTransfer });
+    fireEvent.dragEnd(noteTile);
+
+    await waitFor(() => {
+      expect(api.reorderNotes).toHaveBeenCalledWith('cat-1', ['123e4567-e89b-12d3-a456-426614174000']);
+    });
   });
 });
 

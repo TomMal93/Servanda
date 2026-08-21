@@ -705,6 +705,12 @@ body {
   gap: 1rem;
 }
 
+.note-tile-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .note-tile-card {
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.85) 100%);
   border: 2px solid var(--tile-border-color, var(--border-color));
@@ -716,7 +722,8 @@ body {
   min-height: 120px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  cursor: pointer;
+  cursor: grab;
+  user-select: none;
 }
 
 .note-tile-card:hover {
@@ -724,12 +731,48 @@ body {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4), 0 0 12px color-mix(in srgb, var(--tile-border-color) 30%, transparent);
 }
 
+.note-tile-card.dragging {
+  opacity: 0.35;
+  border-style: dashed;
+  transform: scale(0.98);
+  cursor: grabbing;
+}
+
+.note-tile-card.drop-target-active {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--tile-border-color) 60%, transparent);
+}
+
+.note-tile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 .note-tile-title {
   font-size: 1.05rem;
   font-weight: 600;
   color: #f8fafc;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   line-height: 1.35;
+}
+
+.note-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.35;
+  cursor: grab;
+  padding: 0.1rem;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.note-tile-card:hover .note-drag-handle {
+  opacity: 0.9;
+  color: var(--text-main);
 }
 
 .note-tile-snippet {
@@ -752,12 +795,114 @@ body {
   padding-top: 0.25rem;
 }
 
+/* Note Drop Indicator Vertical (Left / Right) */
+.note-drop-indicator-vertical {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #38bdf8, #0ea5e9);
+  border-radius: 9999px;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.9), 0 0 20px rgba(56, 189, 248, 0.5);
+  z-index: 20;
+  pointer-events: none;
+  animation: dropLineGlowVertical 0.15s ease;
+}
+
+.note-drop-indicator-vertical::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+.note-drop-indicator-vertical::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #38bdf8;
+}
+
+.note-indicator-left {
+  left: -8px;
+}
+
+.note-indicator-right {
+  right: -8px;
+}
+
+@keyframes dropLineGlowVertical {
+  from {
+    opacity: 0;
+    transform: scaleX(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+/* Category & Subcategory Drop Highlights */
+.category-section.category-drop-active {
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--cat-color, #38bdf8) 6%, transparent);
+  outline: 2px dashed var(--cat-color, #38bdf8);
+  outline-offset: 8px;
+  padding: 0.5rem;
+  transition: all 0.15s ease;
+}
+
+.subcategory-section.subcategory-drop-active {
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--subcat-color, #06b6d4) 8%, transparent);
+  outline: 2px dashed var(--subcat-color, #06b6d4);
+  outline-offset: 6px;
+  padding: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+/* Empty Dropzones */
+.category-empty-dropzone,
+.subcategory-empty-dropzone {
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  background-color: rgba(15, 23, 42, 0.4);
+  transition: all 0.18s ease;
+  cursor: pointer;
+}
+
+.category-empty-dropzone:hover,
+.subcategory-empty-dropzone:hover,
+.category-section.category-drop-active .category-empty-dropzone,
+.subcategory-section.subcategory-drop-active .subcategory-empty-dropzone {
+  border-color: var(--cat-color, var(--subcat-color, #38bdf8));
+  background-color: color-mix(in srgb, var(--cat-color, var(--subcat-color, #38bdf8)) 10%, transparent);
+}
+
+.category-card.note-drop-target-active {
+  border-color: #38bdf8 !important;
+  background-color: color-mix(in srgb, var(--cat-color, #38bdf8) 25%, #0f172a) !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6) !important;
+  transform: scale(1.03);
+}
+
 .category-empty-notice,
 .subcategory-empty-notice {
-  color: #64748b;
+  color: #94a3b8;
   font-size: 0.875rem;
-  font-style: italic;
-  margin: 0.4rem 0 0.75rem 0;
+  margin: 0;
 }
 
 .subcategory-item {
@@ -770,4 +915,5 @@ body {
   font-size: 0.88rem;
   border-left: 2px solid var(--cat-color);
 }
+
 

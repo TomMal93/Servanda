@@ -3,6 +3,7 @@ import {
   fetchHealth,
   fetchNotes,
   createNote,
+  reorderNotes,
   fetchCategories,
   reorderCategories,
   type Note,
@@ -90,6 +91,43 @@ export function App() {
     }
   }
 
+  async function handleNoteReorder(targetCategoryId: string | null, orderedNoteIds: string[]) {
+    // Optimistic UI update
+    setNotes((prevNotes) => {
+      return prevNotes.map((note) => {
+        const idx = orderedNoteIds.indexOf(note.id);
+        if (idx !== -1) {
+          return {
+            ...note,
+            categoryId: targetCategoryId,
+            sortOrder: idx,
+          };
+        }
+        return note;
+      });
+    });
+
+    try {
+      const updated = await reorderNotes(targetCategoryId, orderedNoteIds);
+      setNotes(updated);
+    } catch (err: any) {
+      setNotesError(err.message || 'Błąd zapisu kolejności notatek');
+    }
+  }
+
+  async function handleNoteDropOnCategory(noteId: string, categoryId: string) {
+    const note = notes.find((n) => n.id === noteId);
+    if (!note) return;
+
+    // If note is already in that category, no reorder needed unless target order is specified
+    const targetCategoryNotes = notes
+      .filter((n) => n.categoryId === categoryId && n.id !== noteId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const orderedIds = [...targetCategoryNotes.map((n) => n.id), noteId];
+    await handleNoteReorder(categoryId, orderedIds);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -122,6 +160,7 @@ export function App() {
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={setSelectedCategoryId}
         onReorder={handleReorder}
+        onNoteDrop={handleNoteDropOnCategory}
         loading={categoriesLoading}
         error={categoriesError}
       />
@@ -239,6 +278,7 @@ export function App() {
             notes={notes}
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={setSelectedCategoryId}
+            onReorderNotes={handleNoteReorder}
             loading={notesLoading || categoriesLoading}
             error={notesError || categoriesError}
           />

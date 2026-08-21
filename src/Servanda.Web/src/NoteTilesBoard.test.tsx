@@ -19,6 +19,7 @@ describe('NoteTilesBoard Component', () => {
       content: 'Jeden dwa trzy cztery pięć sześć siedem osiem dziewięć dziesięć jedenaście dwanaście trzynaście czternaście piętnaście szesnaście siedemnaście',
       createdAt: '2026-08-22T00:00:00.000Z',
       updatedAt: '2026-08-22T00:00:00.000Z',
+      sortOrder: 0,
       isPinned: false,
       isArchived: false,
     },
@@ -29,6 +30,7 @@ describe('NoteTilesBoard Component', () => {
       content: 'Napisz komponent funkcyjny z hookami.',
       createdAt: '2026-08-22T00:00:00.000Z',
       updatedAt: '2026-08-22T00:00:00.000Z',
+      sortOrder: 0,
       isPinned: false,
       isArchived: false,
     },
@@ -39,6 +41,7 @@ describe('NoteTilesBoard Component', () => {
       content: 'Przygotować raport i wysłać maile.',
       createdAt: '2026-08-22T00:00:00.000Z',
       updatedAt: '2026-08-22T00:00:00.000Z',
+      sortOrder: 0,
       isPinned: false,
       isArchived: false,
     },
@@ -49,6 +52,18 @@ describe('NoteTilesBoard Component', () => {
       content: 'Luźna myśl.',
       createdAt: '2026-08-22T00:00:00.000Z',
       updatedAt: '2026-08-22T00:00:00.000Z',
+      sortOrder: 0,
+      isPinned: false,
+      isArchived: false,
+    },
+    {
+      id: 'note-5',
+      categoryId: 'cat-prompty',
+      title: 'Drugi prompt',
+      content: 'Treść drugiego promptu.',
+      createdAt: '2026-08-22T00:00:00.000Z',
+      updatedAt: '2026-08-22T00:00:00.000Z',
+      sortOrder: 1,
       isPinned: false,
       isArchived: false,
     },
@@ -137,5 +152,83 @@ describe('NoteTilesBoard Component', () => {
     fireEvent.click(clearBtn);
 
     expect(onSelectCategory).toHaveBeenCalledWith(null);
+  });
+
+  it('reorders notes within the same category on drag and drop', () => {
+    const onReorderNotes = vi.fn();
+    render(
+      <NoteTilesBoard
+        categories={mockCategories}
+        notes={mockNotes}
+        selectedCategoryId={null}
+        onSelectCategory={vi.fn()}
+        onReorderNotes={onReorderNotes}
+      />
+    );
+
+    const tile1 = screen.getByTestId('note-tile-note-1');
+    const tile5 = screen.getByTestId('note-tile-note-5');
+
+    tile5.getBoundingClientRect = vi.fn(() => ({
+      top: 100,
+      bottom: 200,
+      left: 100,
+      right: 300,
+      width: 200,
+      height: 100,
+      x: 100,
+      y: 100,
+      toJSON: () => {},
+    }));
+
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => 'note-1'),
+      effectAllowed: '',
+      dropEffect: '',
+    };
+
+    fireEvent.dragStart(tile1, { dataTransfer });
+    // clientX = 250 is in the right half of left:100 width:200 (ratio = 150/200 = 0.75 >= 0.5 => 'after')
+    fireEvent.dragOver(tile5, { dataTransfer, clientX: 250 });
+    fireEvent.drop(tile5, { dataTransfer });
+    fireEvent.dragEnd(tile1);
+
+    expect(onReorderNotes).toHaveBeenCalledWith('cat-prompty', ['note-5', 'note-1']);
+  });
+
+  it('moves note to another category when dropped onto empty dropzone', () => {
+    const onReorderNotes = vi.fn();
+    const categoriesWithEmpty = [
+      ...mockCategories,
+      { id: 'cat-empty', name: 'Pusta kategoria', color: '#10b981', sortOrder: 4, parentCategoryId: null },
+    ];
+
+    render(
+      <NoteTilesBoard
+        categories={categoriesWithEmpty}
+        notes={mockNotes}
+        selectedCategoryId={null}
+        onSelectCategory={vi.fn()}
+        onReorderNotes={onReorderNotes}
+      />
+    );
+
+    const tile1 = screen.getByTestId('note-tile-note-1');
+    const emptyDropzone = screen.getByTestId('empty-dropzone-cat-empty');
+
+    const dataTransfer = {
+      setData: vi.fn(),
+      getData: vi.fn(() => 'note-1'),
+      effectAllowed: '',
+      dropEffect: '',
+    };
+
+    fireEvent.dragStart(tile1, { dataTransfer });
+    fireEvent.dragOver(emptyDropzone, { dataTransfer });
+    fireEvent.drop(emptyDropzone, { dataTransfer });
+    fireEvent.dragEnd(tile1);
+
+    expect(onReorderNotes).toHaveBeenCalledWith('cat-empty', ['note-1']);
   });
 });

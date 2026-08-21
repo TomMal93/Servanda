@@ -27,4 +27,24 @@ public class DtoTests
         Assert.Equal(5, dto.NoteCount);
         Assert.Equal(now, dto.TimestampUtc);
     }
+
+    [Fact]
+    public void NoteDto_And_ReorderNotesRequest_ShouldInitializeCorrectly()
+    {
+        var noteId = Guid.NewGuid();
+        var catId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        var noteDto = new NoteDto(noteId, catId, "Title", "Content", now, now, 2, false, false);
+
+        Assert.Equal(2, noteDto.SortOrder);
+        Assert.Equal("Title", noteDto.Title);
+
+        var reorderReq = new ReorderNotesRequest(catId, new List<Guid> { noteId });
+        Assert.Equal(catId, reorderReq.TargetCategoryId);
+        Assert.Single(reorderReq.OrderedNoteIds);
+
+        var moveReq = new MoveNoteRequest(catId, 3);
+        Assert.Equal(catId, moveReq.TargetCategoryId);
+        Assert.Equal(3, moveReq.NewSortOrder);
+    }
 }

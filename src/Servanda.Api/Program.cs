@@ -120,7 +120,8 @@ app.MapGet("/api/notes", async (AppDbContext db, CancellationToken ct) =>
 {
     var notes = await db.Notes
         .AsNoTracking()
-        .OrderByDescending(n => n.CreatedAt)
+        .OrderBy(n => n.SortOrder)
+        .ThenByDescending(n => n.CreatedAt)
         .Select(n => new NoteDto(
             n.Id,
             n.CategoryId,
@@ -128,6 +129,7 @@ app.MapGet("/api/notes", async (AppDbContext db, CancellationToken ct) =>
             n.Content,
             n.CreatedAt,
             n.UpdatedAt,
+            n.SortOrder,
             n.IsPinned,
             n.IsArchived
         ))
@@ -153,6 +155,7 @@ app.MapPost("/api/notes", async ([FromBody] CreateNoteRequest request, AppDbCont
         Title = request.Title.Trim(),
         Content = request.Content ?? string.Empty,
         CategoryId = request.CategoryId,
+        SortOrder = 0,
         IsPinned = request.IsPinned,
         CreatedAt = now,
         UpdatedAt = now
@@ -168,11 +171,133 @@ app.MapPost("/api/notes", async ([FromBody] CreateNoteRequest request, AppDbCont
         note.Content,
         note.CreatedAt,
         note.UpdatedAt,
+        note.SortOrder,
         note.IsPinned,
         note.IsArchived
     );
 
     return Results.Created($"/api/notes/{note.Id}", dto);
+});
+
+app.MapPut("/api/notes/reorder", async ([FromBody] ReorderNotesRequest request, AppDbContext db, CancellationToken ct) =>
+{
+    if (request.OrderedNoteIds == null || request.OrderedNoteIds.Count == 0)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["OrderedNoteIds"] = ["Lista identyfikatorów notatek nie może być pusta."]
+        });
+    }
+
+    if (request.TargetCategoryId.HasValue)
+    {
+        var categoryExists = await db.Categories.AnyAsync(c => c.Id == request.TargetCategoryId.Value, ct);
+        if (!categoryExists)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["TargetCategoryId"] = [$"Kategoria o ID {request.TargetCategoryId.Value} nie istnieje."]
+            });
+        }
+    }
+
+    var noteIds = request.OrderedNoteIds;
+    var notes = await db.Notes.Where(n => noteIds.Contains(n.Id)).ToListAsync(ct);
+
+    var now = DateTime.UtcNow;
+    for (int i = 0; i < noteIds.Count; i++)
+    {
+        var id = noteIds[i];
+        var note = notes.FirstOrDefault(n => n.Id == id);
+        if (note != null)
+        {
+            note.CategoryId = request.TargetCategoryId;
+            note.SortOrder = i;
+            note.UpdatedAt = now;
+        }
+    }
+
+    await db.SaveChangesAsync(ct);
+
+    var allNotes = await db.Notes
+        .AsNoTracking()
+        .OrderBy(n => n.SortOrder)
+        .ThenByDescending(n => n.CreatedAt)
+        .Select(n => new NoteDto(
+            n.Id,
+            n.CategoryId,
+            n.Title,
+            n.Content,
+            n.CreatedAt,
+            n.UpdatedAt,
+            n.SortOrder,
+            n.IsPinned,
+            n.IsArchived
+        ))
+        .ToListAsync(ct);
+
+    return Results.Ok(allNotes);
+});
+
+app.MapPut("/api/notes/{id:guid}/move", async (Guid id, [FromBody] MoveNoteRequest request, AppDbContext db, CancellationToken ct) =>
+{
+    var note = await db.Notes.FirstOrDefaultAsync(n => n.Id == id, ct);
+    if (note == null)
+    {
+        return Results.NotFound(new ProblemDetails
+        {
+            Title = "Nie znaleziono notatki",
+            Detail = $"Notatka o ID {id} nie istnieje."
+        });
+    }
+
+    if (request.TargetCategoryId.HasValue)
+    {
+        var categoryExists = await db.Categories.AnyAsync(c => c.Id == request.TargetCategoryId.Value, ct);
+        if (!categoryExists)
+        {
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["TargetCategoryId"] = [$"Kategoria o ID {request.TargetCategoryId.Value} nie istnieje."]
+            });
+        }
+    }
+
+    note.CategoryId = request.TargetCategoryId;
+    if (request.NewSortOrder.HasValue)
+    {
+        note.SortOrder = request.NewSortOrder.Value;
+    }
+    else
+    {
+        var maxSortOrder = await db.Notes
+            .Where(n => n.CategoryId == request.TargetCategoryId && n.Id != id)
+            .Select(n => (int?)n.SortOrder)
+            .MaxAsync(ct) ?? -1;
+        note.SortOrder = maxSortOrder + 1;
+    }
+    note.UpdatedAt = DateTime.UtcNow;
+
+    await db.SaveChangesAsync(ct);
+
+    var allNotes = await db.Notes
+        .AsNoTracking()
+        .OrderBy(n => n.SortOrder)
+        .ThenByDescending(n => n.CreatedAt)
+        .Select(n => new NoteDto(
+            n.Id,
+            n.CategoryId,
+            n.Title,
+            n.Content,
+            n.CreatedAt,
+            n.UpdatedAt,
+            n.SortOrder,
+            n.IsPinned,
+            n.IsArchived
+        ))
+        .ToListAsync(ct);
+
+    return Results.Ok(allNotes);
 });
 
 static async Task SeedInitialCategoriesAsync(AppDbContext db)
