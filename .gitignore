@@ -1,0 +1,49 @@
+# Node.js and frontend builds
+node_modules/
+dist/
+coverage/
+.vite/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# .NET build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+*.suo
+
+# Local database and backups
+data/*.db
+data/*.db-*
+data/*.sqlite
+data/*.sqlite-*
+data/*.backup
+data/*.bak
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.local.json
+appsettings.Local.json
+*.pfx
+*.snk
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Operating systems
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+

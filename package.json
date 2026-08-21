@@ -1,0 +1,22 @@
+{
+  "name": "servanda",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lokalna aplikacja webowa do notatek",
+  "scripts": {
+    "dev": "concurrently -k -n WEB,API -c cyan,green \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:web": "npm --prefix src/Servanda.Web run dev",
+    "dev:api": "cross-env DOTNET_USE_POLLING_FILE_WATCHER=1 dotnet watch --project src/Servanda.Api --non-interactive run",
+    "build": "npm run build:web && dotnet build",
+    "build:web": "npm --prefix src/Servanda.Web run build",
+    "test": "npm run test:web && dotnet test",
+    "test:web": "npm --prefix src/Servanda.Web test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "cross-env": "^10.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
