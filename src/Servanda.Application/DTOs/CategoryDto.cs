@@ -4,7 +4,8 @@ public record CategoryDto(
     Guid Id,
     string Name,
     string? Color,
-    int SortOrder
+    int SortOrder,
+    Guid? ParentCategoryId = null
 );
 
 public record ReorderCategoriesRequest(

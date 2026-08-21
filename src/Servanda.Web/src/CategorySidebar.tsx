@@ -35,6 +35,24 @@ function getCategoryIcon(name: string) {
     );
   }
 
+  if (normalized.includes('kod') || normalized.includes('program')) {
+    return (
+      <svg
+        className="category-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+    );
+  }
+
   if (normalized.includes('notatk') || normalized.includes('note')) {
     return (
       <svg
@@ -56,7 +74,25 @@ function getCategoryIcon(name: string) {
     );
   }
 
-  if (normalized.includes('rodzin') || normalized.includes('family')) {
+  if (normalized.includes('prac') || normalized.includes('work')) {
+    return (
+      <svg
+        className="category-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      </svg>
+    );
+  }
+
+  if (normalized.includes('rodzin') || normalized.includes('family') || normalized.includes('osobist')) {
     return (
       <svg
         className="category-icon"
@@ -115,16 +151,25 @@ function getCategoryColor(category: Category, index: number): string {
   }
   const normalized = category.name.toLowerCase().trim();
   if (normalized.includes('prompt')) {
-    return '#a855f7'; // Purple / Fioletowy
+    return '#a855f7';
+  }
+  if (normalized.includes('kod') || normalized.includes('program')) {
+    return '#ec4899';
   }
   if (normalized.includes('notatk') || normalized.includes('note')) {
-    return '#38bdf8'; // Sky Blue / Niebieski
+    return '#38bdf8';
+  }
+  if (normalized.includes('prac') || normalized.includes('work')) {
+    return '#06b6d4';
+  }
+  if (normalized.includes('osobist') || normalized.includes('personal')) {
+    return '#14b8a6';
   }
   if (normalized.includes('rodzin') || normalized.includes('family')) {
-    return '#f59e0b'; // Amber / Bursztynowy
+    return '#f59e0b';
   }
   if (normalized.includes('narzędz') || normalized.includes('narzedz') || normalized.includes('tool')) {
-    return '#10b981'; // Emerald / Zielony
+    return '#10b981';
   }
 
   const fallbackPalette = ['#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316', '#14b8a6', '#6366f1'];
@@ -138,7 +183,6 @@ function getDestinationIndex(source: number, target: number, position: 'before' 
   }
   return dest;
 }
-
 
 export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   categories,
@@ -154,6 +198,25 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   // References for FLIP smooth movement animation
   const itemRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const prevPositions = useRef<Map<string, number>>(new Map());
+
+  // Flatten categories in hierarchical order for clean sidebar list: root categories followed by their subcategories
+  const hierarchicalCategories: { category: Category; originalIndex: number; isSubcategory: boolean }[] = [];
+  const rootCategories = categories
+    .map((cat, idx) => ({ category: cat, originalIndex: idx }))
+    .filter(({ category }) => !category.parentCategoryId)
+    .sort((a, b) => a.category.sortOrder - b.category.sortOrder);
+
+  rootCategories.forEach((root) => {
+    hierarchicalCategories.push({ ...root, isSubcategory: false });
+    const subcats = categories
+      .map((cat, idx) => ({ category: cat, originalIndex: idx }))
+      .filter(({ category }) => category.parentCategoryId === root.category.id)
+      .sort((a, b) => a.category.sortOrder - b.category.sortOrder);
+
+    subcats.forEach((sub) => {
+      hierarchicalCategories.push({ ...sub, isSubcategory: true });
+    });
+  });
 
   useLayoutEffect(() => {
     const prevPosMap = prevPositions.current;
@@ -177,14 +240,13 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     });
   }, [categories]);
 
-  function handleDragStart(e: React.DragEvent, index: number) {
-    setDraggedIndex(index);
+  function handleDragStart(e: React.DragEvent, originalIndex: number) {
+    setDraggedIndex(originalIndex);
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
+    e.dataTransfer.setData('text/plain', originalIndex.toString());
   }
 
-
-  function handleDragOver(e: React.DragEvent, index: number) {
+  function handleDragOver(e: React.DragEvent, originalIndex: number) {
     e.preventDefault();
     if (draggedIndex === null) return;
 
@@ -195,11 +257,9 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
     let position: 'before' | 'after' | null = null;
 
-    // Musi znaleźć się zdecydowanie za połową kafla (np. ratio >= 0.55) aby wyświetlić linię za nim
     if (ratio >= 0.55) {
       position = 'after';
-    } else if (index === 0 && ratio <= 0.35) {
-      // Dla pierwszego elementu umożliwiamy także wrzucenie na sam początek
+    } else if (originalIndex === 0 && ratio <= 0.35) {
       position = 'before';
     }
 
@@ -208,15 +268,14 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
       return;
     }
 
-    const destIndex = getDestinationIndex(draggedIndex, index, position);
-    // Jeśli kafel ma zostać na swoim dotychczasowym miejscu, nie wyświetlaj linii
+    const destIndex = getDestinationIndex(draggedIndex, originalIndex, position);
     if (destIndex === draggedIndex) {
       if (dropTarget !== null) setDropTarget(null);
       return;
     }
 
-    if (dropTarget?.index !== index || dropTarget?.position !== position) {
-      setDropTarget({ index, position });
+    if (dropTarget?.index !== originalIndex || dropTarget?.position !== position) {
+      setDropTarget({ index: originalIndex, position });
     }
   }
 
@@ -265,7 +324,6 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
     setDropTarget(null);
   }
 
-
   return (
     <aside className="category-sidebar-full" aria-label="Kategorie">
       <div className="sidebar-brand">
@@ -294,15 +352,15 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
         <div className="empty-state">Brak kategorii</div>
       ) : (
         <ul className="categories-list" role="list">
-          {categories.map((category, index) => {
+          {hierarchicalCategories.map(({ category, originalIndex, isSubcategory }) => {
             const isSelected = selectedCategoryId === category.id;
-            const isDragging = draggedIndex === index;
+            const isDragging = draggedIndex === originalIndex;
             const showLineBefore =
-              dropTarget?.index === index && dropTarget?.position === 'before' && draggedIndex !== index;
+              dropTarget?.index === originalIndex && dropTarget?.position === 'before' && draggedIndex !== originalIndex;
             const showLineAfter =
-              dropTarget?.index === index && dropTarget?.position === 'after' && draggedIndex !== index;
+              dropTarget?.index === originalIndex && dropTarget?.position === 'after' && draggedIndex !== originalIndex;
 
-            const categoryColor = getCategoryColor(category, index);
+            const categoryColor = getCategoryColor(category, originalIndex);
 
             return (
               <li
@@ -314,20 +372,22 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                     itemRefs.current.delete(category.id);
                   }
                 }}
-                className="category-item-container"
+                className={`category-item-container ${isSubcategory ? 'subcategory-item' : ''}`}
               >
                 {showLineBefore && (
                   <div className="drop-indicator-line drop-line-before" aria-hidden="true" />
                 )}
 
                 <div
-                  className={`category-card ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''}`}
+                  className={`category-card ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${
+                    isSubcategory ? 'subcategory-card' : ''
+                  }`}
                   style={{ '--cat-color': categoryColor } as React.CSSProperties}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragStart={(e) => handleDragStart(e, originalIndex)}
+                  onDragOver={(e) => handleDragOver(e, originalIndex)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, index)}
+                  onDrop={(e) => handleDrop(e, originalIndex)}
                   onDragEnd={handleDragEnd}
                   data-testid={`category-card-${category.id}`}
                   title="Przeciągnij i upuść za inny kafel"

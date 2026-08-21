@@ -13,6 +13,7 @@ var resolvedConnectionString = DbLocationHelper.ResolveConnectionString(rawConne
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlite(resolvedConnectionString);
+    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
 });
 
 // Configure Problem Details
@@ -55,6 +56,12 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
 // Categories endpoints
 app.MapGet("/api/categories", async (AppDbContext db, CancellationToken ct) =>
 {
+    // Auto-seed subcategories if missing
+    if (!await db.Categories.AnyAsync(c => c.ParentCategoryId != null, ct))
+    {
+        await SeedInitialCategoriesAsync(db);
+    }
+
     var categories = await db.Categories
         .AsNoTracking()
         .OrderBy(c => c.SortOrder)
@@ -62,7 +69,8 @@ app.MapGet("/api/categories", async (AppDbContext db, CancellationToken ct) =>
             c.Id,
             c.Name,
             c.Color,
-            c.SortOrder
+            c.SortOrder,
+            c.ParentCategoryId
         ))
         .ToListAsync(ct);
 
@@ -99,7 +107,8 @@ app.MapPut("/api/categories/reorder", async ([FromBody] ReorderCategoriesRequest
             c.Id,
             c.Name,
             c.Color,
-            c.SortOrder
+            c.SortOrder,
+            c.ParentCategoryId
         ))
         .ToListAsync(ct);
 
@@ -170,12 +179,63 @@ static async Task SeedInitialCategoriesAsync(AppDbContext db)
 {
     if (!await db.Categories.AnyAsync())
     {
+        var promptyId = Guid.NewGuid();
+        var notatkiId = Guid.NewGuid();
+        var rodzinaId = Guid.NewGuid();
+        var narzedziaId = Guid.NewGuid();
+        var subKodId = Guid.NewGuid();
+        var subPracaId = Guid.NewGuid();
+        var subOsobisteId = Guid.NewGuid();
+
         db.Categories.AddRange(
-            new Category { Id = Guid.NewGuid(), Name = "Prompty", Color = "#a855f7", SortOrder = 0 },
-            new Category { Id = Guid.NewGuid(), Name = "Notatki", Color = "#38bdf8", SortOrder = 1 },
-            new Category { Id = Guid.NewGuid(), Name = "Rodzina", Color = "#f59e0b", SortOrder = 2 },
-            new Category { Id = Guid.NewGuid(), Name = "Narzędzia", Color = "#10b981", SortOrder = 3 }
+            new Category { Id = promptyId, Name = "Prompty", Color = "#a855f7", SortOrder = 0 },
+            new Category { Id = subKodId, ParentCategoryId = promptyId, Name = "Generowanie kodu", Color = "#ec4899", SortOrder = 0 },
+            new Category { Id = notatkiId, Name = "Notatki", Color = "#38bdf8", SortOrder = 1 },
+            new Category { Id = subPracaId, ParentCategoryId = notatkiId, Name = "Praca", Color = "#06b6d4", SortOrder = 0 },
+            new Category { Id = subOsobisteId, ParentCategoryId = notatkiId, Name = "Osobiste", Color = "#14b8a6", SortOrder = 1 },
+            new Category { Id = narzedziaId, Name = "Narzędzia", Color = "#10b981", SortOrder = 2 },
+            new Category { Id = rodzinaId, Name = "Rodzina", Color = "#f59e0b", SortOrder = 3 }
         );
+
+        db.Notes.AddRange(
+            new Note
+            {
+                Id = Guid.NewGuid(),
+                CategoryId = promptyId,
+                Title = "Architektura aplikacji React",
+                Content = "Przewodnik po strukturze katalogów, podziale na komponenty i zarządzaniu stanem w nowym projekcie.",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            },
+            new Note
+            {
+                Id = Guid.NewGuid(),
+                CategoryId = subKodId,
+                Title = "Refaktoryzacja komponentu",
+                Content = "Napisz zoptymalizowany hook useMemo i useCallback dla listy elementów z wirtualizacją.",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            },
+            new Note
+            {
+                Id = Guid.NewGuid(),
+                CategoryId = subPracaId,
+                Title = "Plan wdrożenia v1.0",
+                Content = "Sprawdzić integrację z bazą SQLite, migracje EF Core oraz testy Playwright.",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            },
+            new Note
+            {
+                Id = Guid.NewGuid(),
+                CategoryId = subOsobisteId,
+                Title = "Lista zakupów i książek",
+                Content = "Książki do przeczytania w tym kwartale: Clean Code, Designing Data-Intensive Applications.",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            }
+        );
+
         await db.SaveChangesAsync();
     }
     else
@@ -196,6 +256,32 @@ static async Task SeedInitialCategoriesAsync(AppDbContext db)
             changed = true;
         }
 
+        // Add subcategories if none exist in existing database
+        var hasSubcategories = existing.Any(c => c.ParentCategoryId != null);
+        Category? subKod = null;
+        Category? subPraca = null;
+        Category? subOsobiste = null;
+
+        if (!hasSubcategories)
+        {
+            var notatki = existing.FirstOrDefault(c => c.Name.Equals("Notatki", StringComparison.OrdinalIgnoreCase));
+            if (notatki != null)
+            {
+                subPraca = new Category { Id = Guid.NewGuid(), ParentCategoryId = notatki.Id, Name = "Praca", Color = "#06b6d4", SortOrder = 0 };
+                subOsobiste = new Category { Id = Guid.NewGuid(), ParentCategoryId = notatki.Id, Name = "Osobiste", Color = "#14b8a6", SortOrder = 1 };
+                db.Categories.AddRange(subPraca, subOsobiste);
+                changed = true;
+            }
+
+            var prompty = existing.FirstOrDefault(c => c.Name.Equals("Prompty", StringComparison.OrdinalIgnoreCase));
+            if (prompty != null)
+            {
+                subKod = new Category { Id = Guid.NewGuid(), ParentCategoryId = prompty.Id, Name = "Generowanie kodu", Color = "#ec4899", SortOrder = 0 };
+                db.Categories.Add(subKod);
+                changed = true;
+            }
+        }
+
         foreach (var cat in existing)
         {
             if (string.IsNullOrEmpty(cat.Color))
@@ -203,14 +289,39 @@ static async Task SeedInitialCategoriesAsync(AppDbContext db)
                 cat.Color = cat.Name.ToLower() switch
                 {
                     "prompty" => "#a855f7",
+                    "generowanie kodu" => "#ec4899",
+                    "analiza danych" => "#8b5cf6",
                     "notatki" => "#38bdf8",
+                    "praca" => "#06b6d4",
+                    "osobiste" => "#14b8a6",
                     "rodzina" => "#f59e0b",
                     "narzędzia" or "narzedzia" or "tools" => "#10b981",
-                    _ => "#10b981"
+                    _ => "#6366f1"
                 };
                 changed = true;
             }
         }
+
+        // Assign unassigned demo notes to categories so each category has notes
+        var unassignedNotes = await db.Notes.Where(n => n.CategoryId == null).ToListAsync();
+        if (unassignedNotes.Count > 0)
+        {
+            var notatkiCat = existing.FirstOrDefault(c => c.Name.Equals("Notatki", StringComparison.OrdinalIgnoreCase));
+            var promptyCat = existing.FirstOrDefault(c => c.Name.Equals("Prompty", StringComparison.OrdinalIgnoreCase));
+            var rodzinaCat = existing.FirstOrDefault(c => c.Name.Equals("Rodzina", StringComparison.OrdinalIgnoreCase));
+            var narzedziaCat = existing.FirstOrDefault(c => c.Name.Equals("Narzędzia", StringComparison.OrdinalIgnoreCase));
+
+            for (int i = 0; i < unassignedNotes.Count; i++)
+            {
+                var note = unassignedNotes[i];
+                if (i % 4 == 0 && notatkiCat != null) note.CategoryId = subPraca?.Id ?? notatkiCat.Id;
+                else if (i % 4 == 1 && promptyCat != null) note.CategoryId = subKod?.Id ?? promptyCat.Id;
+                else if (i % 4 == 2 && narzedziaCat != null) note.CategoryId = narzedziaCat.Id;
+                else if (rodzinaCat != null) note.CategoryId = rodzinaCat.Id;
+            }
+            changed = true;
+        }
+
         if (changed)
         {
             await db.SaveChangesAsync();

@@ -19,6 +19,7 @@ export interface Note {
 export interface CreateNotePayload {
   title: string;
   content: string;
+  categoryId?: string | null;
 }
 
 export async function fetchHealth(): Promise<HealthStatus> {
@@ -60,6 +61,7 @@ export interface Category {
   name: string;
   color: string | null;
   sortOrder: number;
+  parentCategoryId?: string | null;
 }
 
 export async function fetchCategories(): Promise<Category[]> {
@@ -87,4 +89,3 @@ export async function reorderCategories(orderedIds: string[]): Promise<Category[
 
   return res.json();
 }
-

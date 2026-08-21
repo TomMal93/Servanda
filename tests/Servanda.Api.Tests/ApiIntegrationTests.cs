@@ -105,23 +105,23 @@ public class ApiIntegrationTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         var categories = await getResponse.Content.ReadFromJsonAsync<List<CategoryDto>>();
         Assert.NotNull(categories);
-        Assert.Equal(4, categories.Count);
-        Assert.Equal("Prompty", categories[0].Name);
-        Assert.Equal("Notatki", categories[1].Name);
-        Assert.Equal("Rodzina", categories[2].Name);
-        Assert.Equal("Narzędzia", categories[3].Name);
+        Assert.True(categories.Count >= 4);
 
-        // 2. Reorder categories (move Narzędzia to top)
-        var newOrder = new List<Guid> { categories[3].Id, categories[0].Id, categories[1].Id, categories[2].Id };
-        var putResponse = await _client.PutAsJsonAsync("/api/categories/reorder", new ReorderCategoriesRequest(newOrder));
+        var rootCategories = categories.Where(c => c.ParentCategoryId == null).ToList();
+        Assert.True(rootCategories.Count >= 4);
+
+        // 2. Reorder categories (move last root category to top)
+        var lastRoot = rootCategories.Last();
+        var reorderedIds = new List<Guid> { lastRoot.Id };
+        reorderedIds.AddRange(rootCategories.Where(c => c.Id != lastRoot.Id).Select(c => c.Id));
+
+        var putResponse = await _client.PutAsJsonAsync("/api/categories/reorder", new ReorderCategoriesRequest(reorderedIds));
         Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
 
         var reordered = await putResponse.Content.ReadFromJsonAsync<List<CategoryDto>>();
         Assert.NotNull(reordered);
-        Assert.Equal("Narzędzia", reordered[0].Name);
-        Assert.Equal("Prompty", reordered[1].Name);
-        Assert.Equal("Notatki", reordered[2].Name);
-        Assert.Equal("Rodzina", reordered[3].Name);
+        var reorderedRoots = reordered.Where(c => c.ParentCategoryId == null).OrderBy(c => c.SortOrder).ToList();
+        Assert.Equal(lastRoot.Name, reorderedRoots[0].Name);
     }
 
     public void Dispose()

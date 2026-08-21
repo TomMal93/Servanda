@@ -1,18 +1,17 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import React, { useState, useEffect, type FormEvent } from 'react';
 import {
   fetchHealth,
   fetchNotes,
   createNote,
   fetchCategories,
   reorderCategories,
-  type HealthStatus,
   type Note,
   type Category,
 } from './api';
 import { CategorySidebar } from './CategorySidebar';
+import { NoteTilesBoard } from './NoteTilesBoard';
 
 export function App() {
-  const [health, setHealth] = useState<HealthStatus | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -25,14 +24,15 @@ export function App() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [formCategoryId, setFormCategoryId] = useState<string>('');
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function loadData() {
     try {
       setHealthError(null);
-      const h = await fetchHealth();
-      setHealth(h);
+      await fetchHealth();
     } catch (err: any) {
       setHealthError(err.message || 'Brak połączenia z API');
     }
@@ -101,21 +101,19 @@ export function App() {
       const created = await createNote({
         title: title.trim(),
         content: content.trim(),
+        categoryId: formCategoryId ? formCategoryId : null,
       });
       setNotes((prev) => [created, ...prev]);
       setTitle('');
       setContent('');
-
-      // Refresh health check to update note count in DB
-      fetchHealth().then(setHealth).catch(() => {});
+      setFormCategoryId('');
+      setIsFormOpen(false);
     } catch (err: any) {
       setSubmitError(err.message || 'Nie udało się zapisać notatki.');
     } finally {
       setSubmitting(false);
     }
   }
-
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
 
   return (
     <div className="app-layout-root">
@@ -130,122 +128,120 @@ export function App() {
 
       <div className="app-main-viewport">
         <header className="main-header">
-          <h1>Servanda</h1>
-          <p className="subtitle">Weryfikacja komunikacji: Przeglądarka ➔ Backend ➔ Baza SQLite</p>
+          <div className="main-header-content">
+            <div>
+              <h1>Prywatne notatki</h1>
+              <p className="subtitle">Przeglądaj notatki pogrupowane w kategorie i podkategorie</p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary btn-add-note-toggle"
+              onClick={() => setIsFormOpen((prev) => !prev)}
+            >
+              {isFormOpen ? '✕ Zamknij' : '+ Dodaj notatkę'}
+            </button>
+          </div>
         </header>
 
         <main className="main-content">
-          <section className="status-grid" aria-label="Status systemu">
-            <div className="status-card">
-              <h3>Przeglądarka / Frontend</h3>
-              <div className="status-badge">
-                <span className="dot"></span>
-                <span>React + Vite (5173)</span>
-              </div>
-            </div>
-
-            <div className="status-card">
-              <h3>Backend API</h3>
-              <div className="status-badge">
-                <span className={`dot ${healthError ? 'error' : ''}`}></span>
-                <span>{healthError ? 'Rozłączony' : health?.status === 'healthy' ? '.NET 10 (5180)' : 'Sprawdzanie...'}</span>
-              </div>
-            </div>
-
-            <div className="status-card">
-              <h3>Baza danych</h3>
-              <div className="status-badge">
-                <span className={`dot ${healthError || health?.database !== 'connected' ? 'error' : ''}`}></span>
-                <span>
-                  {health?.database === 'connected'
-                    ? `SQLite (data/servanda.db, ${health.noteCount} notatek)`
-                    : healthError
-                    ? 'Brak danych'
-                    : 'Łączenie...'}
-                </span>
-              </div>
-            </div>
-          </section>
-
           {healthError && (
             <div className="alert-error" role="alert">
               <strong>Błąd komunikacji z backendem:</strong> {healthError}
             </div>
           )}
 
-          <section className="section-card">
-            <h2>Dodaj notatkę testową (Zapis do SQLite)</h2>
-            {submitError && <div className="alert-error">{submitError}</div>}
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="note-title">Tytuł notatki</label>
-                <input
-                  id="note-title"
-                  className="form-input"
-                  type="text"
-                  placeholder="np. Moja pierwsza notatka"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={submitting}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="note-content">Treść notatki</label>
-                <textarea
-                  id="note-content"
-                  className="form-textarea"
-                  rows={3}
-                  placeholder="Wpisz treść notatki..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-              <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
-                {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę w bazie'}
-              </button>
-            </form>
-          </section>
+          {isFormOpen && (
+            <section className="section-card add-note-section">
+              <h2>Dodaj nową notatkę</h2>
+              {submitError && <div className="alert-error">{submitError}</div>}
+              <form onSubmit={handleSubmit}>
+                <div className="form-row-2col">
+                  <div className="form-group">
+                    <label htmlFor="note-title">Tytuł notatki</label>
+                    <input
+                      id="note-title"
+                      className="form-input"
+                      type="text"
+                      placeholder="np. Nowy pomysł na projekt"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      disabled={submitting}
+                      required
+                      autoFocus
+                    />
+                  </div>
 
-          <section className="section-card">
-            <div className="section-header">
-              <h2>Notatki zapisane w bazie ({notes.length})</h2>
-              {selectedCategory && (
-                <div className="filter-pill">
-                  Kategoria: <strong>{selectedCategory.name}</strong>
+                  <div className="form-group">
+                    <label htmlFor="note-category">Kategoria / Podkategoria</label>
+                    <select
+                      id="note-category"
+                      className="form-select"
+                      value={formCategoryId}
+                      onChange={(e) => setFormCategoryId(e.target.value)}
+                      disabled={submitting || categoriesLoading}
+                    >
+                      <option value="">-- Bez kategorii --</option>
+                      {categories
+                        .filter((c) => !c.parentCategoryId)
+                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                        .map((parent) => {
+                          const subs = categories
+                            .filter((c) => c.parentCategoryId === parent.id)
+                            .sort((a, b) => a.sortOrder - b.sortOrder);
+                          return (
+                            <React.Fragment key={parent.id}>
+                              <option value={parent.id}>{parent.name}</option>
+                              {subs.map((sub) => (
+                                <option key={sub.id} value={sub.id}>
+                                  &nbsp;&nbsp;↳ {sub.name}
+                                </option>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="note-content">Treść notatki</label>
+                  <textarea
+                    id="note-content"
+                    className="form-textarea"
+                    rows={3}
+                    placeholder="Wpisz treść notatki..."
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    disabled={submitting}
+                  />
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
+                    {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę'}
+                  </button>
                   <button
                     type="button"
-                    className="btn-clear-filter"
-                    onClick={() => setSelectedCategoryId(null)}
-                    title="Wyczyść filtr kategorii"
+                    className="btn-secondary"
+                    onClick={() => setIsFormOpen(false)}
+                    disabled={submitting}
                   >
-                    ×
+                    Anuluj
                   </button>
                 </div>
-              )}
-            </div>
+              </form>
+            </section>
+          )}
 
-            {notesLoading ? (
-              <p className="empty-state">Ładowanie notatek z bazy SQLite...</p>
-            ) : notesError ? (
-              <div className="alert-error">{notesError}</div>
-            ) : notes.length === 0 ? (
-              <p className="empty-state">Brak notatek w bazie. Użyj powyższego formularza, aby dodać pierwszy wpis.</p>
-            ) : (
-              <div className="notes-list">
-                {notes.map((note) => (
-                  <article key={note.id} className="note-item">
-                    <h4>{note.title}</h4>
-                    {note.content && <p>{note.content}</p>}
-                    <div className="note-meta">
-                      <span>ID: {note.id}</span> • <span>Utworzono: {new Date(note.createdAt).toLocaleString()}</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+          {/* Główny widok kafli pogrupowanych w kategorie i podkategorie */}
+          <NoteTilesBoard
+            categories={categories}
+            notes={notes}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={setSelectedCategoryId}
+            loading={notesLoading || categoriesLoading}
+            error={notesError || categoriesError}
+          />
         </main>
       </div>
     </div>
@@ -253,5 +249,3 @@ export function App() {
 }
 
 export default App;
-
-

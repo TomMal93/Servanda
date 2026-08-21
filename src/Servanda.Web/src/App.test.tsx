@@ -44,15 +44,14 @@ describe('App Component', () => {
     vi.mocked(api.fetchCategories).mockResolvedValue(mockCategories);
   });
 
-  it('renders header, status cards, and sidebar categories', async () => {
+  it('renders header, brand, and sidebar categories', async () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Servanda' })).toBeInTheDocument();
-    expect(screen.getByText('Przeglądarka / Frontend')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Prywatne notatki' })).toBeInTheDocument();
+    expect(screen.getByText('Servanda')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText(/Notatka testowa/)).toBeInTheDocument();
-      expect(screen.getByText(/SQLite \(data\/servanda\.db, 1 notatek\)/)).toBeInTheDocument();
     });
 
     // Check categories sidebar
