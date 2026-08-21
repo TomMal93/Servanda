@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
 import * as api from './api';
@@ -16,6 +16,7 @@ describe('App Component', () => {
     { id: 'cat-1', name: 'Prompty', color: null, sortOrder: 0 },
     { id: 'cat-2', name: 'Notatki', color: null, sortOrder: 1 },
     { id: 'cat-3', name: 'Rodzina', color: null, sortOrder: 2 },
+    { id: 'cat-4', name: 'Narzędzia', color: null, sortOrder: 3 },
   ];
 
   beforeEach(() => {
@@ -55,10 +56,12 @@ describe('App Component', () => {
     });
 
     // Check categories sidebar
-    expect(screen.getByRole('complementary', { name: /Kategorie/i })).toBeInTheDocument();
-    expect(screen.getByText('Prompty')).toBeInTheDocument();
-    expect(screen.getByText('Notatki')).toBeInTheDocument();
-    expect(screen.getByText('Rodzina')).toBeInTheDocument();
+    const sidebar = screen.getByRole('complementary', { name: /Kategorie/i });
+    expect(sidebar).toBeInTheDocument();
+    expect(within(sidebar).getByText('Prompty')).toBeInTheDocument();
+    expect(within(sidebar).getByText('Notatki')).toBeInTheDocument();
+    expect(within(sidebar).getByText('Rodzina')).toBeInTheDocument();
+    expect(within(sidebar).getByText('Narzędzia')).toBeInTheDocument();
   });
 
   it('allows reordering categories via drag and drop and calls reorderCategories API', async () => {
@@ -72,7 +75,7 @@ describe('App Component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Prompty')).toBeInTheDocument();
+      expect(screen.getByTestId('category-card-cat-1')).toBeInTheDocument();
     });
 
     const cardPrompty = screen.getByTestId('category-card-cat-1');
@@ -105,7 +108,7 @@ describe('App Component', () => {
     fireEvent.dragEnd(cardPrompty);
 
     await waitFor(() => {
-      expect(api.reorderCategories).toHaveBeenCalledWith(['cat-2', 'cat-1', 'cat-3']);
+      expect(api.reorderCategories).toHaveBeenCalledWith(['cat-2', 'cat-1', 'cat-3', 'cat-4']);
     });
   });
 
@@ -113,7 +116,7 @@ describe('App Component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Prompty')).toBeInTheDocument();
+      expect(screen.getByTestId('category-card-cat-1')).toBeInTheDocument();
     });
 
     const cardPrompty = screen.getByTestId('category-card-cat-1');
@@ -149,16 +152,18 @@ describe('App Component', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Prompty')).toBeInTheDocument();
+      expect(screen.getByTestId('category-card-cat-1')).toBeInTheDocument();
     });
 
     const cardPrompty = screen.getByTestId('category-card-cat-1');
     const cardNotatki = screen.getByTestId('category-card-cat-2');
     const cardRodzina = screen.getByTestId('category-card-cat-3');
+    const cardNarzedzia = screen.getByTestId('category-card-cat-4');
 
     expect(cardPrompty.style.getPropertyValue('--cat-color')).toBe('#a855f7');
     expect(cardNotatki.style.getPropertyValue('--cat-color')).toBe('#38bdf8');
     expect(cardRodzina.style.getPropertyValue('--cat-color')).toBe('#f59e0b');
+    expect(cardNarzedzia.style.getPropertyValue('--cat-color')).toBe('#10b981');
   });
 });
 

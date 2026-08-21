@@ -76,6 +76,23 @@ function getCategoryIcon(name: string) {
     );
   }
 
+  if (normalized.includes('narzędz') || normalized.includes('narzedz') || normalized.includes('tool')) {
+    return (
+      <svg
+        className="category-icon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+    );
+  }
+
   return (
     <svg
       className="category-icon"
@@ -105,6 +122,9 @@ function getCategoryColor(category: Category, index: number): string {
   }
   if (normalized.includes('rodzin') || normalized.includes('family')) {
     return '#f59e0b'; // Amber / Bursztynowy
+  }
+  if (normalized.includes('narzędz') || normalized.includes('narzedz') || normalized.includes('tool')) {
+    return '#10b981'; // Emerald / Zielony
   }
 
   const fallbackPalette = ['#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316', '#14b8a6', '#6366f1'];

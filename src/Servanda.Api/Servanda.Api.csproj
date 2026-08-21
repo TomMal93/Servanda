@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Servanda.Infrastructure\Servanda.Infrastructure.csproj" />
     <ProjectReference Include="..\Servanda.Application\Servanda.Application.csproj" />
+    <ProjectReference Include="..\Servanda.Domain\Servanda.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
