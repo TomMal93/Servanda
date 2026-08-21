@@ -166,123 +166,125 @@ export function App() {
       />
 
       <div className="app-main-viewport">
-        <header className="main-header">
-          <div className="main-header-content">
-            <div>
-              <h1>Prywatne notatki</h1>
-              <p className="subtitle">Przeglądaj notatki pogrupowane w kategorie i podkategorie</p>
+        <div className="main-panel-frame">
+          <header className="main-header">
+            <div className="main-header-content">
+              <div>
+                <h1>Prywatne notatki</h1>
+                <p className="subtitle">Przeglądaj notatki pogrupowane w kategorie i podkategorie</p>
+              </div>
+              <button
+                type="button"
+                className="btn-primary btn-add-note-toggle"
+                onClick={() => setIsFormOpen((prev) => !prev)}
+              >
+                {isFormOpen ? '✕ Zamknij' : '+ Dodaj notatkę'}
+              </button>
             </div>
-            <button
-              type="button"
-              className="btn-primary btn-add-note-toggle"
-              onClick={() => setIsFormOpen((prev) => !prev)}
-            >
-              {isFormOpen ? '✕ Zamknij' : '+ Dodaj notatkę'}
-            </button>
-          </div>
-        </header>
+          </header>
 
-        <main className="main-content">
-          {healthError && (
-            <div className="alert-error" role="alert">
-              <strong>Błąd komunikacji z backendem:</strong> {healthError}
-            </div>
-          )}
+          <main className="main-content">
+            {healthError && (
+              <div className="alert-error" role="alert">
+                <strong>Błąd komunikacji z backendem:</strong> {healthError}
+              </div>
+            )}
 
-          {isFormOpen && (
-            <section className="section-card add-note-section">
-              <h2>Dodaj nową notatkę</h2>
-              {submitError && <div className="alert-error">{submitError}</div>}
-              <form onSubmit={handleSubmit}>
-                <div className="form-row-2col">
+            {isFormOpen && (
+              <section className="section-card add-note-section">
+                <h2>Dodaj nową notatkę</h2>
+                {submitError && <div className="alert-error">{submitError}</div>}
+                <form onSubmit={handleSubmit}>
+                  <div className="form-row-2col">
+                    <div className="form-group">
+                      <label htmlFor="note-title">Tytuł notatki</label>
+                      <input
+                        id="note-title"
+                        className="form-input"
+                        type="text"
+                        placeholder="np. Nowy pomysł na projekt"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        disabled={submitting}
+                        required
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="note-category">Kategoria / Podkategoria</label>
+                      <select
+                        id="note-category"
+                        className="form-select"
+                        value={formCategoryId}
+                        onChange={(e) => setFormCategoryId(e.target.value)}
+                        disabled={submitting || categoriesLoading}
+                      >
+                        <option value="">-- Bez kategorii --</option>
+                        {categories
+                          .filter((c) => !c.parentCategoryId)
+                          .sort((a, b) => a.sortOrder - b.sortOrder)
+                          .map((parent) => {
+                            const subs = categories
+                              .filter((c) => c.parentCategoryId === parent.id)
+                              .sort((a, b) => a.sortOrder - b.sortOrder);
+                            return (
+                              <React.Fragment key={parent.id}>
+                                <option value={parent.id}>{parent.name}</option>
+                                {subs.map((sub) => (
+                                  <option key={sub.id} value={sub.id}>
+                                    &nbsp;&nbsp;↳ {sub.name}
+                                  </option>
+                                ))}
+                              </React.Fragment>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="form-group">
-                    <label htmlFor="note-title">Tytuł notatki</label>
-                    <input
-                      id="note-title"
-                      className="form-input"
-                      type="text"
-                      placeholder="np. Nowy pomysł na projekt"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
+                    <label htmlFor="note-content">Treść notatki</label>
+                    <textarea
+                      id="note-content"
+                      className="form-textarea"
+                      rows={3}
+                      placeholder="Wpisz treść notatki..."
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
                       disabled={submitting}
-                      required
-                      autoFocus
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="note-category">Kategoria / Podkategoria</label>
-                    <select
-                      id="note-category"
-                      className="form-select"
-                      value={formCategoryId}
-                      onChange={(e) => setFormCategoryId(e.target.value)}
-                      disabled={submitting || categoriesLoading}
+                  <div className="form-actions">
+                    <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
+                      {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setIsFormOpen(false)}
+                      disabled={submitting}
                     >
-                      <option value="">-- Bez kategorii --</option>
-                      {categories
-                        .filter((c) => !c.parentCategoryId)
-                        .sort((a, b) => a.sortOrder - b.sortOrder)
-                        .map((parent) => {
-                          const subs = categories
-                            .filter((c) => c.parentCategoryId === parent.id)
-                            .sort((a, b) => a.sortOrder - b.sortOrder);
-                          return (
-                            <React.Fragment key={parent.id}>
-                              <option value={parent.id}>{parent.name}</option>
-                              {subs.map((sub) => (
-                                <option key={sub.id} value={sub.id}>
-                                  &nbsp;&nbsp;↳ {sub.name}
-                                </option>
-                              ))}
-                            </React.Fragment>
-                          );
-                        })}
-                    </select>
+                      Anuluj
+                    </button>
                   </div>
-                </div>
+                </form>
+              </section>
+            )}
 
-                <div className="form-group">
-                  <label htmlFor="note-content">Treść notatki</label>
-                  <textarea
-                    id="note-content"
-                    className="form-textarea"
-                    rows={3}
-                    placeholder="Wpisz treść notatki..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    disabled={submitting}
-                  />
-                </div>
-
-                <div className="form-actions">
-                  <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
-                    {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setIsFormOpen(false)}
-                    disabled={submitting}
-                  >
-                    Anuluj
-                  </button>
-                </div>
-              </form>
-            </section>
-          )}
-
-          {/* Główny widok kafli pogrupowanych w kategorie i podkategorie */}
-          <NoteTilesBoard
-            categories={categories}
-            notes={notes}
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
-            onReorderNotes={handleNoteReorder}
-            loading={notesLoading || categoriesLoading}
-            error={notesError || categoriesError}
-          />
-        </main>
+            {/* Główny widok kafli pogrupowanych w kategorie i podkategorie */}
+            <NoteTilesBoard
+              categories={categories}
+              notes={notes}
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+              onReorderNotes={handleNoteReorder}
+              loading={notesLoading || categoriesLoading}
+              error={notesError || categoriesError}
+            />
+          </main>
+        </div>
       </div>
     </div>
   );

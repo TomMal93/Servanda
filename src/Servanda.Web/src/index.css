@@ -293,12 +293,36 @@ body {
   overflow-y: auto;
   padding: 2rem 2.5rem;
   box-sizing: border-box;
+  background-color: #080e0f;
+  background-image:
+    linear-gradient(to right, rgba(52, 211, 153, 0.18) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, rgba(52, 211, 153, 0.18) 1.5px, transparent 1.5px),
+    linear-gradient(to right, rgba(16, 185, 129, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16, 185, 129, 0.07) 1px, transparent 1px);
+  background-size: 160px 160px, 160px 160px, 32px 32px, 32px 32px;
+}
+
+/* Unified Main Panel Frame with Green Borders */
+.main-panel-frame {
+  max-width: 1240px;
+  margin: 0 auto;
+  background-color: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(16, 185, 129, 0.45);
+  border-radius: 12px;
+  padding: 2.25rem 2.5rem;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.12), 0 8px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
 }
 
 .main-header {
+  width: 100%;
   max-width: 900px;
-  margin: 0 auto 2rem auto;
-  border-bottom: 1px solid var(--border-color);
+  margin: 0 auto;
+  border-bottom: 1px solid rgba(52, 211, 153, 0.3);
   padding-bottom: 1.25rem;
 }
 
@@ -328,8 +352,12 @@ body {
 }
 
 .main-content {
+  width: 100%;
   max-width: 900px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .form-row-2col {
@@ -386,7 +414,12 @@ body {
   .app-main-viewport {
     height: auto;
     overflow-y: visible;
-    padding: 1.5rem 1rem;
+    padding: 1.25rem 0.75rem;
+  }
+
+  .main-panel-frame {
+    padding: 1.25rem 1rem;
+    border-radius: 10px;
   }
 }
 
