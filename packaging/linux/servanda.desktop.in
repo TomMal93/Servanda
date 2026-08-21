@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Servanda
-Comment=Prywatna, lokalna pamięć zewnętrzna
-Exec=@EXECUTABLE@
-Terminal=false
-Categories=Office;Utility;
-StartupNotify=true
