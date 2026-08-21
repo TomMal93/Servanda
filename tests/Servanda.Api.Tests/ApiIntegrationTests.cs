@@ -84,6 +84,43 @@ public class ApiIntegrationTests : IDisposable
         Assert.Contains(notes, n => n.Title == "Test Integration Note");
     }
 
+    [Fact]
+    public async Task CategoriesEndpoint_CanListAndReorderCategories()
+    {
+        // Seed categories directly into the test database
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Categories.AddRange(
+                new Servanda.Domain.Entities.Category { Id = Guid.NewGuid(), Name = "Prompty", SortOrder = 0 },
+                new Servanda.Domain.Entities.Category { Id = Guid.NewGuid(), Name = "Notatki", SortOrder = 1 },
+                new Servanda.Domain.Entities.Category { Id = Guid.NewGuid(), Name = "Rodzina", SortOrder = 2 }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // 1. Fetch categories
+        var getResponse = await _client.GetAsync("/api/categories");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var categories = await getResponse.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        Assert.NotNull(categories);
+        Assert.Equal(3, categories.Count);
+        Assert.Equal("Prompty", categories[0].Name);
+        Assert.Equal("Notatki", categories[1].Name);
+        Assert.Equal("Rodzina", categories[2].Name);
+
+        // 2. Reorder categories (move Rodzina to top)
+        var newOrder = new List<Guid> { categories[2].Id, categories[0].Id, categories[1].Id };
+        var putResponse = await _client.PutAsJsonAsync("/api/categories/reorder", new ReorderCategoriesRequest(newOrder));
+        Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
+
+        var reordered = await putResponse.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        Assert.NotNull(reordered);
+        Assert.Equal("Rodzina", reordered[0].Name);
+        Assert.Equal("Prompty", reordered[1].Name);
+        Assert.Equal("Notatki", reordered[2].Name);
+    }
+
     public void Dispose()
     {
         _client.Dispose();

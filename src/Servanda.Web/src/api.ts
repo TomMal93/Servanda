@@ -54,3 +54,37 @@ export async function createNote(payload: CreateNotePayload): Promise<Note> {
 
   return res.json();
 }
+
+export interface Category {
+  id: string;
+  name: string;
+  color: string | null;
+  sortOrder: number;
+}
+
+export async function fetchCategories(): Promise<Category[]> {
+  const res = await fetch('/api/categories');
+  if (!res.ok) {
+    throw new Error(`Failed to fetch categories: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function reorderCategories(orderedIds: string[]): Promise<Category[]> {
+  const res = await fetch('/api/categories/reorder', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderedIds }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    const message = errorData?.title || `Failed to reorder categories: ${res.status}`;
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+

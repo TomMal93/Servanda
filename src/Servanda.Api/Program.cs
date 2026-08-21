@@ -20,7 +20,7 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
-// Auto-migrate database in Development
+// Auto-migrate database in Development and seed initial data
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
@@ -28,10 +28,11 @@ if (app.Environment.IsDevelopment())
     try
     {
         await db.Database.MigrateAsync();
+        await SeedInitialCategoriesAsync(db);
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "Failed to apply migrations at startup");
+        app.Logger.LogError(ex, "Failed to apply migrations or seed initial categories at startup");
     }
 }
 
@@ -49,6 +50,60 @@ app.MapGet("/api/health", async (AppDbContext db, CancellationToken ct) =>
     );
 
     return canConnect ? Results.Ok(response) : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+});
+
+// Categories endpoints
+app.MapGet("/api/categories", async (AppDbContext db, CancellationToken ct) =>
+{
+    var categories = await db.Categories
+        .AsNoTracking()
+        .OrderBy(c => c.SortOrder)
+        .Select(c => new CategoryDto(
+            c.Id,
+            c.Name,
+            c.Color,
+            c.SortOrder
+        ))
+        .ToListAsync(ct);
+
+    return Results.Ok(categories);
+});
+
+app.MapPut("/api/categories/reorder", async ([FromBody] ReorderCategoriesRequest request, AppDbContext db, CancellationToken ct) =>
+{
+    if (request.OrderedIds == null || request.OrderedIds.Count == 0)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["OrderedIds"] = ["Lista identyfikatorów kategorii nie może być pusta."]
+        });
+    }
+
+    var categories = await db.Categories.ToListAsync(ct);
+    for (int i = 0; i < request.OrderedIds.Count; i++)
+    {
+        var id = request.OrderedIds[i];
+        var category = categories.FirstOrDefault(c => c.Id == id);
+        if (category != null)
+        {
+            category.SortOrder = i;
+        }
+    }
+
+    await db.SaveChangesAsync(ct);
+
+    var updated = await db.Categories
+        .AsNoTracking()
+        .OrderBy(c => c.SortOrder)
+        .Select(c => new CategoryDto(
+            c.Id,
+            c.Name,
+            c.Color,
+            c.SortOrder
+        ))
+        .ToListAsync(ct);
+
+    return Results.Ok(updated);
 });
 
 // Notes endpoints
@@ -110,6 +165,19 @@ app.MapPost("/api/notes", async ([FromBody] CreateNoteRequest request, AppDbCont
 
     return Results.Created($"/api/notes/{note.Id}", dto);
 });
+
+static async Task SeedInitialCategoriesAsync(AppDbContext db)
+{
+    if (!await db.Categories.AnyAsync())
+    {
+        db.Categories.AddRange(
+            new Category { Id = Guid.NewGuid(), Name = "Prompty", SortOrder = 0 },
+            new Category { Id = Guid.NewGuid(), Name = "Notatki", SortOrder = 1 },
+            new Category { Id = Guid.NewGuid(), Name = "Rodzina", SortOrder = 2 }
+        );
+        await db.SaveChangesAsync();
+    }
+}
 
 app.Run();
 
