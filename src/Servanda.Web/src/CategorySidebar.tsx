@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import type { Category } from './api';
 
 interface CategorySidebarProps {
@@ -92,6 +92,25 @@ function getCategoryIcon(name: string) {
   );
 }
 
+function getCategoryColor(category: Category, index: number): string {
+  if (category.color && category.color.trim()) {
+    return category.color.trim();
+  }
+  const normalized = category.name.toLowerCase().trim();
+  if (normalized.includes('prompt')) {
+    return '#a855f7'; // Purple / Fioletowy
+  }
+  if (normalized.includes('notatk') || normalized.includes('note')) {
+    return '#38bdf8'; // Sky Blue / Niebieski
+  }
+  if (normalized.includes('rodzin') || normalized.includes('family')) {
+    return '#f59e0b'; // Amber / Bursztynowy
+  }
+
+  const fallbackPalette = ['#10b981', '#ec4899', '#06b6d4', '#8b5cf6', '#f97316', '#14b8a6', '#6366f1'];
+  return fallbackPalette[index % fallbackPalette.length];
+}
+
 function getDestinationIndex(source: number, target: number, position: 'before' | 'after'): number {
   let dest = position === 'after' ? target + 1 : target;
   if (source < dest) {
@@ -99,6 +118,7 @@ function getDestinationIndex(source: number, target: number, position: 'before' 
   }
   return dest;
 }
+
 
 export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   categories,
@@ -111,11 +131,38 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
+  // References for FLIP smooth movement animation
+  const itemRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+  const prevPositions = useRef<Map<string, number>>(new Map());
+
+  useLayoutEffect(() => {
+    const prevPosMap = prevPositions.current;
+    categories.forEach((cat) => {
+      const el = itemRefs.current.get(cat.id);
+      if (el) {
+        const currentTop = el.getBoundingClientRect().top;
+        const oldTop = prevPosMap.get(cat.id);
+        if (oldTop !== undefined && oldTop !== currentTop) {
+          const deltaY = oldTop - currentTop;
+          el.style.transform = `translateY(${deltaY}px)`;
+          el.style.transition = 'none';
+
+          requestAnimationFrame(() => {
+            el.style.transition = 'transform 0.28s cubic-bezier(0.2, 0, 0, 1)';
+            el.style.transform = '';
+          });
+        }
+        prevPosMap.set(cat.id, currentTop);
+      }
+    });
+  }, [categories]);
+
   function handleDragStart(e: React.DragEvent, index: number) {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', index.toString());
   }
+
 
   function handleDragOver(e: React.DragEvent, index: number) {
     e.preventDefault();
@@ -235,9 +282,18 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
             const showLineAfter =
               dropTarget?.index === index && dropTarget?.position === 'after' && draggedIndex !== index;
 
+            const categoryColor = getCategoryColor(category, index);
+
             return (
               <li
                 key={category.id}
+                ref={(el) => {
+                  if (el) {
+                    itemRefs.current.set(category.id, el);
+                  } else {
+                    itemRefs.current.delete(category.id);
+                  }
+                }}
                 className="category-item-container"
               >
                 {showLineBefore && (
@@ -246,6 +302,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
                 <div
                   className={`category-card ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''}`}
+                  style={{ '--cat-color': categoryColor } as React.CSSProperties}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={(e) => handleDragOver(e, index)}

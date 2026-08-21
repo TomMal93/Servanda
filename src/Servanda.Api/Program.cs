@@ -171,11 +171,34 @@ static async Task SeedInitialCategoriesAsync(AppDbContext db)
     if (!await db.Categories.AnyAsync())
     {
         db.Categories.AddRange(
-            new Category { Id = Guid.NewGuid(), Name = "Prompty", SortOrder = 0 },
-            new Category { Id = Guid.NewGuid(), Name = "Notatki", SortOrder = 1 },
-            new Category { Id = Guid.NewGuid(), Name = "Rodzina", SortOrder = 2 }
+            new Category { Id = Guid.NewGuid(), Name = "Prompty", Color = "#a855f7", SortOrder = 0 },
+            new Category { Id = Guid.NewGuid(), Name = "Notatki", Color = "#38bdf8", SortOrder = 1 },
+            new Category { Id = Guid.NewGuid(), Name = "Rodzina", Color = "#f59e0b", SortOrder = 2 }
         );
         await db.SaveChangesAsync();
+    }
+    else
+    {
+        var existing = await db.Categories.ToListAsync();
+        bool changed = false;
+        foreach (var cat in existing)
+        {
+            if (string.IsNullOrEmpty(cat.Color))
+            {
+                cat.Color = cat.Name.ToLower() switch
+                {
+                    "prompty" => "#a855f7",
+                    "notatki" => "#38bdf8",
+                    "rodzina" => "#f59e0b",
+                    _ => "#10b981"
+                };
+                changed = true;
+            }
+        }
+        if (changed)
+        {
+            await db.SaveChangesAsync();
+        }
     }
 }
 

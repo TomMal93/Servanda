@@ -144,7 +144,24 @@ describe('App Component', () => {
     // No drop indicator line should be rendered
     expect(document.querySelector('.drop-indicator-line')).toBeNull();
   });
+
+  it('applies distinct colors to categories', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Prompty')).toBeInTheDocument();
+    });
+
+    const cardPrompty = screen.getByTestId('category-card-cat-1');
+    const cardNotatki = screen.getByTestId('category-card-cat-2');
+    const cardRodzina = screen.getByTestId('category-card-cat-3');
+
+    expect(cardPrompty.style.getPropertyValue('--cat-color')).toBe('#a855f7');
+    expect(cardNotatki.style.getPropertyValue('--cat-color')).toBe('#38bdf8');
+    expect(cardRodzina.style.getPropertyValue('--cat-color')).toBe('#f59e0b');
+  });
 });
+
 
 
 
