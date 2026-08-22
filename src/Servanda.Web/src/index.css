@@ -133,25 +133,29 @@ body {
   justify-content: space-between;
   padding: 0 1.75rem;
   gap: 1.25rem;
+  position: relative;
 }
 
 .top-menu-left-group {
   display: flex;
   align-items: center;
   gap: 1rem;
-  flex: 1;
-  min-width: 0;
-  justify-content: flex-start;
+  z-index: 2;
 }
 
-/* Centered Top Menu Title & Subtitle */
+/* Centered Top Menu Title & Subtitle (Absolute 50% relative to main panel) */
 .top-menu-center-group {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  flex: 2;
-  min-width: 0;
+  z-index: 1;
+  pointer-events: none;
+  max-width: calc(100% - 460px);
 }
 
 .top-menu-title-block {
@@ -160,7 +164,7 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  min-width: 0;
+  pointer-events: auto;
 }
 
 .top-menu-heading {
@@ -543,6 +547,8 @@ body {
   align-items: center;
   gap: 0.85rem;
   flex-shrink: 0;
+  z-index: 2;
+  margin-left: auto;
 }
 
 .top-menu-status-badge {
@@ -1297,8 +1303,12 @@ body {
     align-items: stretch;
   }
 
-  .top-menu-search-wrapper {
+  .top-menu-center-group {
+    position: static;
+    transform: none;
     max-width: 100%;
+    width: 100%;
+    margin: 0.25rem 0;
   }
 
   .app-layout-root {
