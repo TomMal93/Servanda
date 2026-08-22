@@ -349,19 +349,6 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
   return (
     <aside className="category-sidebar-full" aria-label="Kategorie">
-      <div className="sidebar-brand">
-        <div className="brand-logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="brand-icon">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-          </svg>
-        </div>
-        <div className="brand-text">
-          <h2>Servanda</h2>
-          <span className="brand-tagline">Prywatne notatki</span>
-        </div>
-      </div>
-
       <div className="sidebar-categories-area">
         <button
           type="button"

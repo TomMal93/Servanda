@@ -358,6 +358,72 @@ describe('App Component', () => {
       expect(within(sidebarCard).getByText('Prompty AI')).toBeInTheDocument();
     });
   });
+
+  it('filters notes in real time using the main panel search input', async () => {
+    vi.mocked(api.fetchNotes).mockResolvedValue([
+      {
+        id: 'note-1',
+        categoryId: null,
+        title: 'Zakupy spożywcze',
+        content: 'Mleko, chleb, masło',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sortOrder: 0,
+        isPinned: false,
+        isArchived: false,
+      },
+      {
+        id: 'note-2',
+        categoryId: null,
+        title: 'Projekt Servanda',
+        content: 'Górne menu i sidebar',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sortOrder: 1,
+        isPinned: false,
+        isArchived: false,
+      },
+    ]);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Zakupy spożywcze')).toBeInTheDocument();
+      expect(screen.getByText('Projekt Servanda')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId('main-search-input');
+    fireEvent.change(searchInput, { target: { value: 'Servanda' } });
+
+    expect(screen.getByText('Projekt Servanda')).toBeInTheDocument();
+    expect(screen.queryByText('Zakupy spożywcze')).not.toBeInTheDocument();
+
+    // Clear search
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(screen.getByText('Zakupy spożywcze')).toBeInTheDocument();
+    expect(screen.getByText('Projekt Servanda')).toBeInTheDocument();
+  });
+
+  it('allows opening add note form and settings from top menu buttons', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('top-menu-add-note-btn')).toBeInTheDocument();
+    });
+
+    // Toggle add note form
+    expect(screen.queryByText('Dodaj nową notatkę')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('top-menu-add-note-btn'));
+    expect(screen.getByRole('heading', { level: 2, name: 'Dodaj nową notatkę' })).toBeInTheDocument();
+
+    // Close form
+    fireEvent.click(screen.getByTestId('top-menu-add-note-btn'));
+    expect(screen.queryByRole('heading', { level: 2, name: 'Dodaj nową notatkę' })).not.toBeInTheDocument();
+
+    // Open settings from top menu
+    fireEvent.click(screen.getByTestId('top-menu-settings-btn'));
+    expect(screen.getByTestId('settings-modal-dialog')).toBeInTheDocument();
+  });
 });
 
 

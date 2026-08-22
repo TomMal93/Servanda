@@ -13,6 +13,7 @@ import {
 import { CategorySidebar } from './CategorySidebar';
 import { NoteTilesBoard } from './NoteTilesBoard';
 import { SettingsModal } from './SettingsModal';
+import { TopMenu } from './TopMenu';
 
 export function App() {
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -162,138 +164,204 @@ export function App() {
     setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name: updated.name } : c)));
   }
 
+  const filteredNotes = notes.filter((n) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q);
+  });
+
   return (
-    <div className="app-layout-root">
-      <CategorySidebar
+    <div className="app-shell-root">
+      <TopMenu
         categories={categories}
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={setSelectedCategoryId}
-        onReorder={handleReorder}
-        onNoteDrop={handleNoteDropOnCategory}
+        notesCount={notes.length}
+        isFormOpen={isFormOpen}
+        onToggleAddNote={() => setIsFormOpen((prev) => !prev)}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        loading={categoriesLoading}
-        error={categoriesError}
+        healthError={healthError}
       />
 
-      <div className="app-main-viewport">
-        <div className="main-panel-frame">
-          <header className="main-header">
-            <div className="main-header-content">
-              <div>
-                <h1>Prywatne notatki</h1>
-                <p className="subtitle">Przeglądaj notatki pogrupowane w kategorie i podkategorie</p>
+      <div className="app-layout-root">
+        <CategorySidebar
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onSelectCategory={setSelectedCategoryId}
+          onReorder={handleReorder}
+          onNoteDrop={handleNoteDropOnCategory}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          loading={categoriesLoading}
+          error={categoriesError}
+        />
+
+        <div className="app-main-viewport">
+          <div className="main-panel-frame">
+            {/* Futuristic Centered Search Bar */}
+            <div className="main-panel-search-bar" role="search">
+              <div className="futuristic-search-container">
+                {/* Tech corner accents */}
+                <div className="tech-corner tech-corner-tl" aria-hidden="true" />
+                <div className="tech-corner tech-corner-tr" aria-hidden="true" />
+                <div className="tech-corner tech-corner-bl" aria-hidden="true" />
+                <div className="tech-corner tech-corner-br" aria-hidden="true" />
+
+                <div className="main-search-input-wrapper">
+                  <div className="search-hologram-indicator" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className="main-search-icon"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    className="main-search-input"
+                    placeholder="SZUKAJ W NOTATKACH (TYTUŁ, TREŚĆ)..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Szukaj w notatkach"
+                    data-testid="main-search-input"
+                    autoComplete="off"
+                  />
+                  <div className="search-right-addon">
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        className="main-search-clear-btn"
+                        onClick={() => setSearchQuery('')}
+                        title="Wyczyść wyszukiwanie"
+                        aria-label="Wyczyść wyszukiwanie"
+                      >
+                        ✕
+                      </button>
+                    ) : (
+                      <span className="search-shortcut-badge" title="Skaner aktywny">
+                        RADAR
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Animated Sci-Fi Scan Beam */}
+                <div className={`search-scan-beam ${searchQuery ? 'active' : ''}`} aria-hidden="true" />
               </div>
-              <button
-                type="button"
-                className="btn-primary btn-add-note-toggle"
-                onClick={() => setIsFormOpen((prev) => !prev)}
-              >
-                {isFormOpen ? '✕ Zamknij' : '+ Dodaj notatkę'}
-              </button>
+
+              {searchQuery && (
+                <div className="main-search-status">
+                  <span className="status-radar-dot" aria-hidden="true" />
+                  <span>ZNALEZIONO:</span> <strong>{filteredNotes.length}</strong> {filteredNotes.length === 1 ? 'notatkę' : 'notatek'}
+                </div>
+              )}
             </div>
-          </header>
 
-          <main className="main-content">
-            {healthError && (
-              <div className="alert-error" role="alert">
-                <strong>Błąd komunikacji z backendem:</strong> {healthError}
-              </div>
-            )}
+            <main className="main-content">
+              {healthError && (
+                <div className="alert-error" role="alert">
+                  <strong>Błąd komunikacji z backendem:</strong> {healthError}
+                </div>
+              )}
 
-            {isFormOpen && (
-              <section className="section-card add-note-section">
-                <h2>Dodaj nową notatkę</h2>
-                {submitError && <div className="alert-error">{submitError}</div>}
-                <form onSubmit={handleSubmit}>
-                  <div className="form-row-2col">
+              {isFormOpen && (
+                <section className="section-card add-note-section">
+                  <h2>Dodaj nową notatkę</h2>
+                  {submitError && <div className="alert-error">{submitError}</div>}
+                  <form onSubmit={handleSubmit}>
+                    <div className="form-row-2col">
+                      <div className="form-group">
+                        <label htmlFor="note-title">Tytuł notatki</label>
+                        <input
+                          id="note-title"
+                          className="form-input"
+                          type="text"
+                          placeholder="np. Nowy pomysł na projekt"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          disabled={submitting}
+                          required
+                          autoFocus
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="note-category">Kategoria / Podkategoria</label>
+                        <select
+                          id="note-category"
+                          className="form-select"
+                          value={formCategoryId}
+                          onChange={(e) => setFormCategoryId(e.target.value)}
+                          disabled={submitting || categoriesLoading}
+                        >
+                          <option value="">-- Bez kategorii --</option>
+                          {categories
+                            .filter((c) => !c.parentCategoryId)
+                            .sort((a, b) => a.sortOrder - b.sortOrder)
+                            .map((parent) => {
+                              const subs = categories
+                                .filter((c) => c.parentCategoryId === parent.id)
+                                .sort((a, b) => a.sortOrder - b.sortOrder);
+                              return (
+                                <React.Fragment key={parent.id}>
+                                  <option value={parent.id}>{parent.name}</option>
+                                  {subs.map((sub) => (
+                                    <option key={sub.id} value={sub.id}>
+                                      &nbsp;&nbsp;↳ {sub.name}
+                                    </option>
+                                  ))}
+                                </React.Fragment>
+                              );
+                            })}
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="form-group">
-                      <label htmlFor="note-title">Tytuł notatki</label>
-                      <input
-                        id="note-title"
-                        className="form-input"
-                        type="text"
-                        placeholder="np. Nowy pomysł na projekt"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                      <label htmlFor="note-content">Treść notatki</label>
+                      <textarea
+                        id="note-content"
+                        className="form-textarea"
+                        rows={3}
+                        placeholder="Wpisz treść notatki..."
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
                         disabled={submitting}
-                        required
-                        autoFocus
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label htmlFor="note-category">Kategoria / Podkategoria</label>
-                      <select
-                        id="note-category"
-                        className="form-select"
-                        value={formCategoryId}
-                        onChange={(e) => setFormCategoryId(e.target.value)}
-                        disabled={submitting || categoriesLoading}
+                    <div className="form-actions">
+                      <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
+                        {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setIsFormOpen(false)}
+                        disabled={submitting}
                       >
-                        <option value="">-- Bez kategorii --</option>
-                        {categories
-                          .filter((c) => !c.parentCategoryId)
-                          .sort((a, b) => a.sortOrder - b.sortOrder)
-                          .map((parent) => {
-                            const subs = categories
-                              .filter((c) => c.parentCategoryId === parent.id)
-                              .sort((a, b) => a.sortOrder - b.sortOrder);
-                            return (
-                              <React.Fragment key={parent.id}>
-                                <option value={parent.id}>{parent.name}</option>
-                                {subs.map((sub) => (
-                                  <option key={sub.id} value={sub.id}>
-                                    &nbsp;&nbsp;↳ {sub.name}
-                                  </option>
-                                ))}
-                              </React.Fragment>
-                            );
-                          })}
-                      </select>
+                        Anuluj
+                      </button>
                     </div>
-                  </div>
+                  </form>
+                </section>
+              )}
 
-                  <div className="form-group">
-                    <label htmlFor="note-content">Treść notatki</label>
-                    <textarea
-                      id="note-content"
-                      className="form-textarea"
-                      rows={3}
-                      placeholder="Wpisz treść notatki..."
-                      value={content}
-                      onChange={(e) => setContent(e.target.value)}
-                      disabled={submitting}
-                    />
-                  </div>
-
-                  <div className="form-actions">
-                    <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
-                      {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => setIsFormOpen(false)}
-                      disabled={submitting}
-                    >
-                      Anuluj
-                    </button>
-                  </div>
-                </form>
-              </section>
-            )}
-
-            {/* Główny widok kafli pogrupowanych w kategorie i podkategorie */}
-            <NoteTilesBoard
-              categories={categories}
-              notes={notes}
-              selectedCategoryId={selectedCategoryId}
-              onSelectCategory={setSelectedCategoryId}
-              onReorderNotes={handleNoteReorder}
-              loading={notesLoading || categoriesLoading}
-              error={notesError || categoriesError}
-            />
-          </main>
+              {/* Główny widok kafli pogrupowanych w kategorie i podkategorie */}
+              <NoteTilesBoard
+                categories={categories}
+                notes={filteredNotes}
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={setSelectedCategoryId}
+                onReorderNotes={handleNoteReorder}
+                loading={notesLoading || categoriesLoading}
+                error={notesError || categoriesError}
+              />
+            </main>
+          </div>
         </div>
       </div>
 
