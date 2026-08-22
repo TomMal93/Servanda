@@ -363,13 +363,6 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
       </div>
 
       <div className="sidebar-categories-area">
-        <div className="sidebar-section-header">
-          <span className="section-title">KATEGORIE</span>
-          <span className="sidebar-count">{categories.length}</span>
-        </div>
-
-        {error && <div className="alert-error sidebar-alert">{error}</div>}
-
         <button
           type="button"
           className={`sidebar-all-categories-btn ${selectedCategoryId === null ? 'active' : ''}`}
@@ -397,6 +390,13 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
           </div>
           <span className="all-categories-label">Wyświetl wszystkie kategorie</span>
         </button>
+
+        <div className="sidebar-section-header">
+          <span className="section-title">KATEGORIE</span>
+          <span className="sidebar-count">{categories.length}</span>
+        </div>
+
+        {error && <div className="alert-error sidebar-alert">{error}</div>}
 
         {loading ? (
           <div className="empty-state">Ładowanie kategorii...</div>
