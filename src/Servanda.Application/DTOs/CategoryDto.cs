@@ -11,3 +11,9 @@ public record CategoryDto(
 public record ReorderCategoriesRequest(
     List<Guid> OrderedIds
 );
+
+public record UpdateCategoryRequest(
+    string Name,
+    string? Color = null
+);
+

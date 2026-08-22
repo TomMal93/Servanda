@@ -11,6 +11,7 @@ vi.mock('./api', () => ({
   moveNote: vi.fn(),
   fetchCategories: vi.fn(),
   reorderCategories: vi.fn(),
+  updateCategory: vi.fn(),
 }));
 
 describe('App Component', () => {
@@ -60,10 +61,43 @@ describe('App Component', () => {
     // Check categories sidebar
     const sidebar = screen.getByRole('complementary', { name: /Kategorie/i });
     expect(sidebar).toBeInTheDocument();
+    expect(within(sidebar).getByTestId('sidebar-all-categories-button')).toBeInTheDocument();
+    expect(within(sidebar).getByText('Wyświetl wszystkie kategorie')).toBeInTheDocument();
     expect(within(sidebar).getByText('Prompty')).toBeInTheDocument();
     expect(within(sidebar).getByText('Notatki')).toBeInTheDocument();
     expect(within(sidebar).getByText('Rodzina')).toBeInTheDocument();
     expect(within(sidebar).getByText('Narzędzia')).toBeInTheDocument();
+  });
+
+  it('allows clicking "Wyświetl wszystkie kategorie" to clear category filter', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('category-card-cat-1')).toBeInTheDocument();
+    });
+
+    const allCatBtn = screen.getByTestId('sidebar-all-categories-button');
+    expect(allCatBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(allCatBtn.classList.contains('active')).toBe(true);
+
+    // Select a category
+    const catPromptyBtn = within(screen.getByTestId('category-card-cat-1')).getByRole('button', { name: /Prompty/i });
+    fireEvent.click(catPromptyBtn);
+
+    // Now all-categories button is inactive
+    expect(allCatBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(allCatBtn.classList.contains('active')).toBe(false);
+
+    // Filter indicator should be shown
+    expect(screen.getByText(/Wyświetlanie:/i)).toBeInTheDocument();
+
+    // Click "Wyświetl wszystkie kategorie"
+    fireEvent.click(allCatBtn);
+
+    // Now all-categories button is active again and filter is cleared
+    expect(allCatBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(allCatBtn.classList.contains('active')).toBe(true);
+    expect(screen.queryByText(/Wyświetlanie:/i)).not.toBeInTheDocument();
   });
 
   it('allows reordering categories via drag and drop and calls reorderCategories API', async () => {
@@ -242,7 +276,53 @@ describe('App Component', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gotowe' }));
     expect(screen.queryByTestId('settings-modal-dialog')).not.toBeInTheDocument();
   });
+
+  it('allows editing category name in settings modal and updates category in state and sidebar', async () => {
+    vi.mocked(api.updateCategory).mockResolvedValue({
+      id: 'cat-1',
+      name: 'Prompty AI',
+      color: null,
+      sortOrder: 0,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('category-card-cat-1')).toBeInTheDocument();
+    });
+
+    // Open settings
+    fireEvent.click(screen.getByTestId('sidebar-settings-button'));
+
+    // Open category management
+    fireEvent.click(screen.getByTestId('settings-option-categories'));
+
+    // Click category name to start inline editing
+    const nameBtn = screen.getByTestId('category-name-btn-cat-1');
+    fireEvent.click(nameBtn);
+
+    // Edit input
+    const input = screen.getByTestId('category-edit-input-cat-1');
+    fireEvent.change(input, { target: { value: 'Prompty AI' } });
+
+    // Save
+    fireEvent.click(screen.getByTestId('category-save-btn-cat-1'));
+
+    await waitFor(() => {
+      expect(api.updateCategory).toHaveBeenCalledWith('cat-1', { name: 'Prompty AI' });
+    });
+
+    // Close settings modal
+    fireEvent.click(screen.getByRole('button', { name: 'Gotowe' }));
+
+    // Sidebar should reflect updated category name
+    await waitFor(() => {
+      const sidebarCard = screen.getByTestId('category-card-cat-1');
+      expect(within(sidebarCard).getByText('Prompty AI')).toBeInTheDocument();
+    });
+  });
 });
+
 
 
 

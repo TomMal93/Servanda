@@ -133,3 +133,25 @@ export async function reorderCategories(orderedIds: string[]): Promise<Category[
 
   return res.json();
 }
+
+export async function updateCategory(
+  id: string,
+  payload: { name: string; color?: string | null }
+): Promise<Category> {
+  const res = await fetch(`/api/categories/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    const message = errorData?.title || `Failed to update category: ${res.status}`;
+    throw new Error(message);
+  }
+
+  return res.json();
+}
+

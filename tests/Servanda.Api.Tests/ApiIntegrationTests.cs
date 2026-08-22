@@ -125,6 +125,40 @@ public class ApiIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task CategoriesEndpoint_CanUpdateCategoryName()
+    {
+        Guid catId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Categories.Add(new Servanda.Domain.Entities.Category
+            {
+                Id = catId,
+                Name = "Stara nazwa",
+                SortOrder = 0
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var updateResponse = await _client.PutAsJsonAsync($"/api/categories/{catId}", new UpdateCategoryRequest("Nowa nazwa kategorii", "#38bdf8"));
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        var updatedCategory = await updateResponse.Content.ReadFromJsonAsync<CategoryDto>();
+        Assert.NotNull(updatedCategory);
+        Assert.Equal("Nowa nazwa kategorii", updatedCategory.Name);
+        Assert.Equal("#38bdf8", updatedCategory.Color);
+
+        // Verify update persisted
+        var getResponse = await _client.GetAsync("/api/categories");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var list = await getResponse.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        Assert.NotNull(list);
+        var found = list.FirstOrDefault(c => c.Id == catId);
+        Assert.NotNull(found);
+        Assert.Equal("Nowa nazwa kategorii", found.Name);
+    }
+
+    [Fact]
     public async Task NotesEndpoint_CanReorderAndMoveNotesBetweenCategories()
     {
         Guid catA = Guid.NewGuid();

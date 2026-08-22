@@ -115,6 +115,41 @@ app.MapPut("/api/categories/reorder", async ([FromBody] ReorderCategoriesRequest
     return Results.Ok(updated);
 });
 
+app.MapPut("/api/categories/{id:guid}", async (Guid id, [FromBody] UpdateCategoryRequest request, AppDbContext db, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["Name"] = ["Nazwa kategorii nie może być pusta."]
+        });
+    }
+
+    var category = await db.Categories.FirstOrDefaultAsync(c => c.Id == id, ct);
+    if (category == null)
+    {
+        return Results.NotFound();
+    }
+
+    category.Name = request.Name.Trim();
+    if (request.Color != null)
+    {
+        category.Color = request.Color;
+    }
+
+    await db.SaveChangesAsync(ct);
+
+    var dto = new CategoryDto(
+        category.Id,
+        category.Name,
+        category.Color,
+        category.SortOrder,
+        category.ParentCategoryId
+    );
+
+    return Results.Ok(dto);
+});
+
 // Notes endpoints
 app.MapGet("/api/notes", async (AppDbContext db, CancellationToken ct) =>
 {

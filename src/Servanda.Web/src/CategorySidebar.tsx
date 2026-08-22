@@ -370,6 +370,34 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
 
         {error && <div className="alert-error sidebar-alert">{error}</div>}
 
+        <button
+          type="button"
+          className={`sidebar-all-categories-btn ${selectedCategoryId === null ? 'active' : ''}`}
+          onClick={() => onSelectCategory(null)}
+          aria-pressed={selectedCategoryId === null}
+          title="Wyświetl wszystkie kategorie"
+          data-testid="sidebar-all-categories-button"
+        >
+          <div className="all-categories-icon-wrapper">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="category-icon"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+          </div>
+          <span className="all-categories-label">Wyświetl wszystkie kategorie</span>
+        </button>
+
         {loading ? (
           <div className="empty-state">Ładowanie kategorii...</div>
         ) : categories.length === 0 ? (

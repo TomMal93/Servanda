@@ -6,6 +6,7 @@ import {
   reorderNotes,
   fetchCategories,
   reorderCategories,
+  updateCategory,
   type Note,
   type Category,
 } from './api';
@@ -156,6 +157,11 @@ export function App() {
     }
   }
 
+  async function handleUpdateCategory(id: string, newName: string) {
+    const updated = await updateCategory(id, { name: newName });
+    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name: updated.name } : c)));
+  }
+
   return (
     <div className="app-layout-root">
       <CategorySidebar
@@ -295,6 +301,8 @@ export function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         categories={categories}
+        onUpdateCategory={handleUpdateCategory}
+        onReorderCategories={handleReorder}
       />
     </div>
   );
