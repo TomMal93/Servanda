@@ -197,32 +197,14 @@ export function App() {
 
         <div className="app-main-viewport">
           <div className="main-panel-frame">
-            {/* Futuristic Centered Search Bar */}
+            {/* Minimal Underline Search Bar */}
             <div className="main-panel-search-bar" role="search">
-              <div className="futuristic-search-container">
-                {/* Tech corner accents */}
-                <div className="tech-corner tech-corner-tl" aria-hidden="true" />
-                <div className="tech-corner tech-corner-tr" aria-hidden="true" />
-                <div className="tech-corner tech-corner-bl" aria-hidden="true" />
-                <div className="tech-corner tech-corner-br" aria-hidden="true" />
-
+              <div className="search-bar-underline-container">
                 <div className="main-search-input-wrapper">
-                  <div className="search-hologram-indicator" aria-hidden="true">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      className="main-search-icon"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                  </div>
                   <input
                     type="text"
                     className="main-search-input"
-                    placeholder="SZUKAJ W NOTATKACH (TYTUŁ, TREŚĆ)..."
+                    placeholder="Szukaj w notatkach..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     aria-label="Szukaj w notatkach"
@@ -230,7 +212,7 @@ export function App() {
                     autoComplete="off"
                   />
                   <div className="search-right-addon">
-                    {searchQuery ? (
+                    {searchQuery && (
                       <button
                         type="button"
                         className="main-search-clear-btn"
@@ -240,16 +222,21 @@ export function App() {
                       >
                         ✕
                       </button>
-                    ) : (
-                      <span className="search-shortcut-badge" title="Skaner aktywny">
-                        RADAR
-                      </span>
                     )}
+                    <div className="search-icon-wrapper" aria-hidden="true">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="main-search-icon"
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
-
-                {/* Animated Sci-Fi Scan Beam */}
-                <div className={`search-scan-beam ${searchQuery ? 'active' : ''}`} aria-hidden="true" />
               </div>
 
               {searchQuery && (
