@@ -11,6 +11,7 @@ import {
 } from './api';
 import { CategorySidebar } from './CategorySidebar';
 import { NoteTilesBoard } from './NoteTilesBoard';
+import { SettingsModal } from './SettingsModal';
 
 export function App() {
   const [healthError, setHealthError] = useState<string | null>(null);
@@ -22,6 +23,8 @@ export function App() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -161,6 +164,7 @@ export function App() {
         onSelectCategory={setSelectedCategoryId}
         onReorder={handleReorder}
         onNoteDrop={handleNoteDropOnCategory}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         loading={categoriesLoading}
         error={categoriesError}
       />
@@ -286,6 +290,12 @@ export function App() {
           </main>
         </div>
       </div>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        categories={categories}
+      />
     </div>
   );
 }

@@ -208,7 +208,42 @@ describe('App Component', () => {
       expect(api.reorderNotes).toHaveBeenCalledWith('cat-1', ['123e4567-e89b-12d3-a456-426614174000']);
     });
   });
+
+  it('renders settings button at the bottom of the sidebar and opens settings panel on click', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('category-card-cat-1')).toBeInTheDocument();
+    });
+
+    const settingsBtn = screen.getByTestId('sidebar-settings-button');
+    expect(settingsBtn).toBeInTheDocument();
+    expect(within(settingsBtn).getByText('Ustawienia')).toBeInTheDocument();
+
+    // Settings dialog is not initially visible
+    expect(screen.queryByTestId('settings-modal-dialog')).not.toBeInTheDocument();
+
+    // Click settings button
+    fireEvent.click(settingsBtn);
+
+    // Modal opens with options
+    expect(screen.getByTestId('settings-modal-dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Ustawienia' })).toBeInTheDocument();
+
+    // Option 1: Zarządzaj Kategoriami
+    expect(screen.getByTestId('settings-option-categories')).toBeInTheDocument();
+    expect(screen.getByText('Zarządzaj Kategoriami')).toBeInTheDocument();
+
+    // Option 2: Zarządzaj Kaflem notatki
+    expect(screen.getByTestId('settings-option-note-tile')).toBeInTheDocument();
+    expect(screen.getByText('Zarządzaj Kaflem notatki')).toBeInTheDocument();
+
+    // Close modal
+    fireEvent.click(screen.getByRole('button', { name: 'Gotowe' }));
+    expect(screen.queryByTestId('settings-modal-dialog')).not.toBeInTheDocument();
+  });
 });
+
 
 
 
