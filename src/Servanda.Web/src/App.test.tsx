@@ -100,6 +100,43 @@ describe('App Component', () => {
     expect(screen.queryByText(/Wyświetlanie:/i)).not.toBeInTheDocument();
   });
 
+  it('highlights subcategories on sidebar when parent category is selected', async () => {
+    const categoriesWithSub = [
+      { id: 'cat-parent', name: 'Projekty', color: null, sortOrder: 0 },
+      { id: 'cat-sub-1', name: 'Web', color: null, sortOrder: 0, parentCategoryId: 'cat-parent' },
+      { id: 'cat-sub-2', name: 'Api', color: null, sortOrder: 1, parentCategoryId: 'cat-parent' },
+      { id: 'cat-other', name: 'Inne', color: null, sortOrder: 1 },
+    ];
+    vi.mocked(api.fetchCategories).mockResolvedValue(categoriesWithSub);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('category-card-cat-parent')).toBeInTheDocument();
+      expect(screen.getByTestId('category-card-cat-sub-1')).toBeInTheDocument();
+      expect(screen.getByTestId('category-card-cat-sub-2')).toBeInTheDocument();
+    });
+
+    const parentCard = screen.getByTestId('category-card-cat-parent');
+    const subCard1 = screen.getByTestId('category-card-cat-sub-1');
+    const subCard2 = screen.getByTestId('category-card-cat-sub-2');
+    const otherCard = screen.getByTestId('category-card-cat-other');
+
+    // Initially none are active
+    expect(parentCard.classList.contains('active')).toBe(false);
+    expect(subCard1.classList.contains('active')).toBe(false);
+    expect(subCard2.classList.contains('active')).toBe(false);
+
+    // Click parent category
+    fireEvent.click(within(parentCard).getByRole('button', { name: /Projekty/i }));
+
+    // Parent and all its subcategories should be active (highlighted)
+    expect(parentCard.classList.contains('active')).toBe(true);
+    expect(subCard1.classList.contains('active')).toBe(true);
+    expect(subCard2.classList.contains('active')).toBe(true);
+    expect(otherCard.classList.contains('active')).toBe(false);
+  });
+
   it('allows reordering categories via drag and drop and calls reorderCategories API', async () => {
     vi.mocked(api.reorderCategories).mockImplementation(async (orderedIds) => {
       return orderedIds.map((id, index) => {

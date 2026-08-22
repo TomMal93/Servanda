@@ -405,7 +405,11 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
         ) : (
           <ul className="categories-list" role="list">
             {hierarchicalCategories.map(({ category, originalIndex, isSubcategory }) => {
-              const isSelected = selectedCategoryId === category.id;
+              const isDirectlySelected = selectedCategoryId === category.id;
+              const isParentSelected = Boolean(
+                category.parentCategoryId && category.parentCategoryId === selectedCategoryId
+              );
+              const isHighlighted = isDirectlySelected || isParentSelected;
               const isDragging = draggedIndex === originalIndex;
               const isNoteTarget = noteDropTargetId === category.id;
               const showLineBefore =
@@ -432,7 +436,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                   )}
 
                   <div
-                    className={`category-card ${isSelected ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${
+                    className={`category-card ${isHighlighted ? 'active' : ''} ${isDragging ? 'dragging' : ''} ${
                       isNoteTarget ? 'note-drop-target-active' : ''
                     } ${isSubcategory ? 'subcategory-card' : ''}`}
                     style={{ '--cat-color': categoryColor } as React.CSSProperties}
@@ -460,8 +464,8 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                       <button
                         type="button"
                         className="category-main-btn"
-                        onClick={() => onSelectCategory(isSelected ? null : category.id)}
-                        aria-pressed={isSelected}
+                        onClick={() => onSelectCategory(isDirectlySelected ? null : category.id)}
+                        aria-pressed={isHighlighted}
                         title={`Filtruj wg kategorii: ${category.name}`}
                       >
                         <span className="category-icon-wrapper">
