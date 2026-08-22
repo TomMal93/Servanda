@@ -404,23 +404,65 @@ describe('App Component', () => {
     expect(screen.getByText('Projekt Servanda')).toBeInTheDocument();
   });
 
-  it('allows opening add note form and settings from top menu buttons', async () => {
+  it('allows opening create note modal, selecting note types, and creating a new note', async () => {
+    vi.mocked(api.createNote).mockResolvedValue({
+      id: 'note-new-1',
+      categoryId: null,
+      title: 'Nowa ważna notatka',
+      content: 'Zawartość notatki',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      sortOrder: 0,
+      isPinned: false,
+      isArchived: false,
+    });
+
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByTestId('top-menu-add-note-btn')).toBeInTheDocument();
     });
 
-    // Toggle add note form
-    expect(screen.queryByText('Dodaj nową notatkę')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('top-menu-add-note-btn'));
-    expect(screen.getByRole('heading', { level: 2, name: 'Dodaj nową notatkę' })).toBeInTheDocument();
+    // Modal is initially closed
+    expect(screen.queryByTestId('create-note-modal-dialog')).not.toBeInTheDocument();
 
-    // Close form
+    // Click "Dodaj notatkę" in TopMenu
     fireEvent.click(screen.getByTestId('top-menu-add-note-btn'));
-    expect(screen.queryByRole('heading', { level: 2, name: 'Dodaj nową notatkę' })).not.toBeInTheDocument();
 
-    // Open settings from top menu
+    // Modal is open with note types and heading
+    expect(screen.getByTestId('create-note-modal-dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Utwórz nową notatkę' })).toBeInTheDocument();
+    expect(screen.getByTestId('note-types-grid')).toBeInTheDocument();
+
+    // Fill form and submit
+    fireEvent.change(screen.getByTestId('create-note-title-input'), {
+      target: { value: 'Nowa ważna notatka' },
+    });
+    fireEvent.change(screen.getByTestId('create-note-content-input'), {
+      target: { value: 'Zawartość notatki' },
+    });
+
+    fireEvent.click(screen.getByTestId('create-note-submit-btn'));
+
+    await waitFor(() => {
+      expect(api.createNote).toHaveBeenCalledWith({
+        title: 'Nowa ważna notatka',
+        content: 'Zawartość notatki',
+        categoryId: null,
+      });
+      expect(screen.queryByTestId('create-note-modal-dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('Nowa ważna notatka')).toBeInTheDocument();
+    });
+  });
+
+  it('allows opening settings from top menu button', async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('top-menu-settings-btn')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('settings-modal-dialog')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('top-menu-settings-btn'));
     expect(screen.getByTestId('settings-modal-dialog')).toBeInTheDocument();
   });

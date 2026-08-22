@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect } from 'react';
 import {
   fetchHealth,
   fetchNotes,
@@ -11,6 +11,7 @@ import {
   type Category,
 } from './api';
 import { CategorySidebar } from './CategorySidebar';
+import { CreateNoteModal } from './CreateNoteModal';
 import { NoteTilesBoard } from './NoteTilesBoard';
 import { SettingsModal } from './SettingsModal';
 import { TopMenu } from './TopMenu';
@@ -27,14 +28,8 @@ export function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [formCategoryId, setFormCategoryId] = useState<string>('');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   async function loadData() {
     try {
@@ -134,29 +129,10 @@ export function App() {
     await handleNoteReorder(categoryId, orderedIds);
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    setSubmitting(true);
-    setSubmitError(null);
-
-    try {
-      const created = await createNote({
-        title: title.trim(),
-        content: content.trim(),
-        categoryId: formCategoryId ? formCategoryId : null,
-      });
-      setNotes((prev) => [created, ...prev]);
-      setTitle('');
-      setContent('');
-      setFormCategoryId('');
-      setIsFormOpen(false);
-    } catch (err: any) {
-      setSubmitError(err.message || 'Nie udało się zapisać notatki.');
-    } finally {
-      setSubmitting(false);
-    }
+  async function handleCreateNote(data: { title: string; content: string; categoryId: string | null }) {
+    const created = await createNote(data);
+    setNotes((prev) => [created, ...prev]);
+    return created;
   }
 
   async function handleUpdateCategory(id: string, newName: string) {
@@ -176,6 +152,7 @@ export function App() {
         categories={categories}
         selectedCategoryId={selectedCategoryId}
         onSelectCategory={setSelectedCategoryId}
+        notes={notes}
         notesCount={notes.length}
         isFormOpen={isFormOpen}
         onToggleAddNote={() => setIsFormOpen((prev) => !prev)}
@@ -254,89 +231,6 @@ export function App() {
                 </div>
               )}
 
-              {isFormOpen && (
-                <section className="section-card add-note-section">
-                  <h2>Dodaj nową notatkę</h2>
-                  {submitError && <div className="alert-error">{submitError}</div>}
-                  <form onSubmit={handleSubmit}>
-                    <div className="form-row-2col">
-                      <div className="form-group">
-                        <label htmlFor="note-title">Tytuł notatki</label>
-                        <input
-                          id="note-title"
-                          className="form-input"
-                          type="text"
-                          placeholder="np. Nowy pomysł na projekt"
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          disabled={submitting}
-                          required
-                          autoFocus
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label htmlFor="note-category">Kategoria / Podkategoria</label>
-                        <select
-                          id="note-category"
-                          className="form-select"
-                          value={formCategoryId}
-                          onChange={(e) => setFormCategoryId(e.target.value)}
-                          disabled={submitting || categoriesLoading}
-                        >
-                          <option value="">-- Bez kategorii --</option>
-                          {categories
-                            .filter((c) => !c.parentCategoryId)
-                            .sort((a, b) => a.sortOrder - b.sortOrder)
-                            .map((parent) => {
-                              const subs = categories
-                                .filter((c) => c.parentCategoryId === parent.id)
-                                .sort((a, b) => a.sortOrder - b.sortOrder);
-                              return (
-                                <React.Fragment key={parent.id}>
-                                  <option value={parent.id}>{parent.name}</option>
-                                  {subs.map((sub) => (
-                                    <option key={sub.id} value={sub.id}>
-                                      &nbsp;&nbsp;↳ {sub.name}
-                                    </option>
-                                  ))}
-                                </React.Fragment>
-                              );
-                            })}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label htmlFor="note-content">Treść notatki</label>
-                      <textarea
-                        id="note-content"
-                        className="form-textarea"
-                        rows={3}
-                        placeholder="Wpisz treść notatki..."
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        disabled={submitting}
-                      />
-                    </div>
-
-                    <div className="form-actions">
-                      <button type="submit" className="btn-primary" disabled={submitting || !title.trim()}>
-                        {submitting ? 'Zapisywanie w SQLite...' : 'Zapisz notatkę'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => setIsFormOpen(false)}
-                        disabled={submitting}
-                      >
-                        Anuluj
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
-
               {/* Główny widok kafli pogrupowanych w kategorie i podkategorie */}
               <NoteTilesBoard
                 categories={categories}
@@ -351,6 +245,15 @@ export function App() {
           </div>
         </div>
       </div>
+
+      <CreateNoteModal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        categories={categories}
+        selectedCategoryId={selectedCategoryId}
+        onCreateNote={handleCreateNote}
+        categoriesLoading={categoriesLoading}
+      />
 
       <SettingsModal
         isOpen={isSettingsOpen}

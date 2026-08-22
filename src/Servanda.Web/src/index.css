@@ -538,7 +538,8 @@ body {
 .top-menu-stats {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .stats-pill {
@@ -547,20 +548,50 @@ body {
   gap: 0.35rem;
   background: rgba(30, 41, 59, 0.65);
   border: 1px solid var(--border-color);
-  padding: 0.3rem 0.65rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 8px;
   font-size: 0.78rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.stats-pill:hover {
+  background: rgba(51, 65, 85, 0.65);
+  border-color: var(--border-color-hover, rgba(148, 163, 184, 0.3));
+  color: var(--text-main);
 }
 
 .stats-pill strong {
   color: var(--text-main);
+  font-weight: 600;
+}
+
+.stats-pill.stats-pill-pinned {
+  background: rgba(234, 179, 8, 0.09);
+  border-color: rgba(234, 179, 8, 0.3);
+  color: #facc15;
+}
+
+.stats-pill.stats-pill-pinned strong {
+  color: #fef08a;
+}
+
+.stats-pill.stats-pill-words {
+  background: rgba(168, 85, 247, 0.09);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.stats-pill.stats-pill-words strong {
+  color: #e9d5ff;
 }
 
 .btn-top-add-note {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   color: #ffffff;
   border: 1px solid rgba(56, 189, 248, 0.4);
@@ -578,13 +609,28 @@ body {
   background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
   border-color: #38bdf8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+}
+
+.btn-top-add-note:active {
+  transform: translateY(0);
 }
 
 .btn-top-add-note.btn-active {
-  background: linear-gradient(135deg, #475569 0%, #334155 100%);
-  border-color: #64748b;
-  box-shadow: none;
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
+.top-add-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-top-add-note:hover .top-add-icon {
+  transform: rotate(90deg) scale(1.1);
 }
 
 .btn-top-settings {
@@ -2374,5 +2420,607 @@ body {
   border-top: 1px solid var(--border-color);
   background-color: rgba(15, 23, 42, 0.6);
 }
+
+/* ==========================================================================
+   Create Note Modal & Note Types Selection Panel
+   ========================================================================== */
+
+.create-note-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1100;
+  animation: fadeInModal 0.2s ease-out;
+}
+
+.create-note-modal-dialog {
+  background-color: var(--bg-card);
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 780px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 32px rgba(56, 189, 248, 0.18);
+  overflow: hidden;
+  animation: slideUpModal 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.create-note-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.6rem;
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(15, 23, 42, 0.75);
+}
+
+.create-note-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.create-note-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(2, 132, 199, 0.15) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--accent-primary);
+}
+
+.create-note-header-type-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.create-note-modal-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.create-note-modal-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.create-note-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 8px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.create-note-close-btn:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.create-note-modal-content {
+  padding: 1.5rem 1.6rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+/* Note Type Selector Grid */
+.note-types-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.note-types-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.note-types-section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.note-types-counter {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(30, 41, 59, 0.6);
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-color);
+}
+
+.note-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
+}
+
+.note-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background-color: var(--bg-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-main);
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.note-type-card:hover {
+  border-color: rgba(56, 189, 248, 0.6);
+  background-color: rgba(30, 41, 59, 0.85);
+  transform: translateY(-2px);
+}
+
+.note-type-card.selected {
+  border-color: var(--accent-primary);
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.95) 0%, rgba(14, 116, 144, 0.2) 100%);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25), inset 0 0 12px rgba(56, 189, 248, 0.08);
+}
+
+.note-type-card.selected::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #38bdf8, #0284c7);
+}
+
+.note-type-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.note-type-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.note-type-card:hover .note-type-icon-wrapper,
+.note-type-card.selected .note-type-icon-wrapper {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.note-type-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.note-type-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  line-height: 1.2;
+}
+
+.note-type-badge.badge-active {
+  background-color: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.note-type-badge.badge-upcoming {
+  background-color: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.note-type-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.note-type-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.note-type-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Form Section Inside Modal */
+.create-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  background-color: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.form-label-with-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.markdown-hint {
+  font-size: 0.72rem;
+  color: var(--accent-primary);
+  background: rgba(56, 189, 248, 0.1);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.create-note-textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.create-note-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.btn-save-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.3rem;
+  font-size: 0.9rem;
+}
+
+.btn-action-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Placeholder Panel for Upcoming Note Types */
+.note-type-placeholder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background-color: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.25rem;
+  animation: fadeInModal 0.2s ease-out;
+}
+
+.placeholder-hero-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+  padding: 1.1rem;
+}
+
+.placeholder-hero-icon-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  flex-shrink: 0;
+}
+
+.placeholder-hero-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.placeholder-hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.placeholder-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.placeholder-status-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.placeholder-type-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.placeholder-hero-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.placeholder-hero-description {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Mockup Container */
+.placeholder-mockup-section {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.placeholder-mockup-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.85rem;
+  background-color: rgba(15, 23, 42, 0.8);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.mockup-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.mockup-dot.red {
+  background-color: #ef4444;
+}
+
+.mockup-dot.yellow {
+  background-color: #f59e0b;
+}
+
+.mockup-dot.green {
+  background-color: #10b981;
+}
+
+.mockup-title {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.placeholder-mockup-body {
+  padding: 1rem;
+}
+
+/* Checklist Mockup */
+.mockup-checklist-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.mockup-todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.mockup-todo-item.checked {
+  color: var(--text-muted);
+}
+
+.mockup-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.mockup-text.strike {
+  text-decoration: line-through;
+}
+
+/* Code Mockup */
+.mockup-code-preview {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  background-color: #0b1120;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mockup-code-line {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  color: #cbd5e1;
+}
+
+.code-ln {
+  color: #475569;
+  user-select: none;
+  font-size: 0.75rem;
+}
+
+.code-kw {
+  color: #f43f5e;
+  font-weight: 600;
+}
+
+.code-fn {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.code-type {
+  color: #34d399;
+}
+
+/* Links Mockup */
+.mockup-links-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.65rem;
+}
+
+.mockup-link-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background-color: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.65rem;
+  font-size: 0.82rem;
+}
+
+.mockup-link-icon {
+  font-size: 1.2rem;
+}
+
+.mockup-link-card strong {
+  display: block;
+  color: var(--text-main);
+}
+
+.mockup-link-url {
+  display: block;
+  color: var(--accent-primary);
+  font-size: 0.72rem;
+}
+
+/* Canvas Mockup */
+.mockup-canvas-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mockup-canvas-bubble {
+  padding: 0.5rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.mockup-canvas-bubble.bubble-1 {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+.mockup-canvas-bubble.bubble-2 {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #38bdf8;
+}
+
+.mockup-canvas-bubble.bubble-3 {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.mockup-canvas-arrow {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.placeholder-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.4rem;
+}
+
 
 

@@ -1,21 +1,33 @@
-import React from 'react';
-import type { Category } from './api';
+import React, { useMemo } from 'react';
+import type { Category, Note } from './api';
 
 export interface TopMenuProps {
   categories: Category[];
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string | null) => void;
-  notesCount: number;
+  notes?: Note[];
+  notesCount?: number;
   isFormOpen: boolean;
   onToggleAddNote: () => void;
   onOpenSettings: () => void;
   healthError: string | null;
 }
 
+export function getPluralForm(count: number, single: string, few: string, many: string): string {
+  if (count === 1) return single;
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) {
+    return few;
+  }
+  return many;
+}
+
 export const TopMenu: React.FC<TopMenuProps> = ({
   categories,
   selectedCategoryId,
   onSelectCategory,
+  notes,
   notesCount,
   isFormOpen,
   onToggleAddNote,
@@ -27,6 +39,39 @@ export const TopMenu: React.FC<TopMenuProps> = ({
   if (selectedCategory?.parentCategoryId) {
     parentCategory = categories.find((c) => c.id === selectedCategory.parentCategoryId);
   }
+
+  const stats = useMemo(() => {
+    const totalNotes = notes !== undefined ? notes.length : (notesCount ?? 0);
+    const totalCategories = categories.length;
+    const subcategoriesCount = categories.filter((c) => !!c.parentCategoryId).length;
+    const rootCategoriesCount = totalCategories - subcategoriesCount;
+
+    const pinnedCount = notes ? notes.filter((n) => n.isPinned).length : 0;
+    const uncategorizedCount = notes ? notes.filter((n) => !n.categoryId).length : 0;
+
+    const wordsCount = notes
+      ? notes.reduce((sum, n) => {
+          const text = `${n.title || ''} ${n.content || ''}`.trim();
+          if (!text) return sum;
+          return sum + text.split(/\s+/).filter(Boolean).length;
+        }, 0)
+      : 0;
+
+    return {
+      totalNotes,
+      totalCategories,
+      subcategoriesCount,
+      rootCategoriesCount,
+      pinnedCount,
+      uncategorizedCount,
+      wordsCount,
+    };
+  }, [notes, notesCount, categories]);
+
+  const notesLabel = getPluralForm(stats.totalNotes, 'notatka', 'notatki', 'notatek');
+  const categoriesLabel = getPluralForm(stats.totalCategories, 'kategoria', 'kategorie', 'kategorii');
+  const pinnedLabel = getPluralForm(stats.pinnedCount, 'przypięta', 'przypięte', 'przypiętych');
+  const wordsLabel = getPluralForm(stats.wordsCount, 'słowo', 'słowa', 'słów');
 
   return (
     <header className="app-top-menu" data-testid="app-top-menu">
@@ -124,12 +169,51 @@ export const TopMenu: React.FC<TopMenuProps> = ({
             <span className="status-label">{healthError ? 'API / DB Błąd' : 'SQLite: OK'}</span>
           </div>
 
-          {/* Stats Badge */}
-          <div className="top-menu-stats" title="Liczba notatek i kategorii">
-            <span className="stats-pill" data-testid="top-menu-notes-count">
+          {/* Stats Badges */}
+          <div className="top-menu-stats" title="Statystyki Servanda" data-testid="top-menu-stats">
+            <span
+              className="stats-pill"
+              data-testid="top-menu-notes-count"
+              title={`Wszystkich notatek: ${stats.totalNotes}`}
+            >
               <span className="stats-icon" aria-hidden="true">📝</span>
-              <strong>{notesCount}</strong> {notesCount === 1 ? 'notatka' : 'notatek'}
+              <strong>{stats.totalNotes}</strong> {notesLabel}
             </span>
+
+            <span
+              className="stats-pill"
+              data-testid="top-menu-categories-count"
+              title={
+                stats.subcategoriesCount > 0
+                  ? `Kategorie: ${stats.totalCategories} (${stats.rootCategoriesCount} głównych, ${stats.subcategoriesCount} ${getPluralForm(stats.subcategoriesCount, 'podkategoria', 'podkategorie', 'podkategorii')})`
+                  : `Kategorie: ${stats.totalCategories}`
+              }
+            >
+              <span className="stats-icon" aria-hidden="true">📁</span>
+              <strong>{stats.totalCategories}</strong> {categoriesLabel}
+            </span>
+
+            {stats.pinnedCount > 0 && (
+              <span
+                className="stats-pill stats-pill-pinned"
+                data-testid="top-menu-pinned-count"
+                title={`Przypięte notatki: ${stats.pinnedCount}`}
+              >
+                <span className="stats-icon" aria-hidden="true">📌</span>
+                <strong>{stats.pinnedCount}</strong> {pinnedLabel}
+              </span>
+            )}
+
+            {stats.wordsCount > 0 && (
+              <span
+                className="stats-pill stats-pill-words"
+                data-testid="top-menu-words-count"
+                title={`Łączna objętość: ${stats.wordsCount.toLocaleString('pl-PL')} ${wordsLabel}`}
+              >
+                <span className="stats-icon" aria-hidden="true">✍️</span>
+                <strong>{stats.wordsCount.toLocaleString('pl-PL')}</strong> {wordsLabel}
+              </span>
+            )}
           </div>
 
           {/* Add Note Button transferred to Top Menu */}
@@ -138,10 +222,13 @@ export const TopMenu: React.FC<TopMenuProps> = ({
             className={`btn-top-add-note ${isFormOpen ? 'btn-active' : ''}`}
             onClick={onToggleAddNote}
             data-testid="top-menu-add-note-btn"
-            title={isFormOpen ? 'Zamknij formularz dodawania notatki' : 'Dodaj nową notatkę'}
+            title="Dodaj nową notatkę"
           >
-            <span className="btn-icon" aria-hidden="true">{isFormOpen ? '✕' : '+'}</span>
-            <span>{isFormOpen ? 'Zamknij' : 'Dodaj notatkę'}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="top-add-icon" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Dodaj notatkę</span>
           </button>
 
           {/* Settings button in top menu */}
