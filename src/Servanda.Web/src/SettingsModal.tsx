@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import type { Category } from './api';
 
-export type SettingsView = 'menu' | 'categories' | 'note-tile';
+export type SettingsView = 'menu' | 'categories' | 'note-tile' | 'backup';
 
 interface DropTarget {
   index: number;
@@ -42,6 +42,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Drag and drop state for category reordering
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+
+  // Backup configuration state (preview / coming soon)
+  const [backupScreenshots, setBackupScreenshots] = useState(true);
+  const [screenshotFolderStructure, setScreenshotFolderStructure] = useState<'hierarchical' | 'flat' | 'date_hierarchical'>('hierarchical');
+  const [screenshotHighRes, setScreenshotHighRes] = useState(true);
+  const [screenshotIncludeMeta, setScreenshotIncludeMeta] = useState(true);
+  const [backupMarkdown, setBackupMarkdown] = useState(true);
+  const [backupSqlite, setBackupSqlite] = useState(true);
+  const [backupZip, setBackupZip] = useState(true);
+  const [backupSchedule, setBackupSchedule] = useState<'on_close' | 'daily' | 'manual'>('on_close');
 
   // References for FLIP animation during reorder
   const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -283,11 +293,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {activeView === 'menu' && 'Ustawienia'}
                 {activeView === 'categories' && 'Zarządzaj Kategoriami'}
                 {activeView === 'note-tile' && 'Zarządzaj Kaflem notatki'}
+                {activeView === 'backup' && 'Kopia zapasowa danych'}
               </h2>
               <p className="settings-modal-subtitle">
                 {activeView === 'menu' && 'Dostosuj aplikację Servanda do swoich potrzeb'}
                 {activeView === 'categories' && 'Edytuj nazwy i zmieniaj kolejność kategorii przeciągając je'}
                 {activeView === 'note-tile' && 'Dostosuj wygląd i zachowanie kafelka notatek'}
+                {activeView === 'backup' && 'Wybierz metody tworzenia kopii zapasowej i konfigurację eksportu'}
               </p>
             </div>
           </div>
@@ -369,6 +381,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </p>
                   <span className="settings-option-meta">
                     Wygląd i układ kafelków
+                  </span>
+                </div>
+                <div className="settings-option-arrow" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Opcja 3: Kopia zapasowa danych (wkrótce dostępna) */}
+              <button
+                type="button"
+                className="settings-option-card"
+                onClick={() => setActiveView('backup')}
+                data-testid="settings-option-backup"
+              >
+                <div className="settings-option-icon-wrapper backup-icon-theme">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="settings-option-icon"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </div>
+                <div className="settings-option-info">
+                  <div className="settings-option-title-row">
+                    <h3 className="settings-option-title">Kopia zapasowa danych</h3>
+                    <span className="badge-coming-soon" data-testid="backup-coming-soon-badge">Wkrótce</span>
+                  </div>
+                  <p className="settings-option-description">
+                    Tworzenie zrzutów ekranu notatek do uporządkowanych folderów, eksport Markdown oraz kopia bazy SQLite.
+                  </p>
+                  <span className="settings-option-meta">
+                    Screenshots do folderów, Markdown, SQLite
                   </span>
                 </div>
                 <div className="settings-option-arrow" aria-hidden="true">
@@ -574,6 +625,308 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </footer>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeView === 'backup' && (
+            <div className="settings-subview" data-testid="settings-subview-backup">
+              {/* Alert informacyjny o stanie funkcji */}
+              <div className="backup-status-banner" role="status" data-testid="backup-status-banner">
+                <div className="backup-status-icon-wrap" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="status-info-icon">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <div className="backup-status-text">
+                  <div className="backup-status-heading-row">
+                    <strong>Funkcjonalność w przygotowaniu (Wkrótce dostępna)</strong>
+                    <span className="badge-coming-soon">Podgląd planowanych opcji</span>
+                  </div>
+                  <p>
+                    Poniżej możesz zapoznać się z planowanymi metodami archiwizacji i skonfigurować schemat eksportu danych.
+                    Wszystkie mechanizmy kopii zapasowej zostaną aktywowane w nadchodzącej aktualizacji.
+                  </p>
+                </div>
+              </div>
+
+              {/* Sekcja 1: Zrzuty ekranu notatek do folderów */}
+              <div className="settings-section-card backup-section-card" data-testid="backup-section-screenshots">
+                <div className="backup-card-header">
+                  <div className="backup-card-title-group">
+                    <div className="backup-mini-icon-wrapper screenshot-icon-theme" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="settings-section-heading">Zrzuty ekranu notatek (Screenshots do folderów)</h4>
+                      <p className="settings-section-text">
+                        Automatyczne generowanie plików graficznych (PNG) każdej notatki w pełnym formacie wizualnym i rozmieszczanie ich w strukturze folderów.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="toggle-switch" title="Włącz/wyłącz zrzuty ekranu">
+                    <input
+                      type="checkbox"
+                      checked={backupScreenshots}
+                      onChange={(e) => setBackupScreenshots(e.target.checked)}
+                      aria-label="Włącz tworzenie zrzutów ekranu notatek"
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+
+                {backupScreenshots && (
+                  <div className="backup-options-nested">
+                    <div className="backup-option-subrow">
+                      <label className="backup-subrow-label">Struktura folderów dla zrzutów ekranu:</label>
+                      <div className="folder-structure-selector" role="radiogroup" aria-label="Wybór struktury folderów dla zrzutów ekranu">
+                        <label className={`folder-radio-card ${screenshotFolderStructure === 'hierarchical' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="folder_structure"
+                            value="hierarchical"
+                            checked={screenshotFolderStructure === 'hierarchical'}
+                            onChange={() => setScreenshotFolderStructure('hierarchical')}
+                          />
+                          <div className="folder-radio-content">
+                            <span className="folder-radio-title">Kategoria / Podkategoria / Tytuł.png</span>
+                            <span className="folder-radio-desc">Zalecana hierarchiczna struktura odzwierciedlająca Twoje kategorie</span>
+                          </div>
+                        </label>
+
+                        <label className={`folder-radio-card ${screenshotFolderStructure === 'flat' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="folder_structure"
+                            value="flat"
+                            checked={screenshotFolderStructure === 'flat'}
+                            onChange={() => setScreenshotFolderStructure('flat')}
+                          />
+                          <div className="folder-radio-content">
+                            <span className="folder-radio-title">Kategoria / Tytuł_notatki.png</span>
+                            <span className="folder-radio-desc">Płaski podział wyłącznie według głównej kategorii</span>
+                          </div>
+                        </label>
+
+                        <label className={`folder-radio-card ${screenshotFolderStructure === 'date_hierarchical' ? 'active' : ''}`}>
+                          <input
+                            type="radio"
+                            name="folder_structure"
+                            value="date_hierarchical"
+                            checked={screenshotFolderStructure === 'date_hierarchical'}
+                            onChange={() => setScreenshotFolderStructure('date_hierarchical')}
+                          />
+                          <div className="folder-radio-content">
+                            <span className="folder-radio-title">RRRR-MM-DD / Kategoria / Tytuł.png</span>
+                            <span className="folder-radio-desc">Podział z datą utworzenia kopii na początku ścieżki</span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Wizualny podgląd struktury katalogów */}
+                    <div className="backup-folder-tree-preview" aria-label="Podgląd struktury folderów">
+                      <div className="folder-tree-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="folder-tree-icon" aria-hidden="true">
+                          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>Podgląd wygenerowanej struktury plików na dysku:</span>
+                      </div>
+                      <pre className="folder-tree-code">
+                        {screenshotFolderStructure === 'hierarchical' && (
+`📁 Servanda_Backup/
+├── 📁 Screenshots/
+│   ├── 📁 Prompty/
+│   │   ├── 📁 Asystenci AI/
+│   │   │   └── 🖼️ Architektura_systemu.png
+│   │   └── 🖼️ Generator_raportow.png
+│   └── 📁 Projekty/
+│       └── 🖼️ Zadania_na_ten_tydzien.png`
+                        )}
+                        {screenshotFolderStructure === 'flat' && (
+`📁 Servanda_Backup/
+├── 📁 Screenshots/
+│   ├── 📁 Prompty/
+│   │   └── 🖼️ Architektura_systemu.png
+│   └── 📁 Projekty/
+│       └── 🖼️ Zadania_na_ten_tydzien.png`
+                        )}
+                        {screenshotFolderStructure === 'date_hierarchical' && (
+`📁 Servanda_Backup/
+├── 📁 2026-08-22/
+│   └── 📁 Screenshots/
+│       ├── 📁 Prompty/
+│       │   └── 🖼️ Architektura_systemu.png
+│       └── 📁 Projekty/
+│           └── 🖼️ Zadania_na_ten_tydzien.png`
+                        )}
+                      </pre>
+                    </div>
+
+                    <div className="backup-checkbox-grid">
+                      <label className="backup-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={screenshotHighRes}
+                          onChange={(e) => setScreenshotHighRes(e.target.checked)}
+                        />
+                        <span>Wysoka rozdzielczość HD (2x Retina dla krystalicznie czystego tekstu)</span>
+                      </label>
+                      <label className="backup-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={screenshotIncludeMeta}
+                          onChange={(e) => setScreenshotIncludeMeta(e.target.checked)}
+                        />
+                        <span>Dołączaj kolor kategorii, tagi i datę edycji na dole grafiki</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sekcja 2: Eksport Markdown (.md) */}
+              <div className="settings-section-card backup-section-card" data-testid="backup-section-markdown">
+                <div className="backup-card-header">
+                  <div className="backup-card-title-group">
+                    <div className="backup-mini-icon-wrapper markdown-icon-theme" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="settings-section-heading">Eksport do plików Markdown (.md)</h4>
+                      <p className="settings-section-text">
+                        Zapis każdej notatki jako niezależny plik `.md` z nagłówkiem YAML frontmatter (tagi, data, powiązania).
+                        Idealne do używania z Obsidian, Logseq lub edytorami tekstowymi.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="toggle-switch" title="Włącz/wyłącz eksport Markdown">
+                    <input
+                      type="checkbox"
+                      checked={backupMarkdown}
+                      onChange={(e) => setBackupMarkdown(e.target.checked)}
+                      aria-label="Włącz eksport do plików Markdown"
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Sekcja 3: Kopia bazy danych SQLite (.db) */}
+              <div className="settings-section-card backup-section-card" data-testid="backup-section-sqlite">
+                <div className="backup-card-header">
+                  <div className="backup-card-title-group">
+                    <div className="backup-mini-icon-wrapper sqlite-icon-theme" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3" />
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="settings-section-heading">Kopia bazy danych SQLite (.db)</h4>
+                      <p className="settings-section-text">
+                        Tworzy bezpieczną kopię zapasową całego pliku bazy SQLite (`data/servanda.db`) ze znacznikiem czasu i sumą kontrolną.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="toggle-switch" title="Włącz/wyłącz kopię bazy SQLite">
+                    <input
+                      type="checkbox"
+                      checked={backupSqlite}
+                      onChange={(e) => setBackupSqlite(e.target.checked)}
+                      aria-label="Włącz kopię bazy SQLite"
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              {/* Sekcja 4: Paczka ZIP i Harmonogram */}
+              <div className="settings-section-card backup-section-card" data-testid="backup-section-archive">
+                <div className="backup-card-header">
+                  <div className="backup-card-title-group">
+                    <div className="backup-mini-icon-wrapper zip-icon-theme" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="settings-section-heading">Kompresja do archiwum ZIP i harmonogram</h4>
+                      <p className="settings-section-text">
+                        Pakowanie wszystkich wybranych materiałów do jednego archiwum ZIP oraz automatyzacja tworzenia kopii.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="toggle-switch" title="Włącz/wyłącz pakowanie do ZIP">
+                    <input
+                      type="checkbox"
+                      checked={backupZip}
+                      onChange={(e) => setBackupZip(e.target.checked)}
+                      aria-label="Włącz kompresję do ZIP"
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+
+                <div className="backup-schedule-row">
+                  <span className="backup-subrow-label">Automatyczne wykonywanie kopii zapasowej:</span>
+                  <div className="schedule-pills">
+                    <button
+                      type="button"
+                      className={`schedule-pill ${backupSchedule === 'on_close' ? 'active' : ''}`}
+                      onClick={() => setBackupSchedule('on_close')}
+                    >
+                      Przy zamykaniu aplikacji
+                    </button>
+                    <button
+                      type="button"
+                      className={`schedule-pill ${backupSchedule === 'daily' ? 'active' : ''}`}
+                      onClick={() => setBackupSchedule('daily')}
+                    >
+                      Raz dziennie
+                    </button>
+                    <button
+                      type="button"
+                      className={`schedule-pill ${backupSchedule === 'manual' ? 'active' : ''}`}
+                      onClick={() => setBackupSchedule('manual')}
+                    >
+                      Tylko ręcznie
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dolny pasek akcji z zablokowanym przyciskiem */}
+              <div className="backup-action-bar">
+                <button
+                  type="button"
+                  className="btn-primary backup-execute-btn"
+                  disabled
+                  title="Funkcja jest obecnie w trakcie wdrażania"
+                  data-testid="backup-execute-btn"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="btn-icon" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Utwórz kopię zapasową teraz (Wkrótce dostępne)
+                </button>
               </div>
             </div>
           )}

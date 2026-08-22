@@ -26,6 +26,11 @@ describe('SettingsModal', () => {
     // Option 2: Zarządzaj Kaflem notatki
     expect(screen.getByTestId('settings-option-note-tile')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Zarządzaj Kaflem notatki' })).toBeInTheDocument();
+
+    // Option 3: Kopia zapasowa danych
+    expect(screen.getByTestId('settings-option-backup')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Kopia zapasowa danych' })).toBeInTheDocument();
+    expect(screen.getByTestId('backup-coming-soon-badge')).toHaveTextContent('Wkrótce');
   });
 
   it('navigates to "Zarządzaj Kategoriami" view and back', () => {
@@ -177,6 +182,54 @@ describe('SettingsModal', () => {
     fireEvent.click(footerBackBtn);
 
     // Returns to main menu
+    expect(screen.getByRole('heading', { level: 2, name: 'Ustawienia' })).toBeInTheDocument();
+  });
+
+  it('navigates to "Kopia zapasowa danych" view, shows backup options and handles configuration', () => {
+    render(<SettingsModal isOpen={true} onClose={vi.fn()} categories={mockCategories} />);
+
+    // Click on Backup option
+    const backupOption = screen.getByTestId('settings-option-backup');
+    fireEvent.click(backupOption);
+
+    // Verify subview header and banner
+    expect(screen.getByRole('heading', { level: 2, name: 'Kopia zapasowa danych' })).toBeInTheDocument();
+    expect(screen.getByTestId('settings-subview-backup')).toBeInTheDocument();
+    expect(screen.getByTestId('backup-status-banner')).toBeInTheDocument();
+    expect(screen.getByText(/Funkcjonalność w przygotowaniu/i)).toBeInTheDocument();
+
+    // Verify screenshot options section
+    expect(screen.getByTestId('backup-section-screenshots')).toBeInTheDocument();
+    expect(screen.getByText(/Zrzuty ekranu notatek/i)).toBeInTheDocument();
+    expect(screen.getByText(/Kategoria \/ Podkategoria \/ Tytuł.png/i)).toBeInTheDocument();
+    expect(screen.getByText(/Podgląd wygenerowanej struktury plików na dysku:/i)).toBeInTheDocument();
+
+    // Verify markdown section
+    expect(screen.getByTestId('backup-section-markdown')).toBeInTheDocument();
+    expect(screen.getByText(/Eksport do plików Markdown/i)).toBeInTheDocument();
+
+    // Verify sqlite section
+    expect(screen.getByTestId('backup-section-sqlite')).toBeInTheDocument();
+    expect(screen.getByText(/Kopia bazy danych SQLite/i)).toBeInTheDocument();
+
+    // Verify archive & schedule section
+    expect(screen.getByTestId('backup-section-archive')).toBeInTheDocument();
+    expect(screen.getByText(/Kompresja do archiwum ZIP/i)).toBeInTheDocument();
+    expect(screen.getByText(/Przy zamykaniu aplikacji/i)).toBeInTheDocument();
+
+    // Verify action button is disabled
+    const executeBtn = screen.getByTestId('backup-execute-btn');
+    expect(executeBtn).toBeDisabled();
+
+    // Toggle folder structure option
+    const flatRadio = screen.getByRole('radio', { name: /Kategoria \/ Tytuł_notatki\.png/i });
+    fireEvent.click(flatRadio);
+    expect(flatRadio).toBeChecked();
+
+    // Back to main menu
+    const footerBackBtn = screen.getByRole('button', { name: /Powrót do menu opcji/i });
+    fireEvent.click(footerBackBtn);
+
     expect(screen.getByRole('heading', { level: 2, name: 'Ustawienia' })).toBeInTheDocument();
   });
 
